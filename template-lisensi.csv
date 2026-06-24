@@ -1,3 +1,7 @@
-licenseCode,schoolName,schoolCode,status,plan,expiresAt,createdAt,notes
-EDUPAY-DEMO-0001,Sekolah Demo,DEMO,active,starter,2099-12-31,2026-06-18,Lisensi demo
-EDUPAY-SDIT-0001,SDIT Al Falah,SDIT-ALFALAH,active,starter,2099-12-31,2026-06-18,Contoh pembeli
+keterangan
+"Mulai versi ini, lisensi Klar BUKAN lagi kode di sheet seperti EDUPAY-XXXX."
+"Lisensi sekarang berupa TOKEN bertanda tangan: KLAR.<payload>.<signature> (HMAC-SHA256)."
+"Token diterbitkan oleh Klar Store (store-apps-script.gs) dan dikirim ke email pembeli."
+"Penjual menerbitkan token lewat panel /seller-admin (Konfirmasi order atau Terbitkan manual)."
+"Pembeli menempel token tersebut saat aktivasi di /admin."
+"Token tidak perlu didaftarkan manual di sheet mana pun; verifikasi dilakukan offline via LICENSE_SECRET."

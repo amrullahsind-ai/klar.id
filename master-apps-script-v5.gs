@@ -8,10 +8,61 @@ const LICENSE_SHEET = '_licenses';
 const LOG_SHEET = '_logs';
 const BROKEN_SHEET = '_database_broken';
 const DEFAULT_LICENSE = 'EDUPAY-DEMO-0001';
+
+// === GERBANG LISENSI ===
+// LICENSE_SECRET WAJIB diganti dengan string acak panjang, dan HARUS SAMA PERSIS di:
+//   store-apps-script.gs (yang menandatangani), admin.html, dan file ini.
+// Jika tidak sama, token terbitan Klar Store akan ditolak.
+const LICENSE_SECRET = 'klar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
+// true = wajib token bertanda tangan dari Klar Store. Set false hanya untuk pengembangan.
+const REQUIRE_SIGNED_LICENSE = true;
+// Prefix token lisensi Klar.
+const LICENSE_PREFIX = 'KLAR';
 // Hash default admin (sha256 dari '1234'+SALT). Nilainya sama dengan DEFAULT_ADMIN_HASH di admin.html
 // supaya kredensial demo admin/1234 tetap berlaku untuk database baru.
 const DEFAULT_ADMIN_HASH = 'd3eecabb3db83dcdf562b12ff510afbfbf351e2a12efda3963e11c0d41c52e93';
 
+// === Helper verifikasi token lisensi (HMAC-SHA256) ===
+// Format token: KLAR.<b64url(payloadJson)>.<b64url(hmacBytes)>
+// payloadJson = {"school":..,"plan":..,"iat":..,"v":1} (urutan kunci tetap).
+// Harus byte-identik dengan signLicense_ di store-apps-script.gs & verifyLicenseToken di admin.html.
+function b64url_(bytesOrStr){
+  // bytesOrStr: byte array (hasil HMAC) atau string (akan di-utf8-kan).
+  var b64 = (typeof bytesOrStr === 'string')
+    ? Utilities.base64Encode(bytesOrStr, Utilities.Charset.UTF_8)
+    : Utilities.base64Encode(bytesOrStr);
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function unb64urlToStr_(s){
+  var b64 = String(s || '').replace(/-/g, '+').replace(/_/g, '/');
+  while(b64.length % 4) b64 += '=';
+  var bytes = Utilities.base64Decode(b64);
+  return Utilities.newBlob(bytes).getDataAsString('UTF-8');
+}
+function hmacB64url_(payloadStr){
+  var raw = Utilities.computeHmacSha256Signature(payloadStr, LICENSE_SECRET, Utilities.Charset.UTF_8);
+  return b64url_(raw);
+}
+function verifyLicenseToken_(token){
+  try{
+    token = String(token || '').trim();
+    var parts = token.split('.');
+    if(parts.length !== 3 || parts[0] !== LICENSE_PREFIX) return {ok:false, error:'format token salah'};
+    var payloadStr = unb64urlToStr_(parts[1]);
+    var expected = hmacB64url_(payloadStr);
+    var got = parts[2];
+    // Bandingkan panjang lalu isi byte demi byte (hindari early-exit yang bocorkan info).
+    if(expected.length !== got.length) return {ok:false, error:'tanda tangan salah'};
+    var diff = 0;
+    for(var i=0;i<expected.length;i++) diff |= (expected.charCodeAt(i) ^ got.charCodeAt(i));
+    if(diff !== 0) return {ok:false, error:'tanda tangan salah'};
+    var payload = JSON.parse(payloadStr);
+    if(!payload || !payload.school) return {ok:false, error:'payload tanpa school'};
+    return {ok:true, school:String(payload.school), plan:String(payload.plan||''), iat:payload.iat||''};
+  }catch(err){
+    return {ok:false, error:String(err && err.message || err)};
+  }
+}
 function doGet(e){
   const p = e.parameter || {};
   const cb = p.callback || 'callback';
@@ -31,6 +82,14 @@ function route_(p, post){
   const licenseCode = String(p.licenseCode || DEFAULT_LICENSE).trim();
   ensure_();
   if(action === 'ping' || action === 'health') return {ok:true, app:'Klar', version:'deploy-ready', licenseCode, time:new Date().toISOString()};
+  // Gerbang lisensi: semua action selain ping/health wajib token valid.
+  if(REQUIRE_SIGNED_LICENSE){
+    const lic = verifyLicenseToken_(licenseCode);
+    if(!lic.ok){
+      log_('license_denied', licenseCode, lic.error || 'token tidak valid');
+      return {ok:false, error:'Lisensi tidak valid. Aktivasi dengan kode lisensi resmi dari Klar Store.'};
+    }
+  }
   if(action === 'repairDatabase') return repairDatabase_(licenseCode, p.force === '1' || p.force === 'true');
   if(action === 'loadAdmin') return loadAdmin_(licenseCode, p);
   if(action === 'saveAdmin') return saveAdmin_(licenseCode, p.payload || '{}', p);
@@ -180,7 +239,10 @@ function checkAdmin_(db, p){
 function loadAdmin_(licenseCode, p){
   let data = loadPayload_(licenseCode);
   if(!data) {
-    data = defaultDb_(licenseCode, schoolNameFromLicense_(licenseCode));
+    // Lisensi sudah lolos gerbang di route_(). Pakai nama sekolah dari token bila ada.
+    var lic = verifyLicenseToken_(licenseCode);
+    var schoolName = (lic.ok && lic.school) ? lic.school : schoolNameFromLicense_(licenseCode);
+    data = defaultDb_(licenseCode, schoolName);
     savePayload_(licenseCode, data);
   }
   if(!checkAdmin_(data, p)){ log_('loadAdmin_denied', licenseCode, 'kredensial admin salah'); return {ok:false, error:'Username/PIN admin salah.'}; }

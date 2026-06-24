@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Penjual — Klar Store</title>
+  <link rel="icon" href="/klar-logo.png" />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--primary:#085842;--accent:#39AE89;--bg:#F5FBF8;--surface:#fff;--text:#16352E;--text-2:#5F786F;--text-3:#829A92;--border:#D7E7E0;--shadow:0 24px 70px rgba(0,0,0,.08);--radius:20px;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:900;font-size:20px;margin-bottom:18px}
+    .brand img{width:38px;height:38px;border-radius:11px;box-shadow:0 8px 18px rgba(8,88,66,.22)}
+    .card{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px}
+    .wrap{max-width:1040px;margin:0 auto}
+    .login{max-width:420px;margin:8vh auto 0}
+    h1{font-size:22px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px}
+    .sub{color:var(--text-2);font-size:14px;margin-bottom:18px;line-height:1.6}
+    label{display:block;font-weight:800;font-size:13px;margin:14px 0 6px}
+    input,select{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font-family:var(--font);font-size:15px;background:var(--surface);color:var(--text)}
+    input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,174,137,.16)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--primary),#043D2E);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:var(--font);transition:all .18s}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(8,88,66,.18)}
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .btn-accent{background:linear-gradient(135deg,var(--accent),#338369)}
+    .btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+    .btn-ghost:hover{border-color:var(--primary)}
+    .btn-sm{padding:8px 12px;font-size:12px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+    th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3)}
+    .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
+    .pill.pending{background:#fef3c7;color:#92400e}
+    .pill.paid{background:#dcfce7;color:#166534}
+    .tbl-wrap{overflow-x:auto}
+    .msg{margin-top:14px;padding:12px 15px;border-radius:12px;font-size:14px;line-height:1.6;display:none}
+    .msg.err{display:block;background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .msg.ok{display:block;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+    .hidden{display:none}
+    .muted{color:var(--text-3);font-size:12px;line-height:1.6}
+    .grid2{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end}
+    .token-box{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;word-break:break-all;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;max-width:280px}
+    @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div class="wrap login" id="loginView">
+    <div class="brand"><img src="/klar-logo.png" alt="Klar"/> Klar Store · Penjual</div>
+    <div class="card">
+      <h1>Masuk Panel Penjual</h1>
+      <p class="sub">Masukkan password panel penjual. (Default awal: <code>klarstore2026</code> — segera ganti.)</p>
+      <form id="loginForm">
+        <label for="pass">Password</label>
+        <input id="pass" type="password" required autocomplete="current-password" />
+        <button class="btn" type="submit" id="loginBtn" style="margin-top:16px;width:100%">Masuk</button>
+        <div class="msg" id="loginMsg"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="wrap hidden" id="appView">
+    <div class="brand"><img src="/klar-logo.png" alt="Klar"/> Klar Store · Penjual</div>
+
+    <div class="topbar">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="refreshBtn">↻ Muat ulang</button>
+        <span class="muted" id="countInfo"></span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Keluar</button>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h1>Terbitkan lisensi manual</h1>
+      <p class="sub">Untuk penjualan luring/tanpa order. Token langsung dibuat (dan dikirim email bila diisi).</p>
+      <div class="grid2">
+        <div><label for="mSchool">Nama sekolah</label><input id="mSchool" placeholder="cth. SDIT Al Falah" /></div>
+        <div><label for="mEmail">Email (opsional)</label><input id="mEmail" type="email" placeholder="email pembeli" /></div>
+        <div><label for="mPlan">Paket</label><select id="mPlan"><option value="starter">Lisensi Klar (Rp200rb)</option></select></div>
+        <div><button class="btn btn-accent" id="issueBtn" style="width:100%">Terbitkan</button></div>
+      </div>
+      <div class="msg" id="issueMsg"></div>
+    </div>
+
+    <div class="card">
+      <h1>Daftar Pesanan</h1>
+      <p class="sub">Klik <b>Konfirmasi &amp; Terbitkan</b> setelah pembayaran masuk — token dibuat &amp; dikirim ke email pembeli.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Order ID</th><th>Sekolah</th><th>Email</th><th>Paket</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="ordersBody"><tr><td colspan="6" class="muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="msg" id="actMsg"></div>
+    </div>
+  </div>
+
+  <script>
+    // ====== ISI URL WEB APP KLAR STORE DI SINI (sama dengan checkout.html) ======
+    const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
+    // Salt harus SAMA dengan SELLER_SALT di store-apps-script.gs.
+    const SELLER_SALT = '|klar-store-seller-v1';
+    const SESSION_KEY = 'klar_store_seller_hash';
+
+    const $ = id => document.getElementById(id);
+    let adminHash = sessionStorage.getItem(SESSION_KEY) || '';
+
+    async function sha(text){
+      const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)+SELLER_SALT));
+      return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+    }
+    function jsonp(params){
+      return new Promise((resolve,reject)=>{
+        if(/GANTI_DENGAN_URL/.test(STORE_SERVER_URL)) return reject(new Error('STORE_SERVER_URL belum diisi di seller-admin.html.'));
+        let cb='klar_seller_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+        let s=document.createElement('script');
+        let sep=STORE_SERVER_URL.includes('?')?'&':'?';
+        let q=new URLSearchParams(Object.assign({callback:cb,t:Date.now()},params));
+        let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi.'))},16000);
+        function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+        window[cb]=res=>{cleanup();resolve(res)};
+        s.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'))};
+        s.src=STORE_SERVER_URL+sep+q.toString();
+        document.body.appendChild(s);
+      });
+    }
+    function flash(el, text, ok){ el.textContent=text; el.className='msg '+(ok?'ok':'err'); }
+
+    function showApp(){ $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden'); loadOrders(); }
+    function showLogin(){ $('appView').classList.add('hidden'); $('loginView').classList.remove('hidden'); }
+
+    $('loginForm').onsubmit = async e => {
+      e.preventDefault();
+      let btn=$('loginBtn'); btn.disabled=true;
+      try{
+        let h = await sha($('pass').value);
+        let res = await jsonp({action:'listOrders', adminHash:h});
+        if(!res || !res.ok) throw new Error((res&&res.error)||'Login gagal.');
+        adminHash = h; sessionStorage.setItem(SESSION_KEY, h);
+        renderOrders(res.orders||[]);
+        showApp();
+      }catch(err){ flash($('loginMsg'), err.message, false); }
+      finally{ btn.disabled=false; }
+    };
+    $('logoutBtn').onclick = ()=>{ adminHash=''; sessionStorage.removeItem(SESSION_KEY); $('pass').value=''; showLogin(); };
+    $('refreshBtn').onclick = ()=>loadOrders();
+
+    async function loadOrders(){
+      $('ordersBody').innerHTML='<tr><td colspan="6" class="muted">Memuat...</td></tr>';
+      try{
+        let res = await jsonp({action:'listOrders', adminHash});
+        if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal memuat.');
+        renderOrders(res.orders||[]);
+      }catch(err){
+        if(/password/i.test(err.message)) { showLogin(); return; }
+        $('ordersBody').innerHTML='<tr><td colspan="6" class="msg err" style="display:table-cell">'+err.message+'</td></tr>';
+      }
+    }
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+    function renderOrders(list){
+      $('countInfo').textContent = list.length + ' pesanan';
+      if(!list.length){ $('ordersBody').innerHTML='<tr><td colspan="6" class="muted">Belum ada pesanan.</td></tr>'; return; }
+      $('ordersBody').innerHTML = list.map(o=>{
+        let paid = o.status==='paid';
+        let action = paid
+          ? '<button class="btn btn-ghost btn-sm" data-resend="'+esc(o.orderId)+'">Kirim ulang email</button>'
+          : '<button class="btn btn-sm" data-confirm="'+esc(o.orderId)+'">Konfirmasi &amp; Terbitkan</button>';
+        return '<tr>'+
+          '<td><b>'+esc(o.orderId)+'</b></td>'+
+          '<td>'+esc(o.school)+'</td>'+
+          '<td>'+esc(o.email)+'</td>'+
+          '<td>'+esc(o.plan)+'</td>'+
+          '<td><span class="pill '+(paid?'paid':'pending')+'">'+(paid?'Lunas':'Pending')+'</span>'+(o.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td>'+
+          '<td>'+action+'</td>'+
+        '</tr>';
+      }).join('');
+    }
+
+    $('ordersBody').addEventListener('click', async e=>{
+      let c=e.target.closest('[data-confirm]'), r=e.target.closest('[data-resend]');
+      if(c){
+        if(!confirm('Konfirmasi pembayaran & terbitkan lisensi untuk order '+c.dataset.confirm+'?')) return;
+        c.disabled=true; c.textContent='Memproses...';
+        try{
+          let res=await jsonp({action:'confirmOrder', adminHash, orderId:c.dataset.confirm});
+          if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
+          flash($('actMsg'), 'Lisensi terbit. '+(res.emailed?'Email terkirim ke pembeli.':'⚠ Email GAGAL: '+(res.emailError||'cek kuota MailApp')), res.emailed);
+          loadOrders();
+        }catch(err){ flash($('actMsg'), err.message, false); c.disabled=false; c.textContent='Konfirmasi & Terbitkan'; }
+      }
+      if(r){
+        r.disabled=true; r.textContent='Mengirim...';
+        try{
+          let res=await jsonp({action:'resendLicense', adminHash, orderId:r.dataset.resend});
+          if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
+          flash($('actMsg'), res.emailed?'Email lisensi dikirim ulang.':'⚠ Email gagal: '+(res.emailError||''), res.emailed);
+        }catch(err){ flash($('actMsg'), err.message, false); }
+        finally{ r.disabled=false; r.textContent='Kirim ulang email'; }
+      }
+    });
+
+    $('issueBtn').onclick = async ()=>{
+      let school=$('mSchool').value.trim(), email=$('mEmail').value.trim(), plan=$('mPlan').value;
+      if(!school){ flash($('issueMsg'),'Nama sekolah wajib diisi.',false); return; }
+      let btn=$('issueBtn'); btn.disabled=true; btn.textContent='...';
+      try{
+        let res=await jsonp({action:'issueManual', adminHash, school, email, plan});
+        if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
+        let note = res.emailed ? 'Email terkirim.' : (email?('⚠ Email gagal: '+(res.emailError||'')):'(email tidak diisi)');
+        $('issueMsg').innerHTML='<b>Token terbit</b> ('+note+'):<div class="token-box">'+esc(res.token)+'</div>';
+        $('issueMsg').className='msg ok';
+        $('mSchool').value=''; $('mEmail').value='';
+        loadOrders();
+      }catch(err){ flash($('issueMsg'), err.message, false); }
+      finally{ btn.disabled=false; btn.textContent='Terbitkan'; }
+    };
+
+    // Auto-login bila hash tersimpan di sesi.
+    if(adminHash) showApp();
+  </script>
+</body>
+</html>
