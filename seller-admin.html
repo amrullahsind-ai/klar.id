@@ -91,11 +91,12 @@
 
     <div class="card">
       <h1>Daftar Pesanan</h1>
+      <p class="sub">Email lisensi dikirim memakai MailApp dari akun Google yang men-deploy Apps Script Store. Pastikan izin MailApp sudah disetujui di Apps Script.</p>
       <p class="sub">Klik <b>Konfirmasi &amp; Terbitkan</b> setelah pembayaran masuk — token dibuat &amp; dikirim ke email pembeli.</p>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Order ID</th><th>Sekolah</th><th>Email</th><th>Paket</th><th>Status</th><th>Aksi</th></tr></thead>
-          <tbody id="ordersBody"><tr><td colspan="6" class="muted">Memuat...</td></tr></tbody>
+          <thead><tr><th>Order ID</th><th>Sekolah</th><th>Email</th><th>Paket</th><th>Bukti</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="ordersBody"><tr><td colspan="7" class="muted">Memuat...</td></tr></tbody>
         </table>
       </div>
       <div class="msg" id="actMsg"></div>
@@ -153,30 +154,33 @@
     $('refreshBtn').onclick = ()=>loadOrders();
 
     async function loadOrders(){
-      $('ordersBody').innerHTML='<tr><td colspan="6" class="muted">Memuat...</td></tr>';
+      $('ordersBody').innerHTML='<tr><td colspan="7" class="muted">Memuat...</td></tr>';
       try{
         let res = await jsonp({action:'listOrders', adminHash});
         if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal memuat.');
         renderOrders(res.orders||[]);
       }catch(err){
         if(/password/i.test(err.message)) { showLogin(); return; }
-        $('ordersBody').innerHTML='<tr><td colspan="6" class="msg err" style="display:table-cell">'+err.message+'</td></tr>';
+        $('ordersBody').innerHTML='<tr><td colspan="7" class="msg err" style="display:table-cell">'+err.message+'</td></tr>';
       }
     }
     function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
     function renderOrders(list){
       $('countInfo').textContent = list.length + ' pesanan';
-      if(!list.length){ $('ordersBody').innerHTML='<tr><td colspan="6" class="muted">Belum ada pesanan.</td></tr>'; return; }
+      if(!list.length){ $('ordersBody').innerHTML='<tr><td colspan="7" class="muted">Belum ada pesanan.</td></tr>'; return; }
       $('ordersBody').innerHTML = list.map(o=>{
         let paid = o.status==='paid';
         let action = paid
           ? '<button class="btn btn-ghost btn-sm" data-resend="'+esc(o.orderId)+'">Kirim ulang email</button>'
           : '<button class="btn btn-sm" data-confirm="'+esc(o.orderId)+'">Konfirmasi &amp; Terbitkan</button>';
+        let proof = o.paymentProof ? '<a href="'+esc(o.paymentProof)+'" target="_blank" rel="noopener">Lihat bukti</a>' : '<span class="muted">Belum ada</span>';
+        if(o.buyerNotes) proof += '<br><span class="muted">'+esc(o.buyerNotes)+'</span>';
         return '<tr>'+
           '<td><b>'+esc(o.orderId)+'</b></td>'+
           '<td>'+esc(o.school)+'</td>'+
           '<td>'+esc(o.email)+'</td>'+
           '<td>'+esc(o.plan)+'</td>'+
+          '<td>'+proof+'</td>'+
           '<td><span class="pill '+(paid?'paid':'pending')+'">'+(paid?'Lunas':'Pending')+'</span>'+(o.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td>'+
           '<td>'+action+'</td>'+
         '</tr>';

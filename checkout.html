@@ -20,8 +20,9 @@
     h1{font-size:26px;font-weight:900;letter-spacing:-.03em;margin-bottom:6px}
     .sub{color:var(--text-2);font-size:14px;margin-bottom:22px;line-height:1.6}
     label{display:block;font-weight:800;font-size:13px;margin:16px 0 6px}
-    input,select{width:100%;padding:13px 15px;border:1px solid var(--border);border-radius:13px;font-family:var(--font);font-size:15px;background:var(--surface);color:var(--text)}
-    input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,174,137,.16)}
+    input,select,textarea{width:100%;padding:13px 15px;border:1px solid var(--border);border-radius:13px;font-family:var(--font);font-size:15px;background:var(--surface);color:var(--text)}
+    textarea{min-height:84px;resize:vertical}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,174,137,.16)}
     .price-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--bg)}
     .price-summary b{display:block;font-size:15px}
     .price-summary span{font-size:12.5px;color:var(--text-3)}
@@ -62,6 +63,12 @@
 
         <label for="email">Email penerima lisensi</label>
         <input id="email" type="email" required placeholder="cth. admin@sekolah.sch.id" autocomplete="email" />
+
+        <label for="paymentProof">Link bukti pembayaran</label>
+        <input id="paymentProof" placeholder="Tempel link bukti transfer/QRIS, mis. Google Drive atau foto yang bisa dibuka" />
+
+        <label for="buyerNotes">Catatan pembeli</label>
+        <textarea id="buyerNotes" placeholder="Opsional: nama pengirim transfer, nomor WhatsApp, atau catatan lain"></textarea>
 
         <div class="price-summary">
           <div><b>Lisensi Klar</b><span>Semua fitur · 1 sekolah · selamanya</span></div>
@@ -130,12 +137,12 @@
     $('orderForm').onsubmit=async e=>{
       e.preventDefault();
       $('msg').className='msg';
-      let school=$('school').value.trim(), email=$('email').value.trim();
+      let school=$('school').value.trim(), email=$('email').value.trim(), paymentProof=$('paymentProof').value.trim(), buyerNotes=$('buyerNotes').value.trim();
       if(!school) return showErr('Nama sekolah wajib diisi.');
       if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Email tidak valid.');
       let btn=$('submitBtn'); btn.disabled=true; btn.textContent='Memproses...';
       try{
-        let res=await jsonp({action:'createOrder', school, email, plan});
+        let res=await jsonp({action:'createOrder', school, email, plan, paymentProof, buyerNotes});
         if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal membuat pesanan.');
         $('outOrderId').textContent=res.orderId;
         $('outSchool').textContent=res.school;
@@ -144,7 +151,7 @@
         $('outEmail').textContent=res.email;
         $('outPayInfo').textContent=res.payInfo||'';
         if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan);
+          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+(paymentProof?'\nBukti bayar: '+paymentProof:''));
           $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
           $('waBtn').style.display='';
         }

@@ -24,7 +24,7 @@ const SELLER_SALT = '|klar-store-seller-v1';
 
 // Tampilan & info pembayaran (muncul di email & checkout).
 const SELLER_EMAIL_FROM_NAME = 'Klar Store';
-const APP_ACTIVATION_URL = 'https://NAMA-DOMAIN-KAMU.vercel.app/admin'; // link admin app untuk pembeli
+const APP_ACTIVATION_URL = 'https://klar-id-five.vercel.app/admin'; // link admin app untuk pembeli
 const PAY_INFO = 'Pembayaran via QRIS. Scan QRIS yang tampil di halaman checkout dan bayar sesuai nominal. '
                + 'Pesanan Anda otomatis tercatat; lisensi dikirim ke email setelah pembayaran kami verifikasi. '
                + 'Simpan Order ID Anda.';
@@ -34,13 +34,20 @@ const PLAN_PRICES = { starter: 200000 };
 
 // ====== SHEET ======
 const ORDERS_SHEET = 'orders';
-const ORDER_HEADERS = ['orderId','school','email','plan','amount','status','licenseToken','createdAt','confirmedAt','notes'];
+const ORDER_HEADERS = ['orderId','school','email','plan','amount','status','licenseToken','createdAt','confirmedAt','notes','paymentProof','buyerNotes'];
 
 function ss_(){ return SpreadsheetApp.getActiveSpreadsheet(); }
 function sh_(name){ return ss_().getSheetByName(name) || ss_().insertSheet(name); }
 function ensureStore_(){
   const o = sh_(ORDERS_SHEET);
-  if(o.getLastRow() === 0) o.appendRow(ORDER_HEADERS);
+  if(o.getLastRow() === 0) { o.appendRow(ORDER_HEADERS); return; }
+  var current = o.getRange(1, 1, 1, Math.max(o.getLastColumn(), ORDER_HEADERS.length)).getValues()[0].map(String);
+  ORDER_HEADERS.forEach(function(h){
+    if(current.indexOf(h) < 0){
+      o.getRange(1, o.getLastColumn() + 1).setValue(h);
+      current.push(h);
+    }
+  });
 }
 
 // ====== ENTRY POINTS (JSONP, pola sama dengan app pembeli) ======
@@ -130,12 +137,14 @@ function createOrder_(p){
   var school = String(p.school || '').trim();
   var email = String(p.email || '').trim();
   var plan = String(p.plan || 'starter').trim();
+  var paymentProof = String(p.paymentProof || '').trim();
+  var buyerNotes = String(p.buyerNotes || '').trim();
   if(!school) return {ok:false, error:'Nama sekolah/yayasan wajib diisi.'};
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return {ok:false, error:'Email tidak valid.'};
   if(!PLAN_PRICES.hasOwnProperty(plan)) plan = 'starter';
   var amount = PLAN_PRICES[plan] || 0;
   var orderId = newOrderId_();
-  sh_(ORDERS_SHEET).appendRow([orderId, school, email, plan, amount, 'pending', '', new Date(), '', '']);
+  sh_(ORDERS_SHEET).appendRow([orderId, school, email, plan, amount, 'pending', '', new Date(), '', '', paymentProof, buyerNotes]);
   return {ok:true, orderId:orderId, school:school, email:email, plan:plan, amount:amount, payInfo:PAY_INFO};
 }
 
