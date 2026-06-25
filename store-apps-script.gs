@@ -25,6 +25,7 @@ const SELLER_SALT = '|klaar-store-seller-v1';
 // Tampilan & info pembayaran (muncul di email & checkout).
 const SELLER_EMAIL_FROM_NAME = 'Klaar Store';
 const APP_ACTIVATION_URL = 'https://klaar-id-five.vercel.app/admin'; // link admin app untuk pembeli
+const BUYER_SETUP_URL = 'ISI_LINK_GOOGLE_DRIVE_SETUP_PEMBELI'; // 1 link berisi tutorial + master-apps-script-v5.gs
 const PAY_INFO = 'Pembayaran via QRIS. Scan QRIS yang tampil di halaman checkout dan bayar sesuai nominal. '
                + 'Pesanan Anda otomatis tercatat; lisensi dikirim ke email setelah pembayaran kami verifikasi. '
                + 'Simpan Order ID Anda.';
@@ -72,6 +73,7 @@ function route_(p){
   ensureStore_();
   if(action === 'ping' || action === 'health') return {ok:true, app:'Klaar Store', time:new Date().toISOString()};
   if(action === 'createOrder') return createOrder_(p);
+  if(action === 'updatePaymentProof') return updatePaymentProof_(p);
   // Action di bawah ini hanya untuk penjual (butuh adminHash benar).
   if(['listOrders','confirmOrder','resendLicense','issueManual'].indexOf(action) >= 0){
     if(!checkSeller_(p)) return {ok:false, error:'Password panel penjual salah.'};
@@ -137,15 +139,32 @@ function createOrder_(p){
   var school = String(p.school || '').trim();
   var email = String(p.email || '').trim();
   var plan = String(p.plan || 'starter').trim();
-  var paymentProof = String(p.paymentProof || '').trim();
   var buyerNotes = String(p.buyerNotes || '').trim();
   if(!school) return {ok:false, error:'Nama sekolah/yayasan wajib diisi.'};
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return {ok:false, error:'Email tidak valid.'};
   if(!PLAN_PRICES.hasOwnProperty(plan)) plan = 'starter';
   var amount = PLAN_PRICES[plan] || 0;
   var orderId = newOrderId_();
-  sh_(ORDERS_SHEET).appendRow([orderId, school, email, plan, amount, 'pending', '', new Date(), '', '', paymentProof, buyerNotes]);
+  sh_(ORDERS_SHEET).appendRow([orderId, school, email, plan, amount, 'pending', '', new Date(), '', '', '', buyerNotes]);
   return {ok:true, orderId:orderId, school:school, email:email, plan:plan, amount:amount, payInfo:PAY_INFO};
+}
+
+function updatePaymentProof_(p){
+  var orderId = String(p.orderId || '').trim();
+  var email = String(p.email || '').trim();
+  var paymentProof = String(p.paymentProof || '').trim();
+  var buyerNotes = String(p.buyerNotes || '').trim();
+  if(!orderId) return {ok:false, error:'Order ID wajib diisi.'};
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return {ok:false, error:'Email tidak valid.'};
+  if(!paymentProof && !buyerNotes) return {ok:false, error:'Isi link bukti pembayaran atau catatan konfirmasi.'};
+  var row = findOrderRow_(orderId);
+  if(!row) return {ok:false, error:'Order tidak ditemukan: ' + orderId};
+  var sheet = sh_(ORDERS_SHEET);
+  var o = rowToOrder_(sheet.getRange(row, 1, 1, ORDER_HEADERS.length).getValues()[0]);
+  if(String(o.email || '').trim().toLowerCase() !== email.toLowerCase()) return {ok:false, error:'Email tidak cocok dengan order.'};
+  if(paymentProof) sheet.getRange(row, 11).setValue(paymentProof);
+  if(buyerNotes) sheet.getRange(row, 12).setValue(buyerNotes);
+  return {ok:true, orderId:orderId};
 }
 
 function listOrders_(){
@@ -215,10 +234,13 @@ function sendLicenseEmail_(email, school, token){
       'Terima kasih sudah membeli Klaar. Berikut kode lisensi resmi untuk ' + school + ':\n\n' +
       token + '\n\n' +
       'Cara aktivasi:\n' +
-      '1. Buka aplikasi Klaar Admin: ' + APP_ACTIVATION_URL + '\n' +
-      '2. Masukkan URL Apps Script sekolah Anda (lihat panduan deploy).\n' +
-      '3. Tempel kode lisensi di atas, lalu klik Aktivasi.\n' +
-      '4. Login admin (default admin / 1234) lalu segera ganti PIN.\n\n' +
+      '1. Buka link setup pembeli: ' + BUYER_SETUP_URL + '\n' +
+      '2. Ikuti tutorial di dalamnya dan salin isi file master-apps-script-v5.gs.\n' +
+      '3. Buat Google Sheet sekolah Anda, lalu paste kode tersebut ke Apps Script.\n' +
+      '4. Deploy Apps Script sebagai Web App dan salin URL yang berakhiran /exec.\n' +
+      '5. Buka aplikasi Klaar Admin: ' + APP_ACTIVATION_URL + '\n' +
+      '6. Masukkan URL Apps Script sekolah Anda dan tempel kode lisensi di atas.\n' +
+      '7. Login admin (default admin / 1234) lalu segera ganti PIN.\n\n' +
       'Simpan kode ini baik-baik. Jangan dibagikan ke pihak lain.\n\n' +
       'Salam,\n' + SELLER_EMAIL_FROM_NAME;
     MailApp.sendEmail({ to: email, subject: subject, body: body, name: SELLER_EMAIL_FROM_NAME });
