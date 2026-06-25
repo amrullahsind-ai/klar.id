@@ -33,6 +33,7 @@
     .back{display:inline-block;color:var(--text-2);text-decoration:none;font-weight:700;font-size:14px;margin-bottom:14px}
     .msg{margin-top:16px;padding:13px 16px;border-radius:13px;font-size:14px;line-height:1.6;display:none}
     .msg.err{display:block;background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .msg.ok{display:block;background:#ecfdf5;border:1px solid #bbf7d0;color:#166534}
     /* success panel */
     .success{display:none}
     .success.show{display:block}
@@ -56,7 +57,7 @@
     <div class="card" id="formCard">
       <a class="back" href="/store.html">← Kembali</a>
       <h1>Pesan Lisensi Klaar</h1>
-      <p class="sub">Isi data sekolah & email. Setelah pembayaran dikonfirmasi, kode lisensi dikirim otomatis ke email Anda.</p>
+      <p class="sub">Isi data sekolah & email dulu. Setelah order dibuat, Anda bisa bayar QRIS lalu kirim bukti pembayaran.</p>
       <form id="orderForm">
         <label for="school">Nama Sekolah / Yayasan</label>
         <input id="school" required placeholder="cth. SDIT Al Falah" autocomplete="organization" />
@@ -64,11 +65,8 @@
         <label for="email">Email penerima lisensi</label>
         <input id="email" type="email" required placeholder="cth. admin@sekolah.sch.id" autocomplete="email" />
 
-        <label for="paymentProof">Link bukti pembayaran</label>
-        <input id="paymentProof" placeholder="Tempel link bukti transfer/QRIS, mis. Google Drive atau foto yang bisa dibuka" />
-
         <label for="buyerNotes">Catatan pembeli</label>
-        <textarea id="buyerNotes" placeholder="Opsional: nama pengirim transfer, nomor WhatsApp, atau catatan lain"></textarea>
+        <textarea id="buyerNotes" placeholder="Opsional: nomor WhatsApp atau catatan lain"></textarea>
 
         <div class="price-summary">
           <div><b>Lisensi Klaar</b><span>Semua fitur · 1 sekolah · selamanya</span></div>
@@ -100,6 +98,14 @@
         <p class="muted">Bayar sesuai nominal, lalu simpan bukti transfer.</p>
       </div>
       <div class="pay-info" id="outPayInfo"></div>
+      <form id="proofForm">
+        <label for="proofLink">Link bukti pembayaran</label>
+        <input id="proofLink" placeholder="Tempel link bukti transfer/QRIS setelah bayar" />
+        <label for="proofNotes">Catatan konfirmasi</label>
+        <textarea id="proofNotes" placeholder="Opsional: nama pengirim transfer, bank/e-wallet, atau nomor WhatsApp"></textarea>
+        <button class="btn" type="submit" id="proofBtn">Kirim Bukti Pembayaran</button>
+        <div class="msg" id="proofMsg"></div>
+      </form>
       <p class="muted">Kode lisensi akan dikirim ke email Anda setelah pembayaran kami konfirmasi.
         Simpan Order ID ini saat menghubungi kami.</p>
       <a class="btn" id="waBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:none">Konfirmasi via WhatsApp</a>
@@ -132,26 +138,30 @@
         document.body.appendChild(s);
       });
     }
+    let currentOrder=null;
     function showErr(t){let m=$('msg'); m.textContent=t; m.className='msg err'}
+    function showProofMsg(t,ok=false){let m=$('proofMsg'); m.textContent=t; m.className='msg '+(ok?'ok':'err')}
 
     $('orderForm').onsubmit=async e=>{
       e.preventDefault();
       $('msg').className='msg';
-      let school=$('school').value.trim(), email=$('email').value.trim(), paymentProof=$('paymentProof').value.trim(), buyerNotes=$('buyerNotes').value.trim();
+      let school=$('school').value.trim(), email=$('email').value.trim(), buyerNotes=$('buyerNotes').value.trim();
       if(!school) return showErr('Nama sekolah wajib diisi.');
       if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Email tidak valid.');
       let btn=$('submitBtn'); btn.disabled=true; btn.textContent='Memproses...';
       try{
-        let res=await jsonp({action:'createOrder', school, email, plan, paymentProof, buyerNotes});
+        let res=await jsonp({action:'createOrder', school, email, plan, buyerNotes});
         if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal membuat pesanan.');
+        currentOrder=res;
         $('outOrderId').textContent=res.orderId;
         $('outSchool').textContent=res.school;
         $('outPlan').textContent=res.plan;
         $('outAmount').textContent='Rp'+Number(res.amount||0).toLocaleString('id-ID');
         $('outEmail').textContent=res.email;
         $('outPayInfo').textContent=res.payInfo||'';
+        $('proofNotes').value=buyerNotes;
         if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+(paymentProof?'\nBukti bayar: '+paymentProof:''));
+          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+'\nNominal: Rp'+Number(res.amount||0).toLocaleString('id-ID'));
           $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
           $('waBtn').style.display='';
         }
@@ -161,6 +171,24 @@
       }catch(err){
         showErr(err.message||'Terjadi kesalahan.');
       }finally{ btn.disabled=false; btn.textContent='Buat Pesanan →'; }
+    };
+    $('proofForm').onsubmit=async e=>{
+      e.preventDefault();
+      if(!currentOrder) return showProofMsg('Order belum dibuat.');
+      let paymentProof=$('proofLink').value.trim(), buyerNotes=$('proofNotes').value.trim();
+      if(!paymentProof && !buyerNotes) return showProofMsg('Isi link bukti pembayaran atau catatan konfirmasi.');
+      let btn=$('proofBtn'); btn.disabled=true; btn.textContent='Mengirim...';
+      try{
+        let res=await jsonp({action:'updatePaymentProof', orderId:currentOrder.orderId, email:currentOrder.email, paymentProof, buyerNotes});
+        if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal mengirim bukti pembayaran.');
+        showProofMsg('Bukti pembayaran tersimpan. Kami akan cek dan kirim kode lisensi ke email.', true);
+        if(SELLER_WA){
+          let waText=encodeURIComponent('Halo, saya sudah bayar Klaar.\nOrder ID: '+currentOrder.orderId+'\nSekolah: '+currentOrder.school+'\nBukti bayar: '+(paymentProof||'-')+(buyerNotes?'\nCatatan: '+buyerNotes:''));
+          $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
+        }
+      }catch(err){
+        showProofMsg(err.message||'Gagal mengirim bukti pembayaran.');
+      }finally{ btn.disabled=false; btn.textContent='Kirim Bukti Pembayaran'; }
     };
   </script>
 </body>
