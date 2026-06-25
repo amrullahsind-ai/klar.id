@@ -82,7 +82,7 @@
     <!-- SUCCESS -->
     <div class="card success" id="successCard">
       <h1>✅ Pesanan dibuat!</h1>
-      <p class="sub">Order ID Anda di bawah ini. Selesaikan pembayaran lalu konfirmasi ke kami.</p>
+      <p class="sub" id="successSub">Order ID Anda di bawah ini. Selesaikan pembayaran lalu konfirmasi ke kami.</p>
       <div class="order-box">
         Order ID: <span class="order-id" id="outOrderId"></span><br>
         Sekolah: <b id="outSchool"></b><br>
@@ -106,9 +106,11 @@
         <button class="btn" type="submit" id="proofBtn">Kirim Bukti Pembayaran</button>
         <div class="msg" id="proofMsg"></div>
       </form>
-      <p class="muted">Kalau bukti berupa foto langsung, klik tombol WhatsApp di bawah lalu lampirkan fotonya di chat.</p>
-      <p class="muted">Kode lisensi akan dikirim ke email Anda setelah pembayaran kami konfirmasi.
-        Simpan Order ID ini saat menghubungi kami.</p>
+      <div id="manualInstructions">
+        <p class="muted">Kalau bukti berupa foto langsung, klik tombol WhatsApp di bawah lalu lampirkan fotonya di chat.</p>
+        <p class="muted">Kode lisensi akan dikirim ke email Anda setelah pembayaran kami konfirmasi.
+          Simpan Order ID ini saat menghubungi kami.</p>
+      </div>
       <a class="btn" id="waBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:none">Konfirmasi via WhatsApp</a>
     </div>
   </div>
@@ -175,6 +177,8 @@
           $('outPayInfo').innerHTML = 'Silakan selesaikan pembayaran melalui popup Midtrans. Jika tertutup, <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">klik di sini untuk bayar</a>.';
           $('proofForm').style.display = 'none'; // Sembunyikan form bukti bayar
           $('waBtn').style.display = 'none'; // WA tidak diperlukan lagi
+          $('manualInstructions').style.display = 'none'; // Sembunyikan teks konfirmasi manual
+          $('successSub').textContent = 'Order ID Anda di bawah ini. Silakan selesaikan pembayaran.';
           
           let payMidtrans = function() {
             window.snap.pay(res.snapToken, {
@@ -183,6 +187,8 @@
                 $('outPayInfo').style.backgroundColor = '#ecfdf5';
                 $('outPayInfo').style.borderColor = '#bbf7d0';
                 $('outPayInfo').style.color = '#166534';
+                $('successCard').querySelector('h1').textContent = '🎉 Pembayaran Lunas!';
+                $('successSub').textContent = 'Terima kasih! Pesanan Anda telah selesai dibayar.';
               },
               onPending: function(result){ $('outPayInfo').innerHTML = 'Menunggu pembayaran... <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Bayar sekarang</a>'; },
               onError: function(result){ $('outPayInfo').innerHTML = 'Pembayaran gagal. <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Coba lagi</a>'; },
