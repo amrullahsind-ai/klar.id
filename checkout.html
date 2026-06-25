@@ -100,17 +100,21 @@
       <div class="pay-info" id="outPayInfo"></div>
       <form id="proofForm">
         <label for="proofLink">Link bukti pembayaran</label>
-        <input id="proofLink" placeholder="Tempel link bukti transfer/QRIS setelah bayar" />
+        <input id="proofLink" placeholder="Opsional: link Google Drive/foto bukti pembayaran" />
         <label for="proofNotes">Catatan konfirmasi</label>
-        <textarea id="proofNotes" placeholder="Opsional: nama pengirim transfer, bank/e-wallet, atau nomor WhatsApp"></textarea>
+        <textarea id="proofNotes" placeholder="Nama pengirim transfer, bank/e-wallet, nomor WhatsApp, atau tulis: bukti dikirim via WhatsApp"></textarea>
         <button class="btn" type="submit" id="proofBtn">Kirim Bukti Pembayaran</button>
         <div class="msg" id="proofMsg"></div>
       </form>
+      <p class="muted">Kalau bukti berupa foto langsung, klik tombol WhatsApp di bawah lalu lampirkan fotonya di chat.</p>
       <p class="muted">Kode lisensi akan dikirim ke email Anda setelah pembayaran kami konfirmasi.
         Simpan Order ID ini saat menghubungi kami.</p>
       <a class="btn" id="waBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:none">Konfirmasi via WhatsApp</a>
     </div>
   </div>
+
+  <!-- MIDTRANS SNAP JS (Ubah ke https://app.midtrans.com/snap/snap.js jika Production) -->
+  <script src="https://app.sandbox.midtrans.com/snap/snap.js"></script>
 
   <script>
     // ====== ISI URL WEB APP KLAAR STORE DI SINI ======
@@ -161,10 +165,30 @@
         $('outPayInfo').textContent=res.payInfo||'';
         $('proofNotes').value=buyerNotes;
         if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+'\nNominal: Rp'+Number(res.amount||0).toLocaleString('id-ID'));
+          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\\nOrder ID: '+res.orderId+'\\nSekolah: '+res.school+'\\nPaket: '+res.plan+'\\nNominal: Rp'+Number(res.amount||0).toLocaleString('id-ID'));
           $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
           $('waBtn').style.display='';
         }
+        if(res.snapToken) {
+          // Midtrans flow
+          $('qrisBox').style.display = 'none'; // Sembunyikan QRIS manual
+          $('outPayInfo').innerHTML = 'Silakan selesaikan pembayaran melalui popup Midtrans. Jika tertutup, <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">klik di sini untuk bayar</a>.';
+          $('proofForm').style.display = 'none'; // Sembunyikan form bukti bayar
+          
+          let payMidtrans = function() {
+            window.snap.pay(res.snapToken, {
+              onSuccess: function(result){ showProofMsg('Pembayaran berhasil! Lisensi segera dikirim ke email Anda.', true); },
+              onPending: function(result){ showProofMsg('Menunggu pembayaran...', true); },
+              onError: function(result){ showErr('Pembayaran gagal.'); },
+              onClose: function(){ showProofMsg('Popup pembayaran ditutup.', false); }
+            });
+          };
+          payMidtrans();
+          
+          var payBtn = $('payMidtransBtn');
+          if(payBtn) payBtn.onclick = function(ev){ ev.preventDefault(); payMidtrans(); };
+        }
+
         $('formCard').style.display='none';
         $('successCard').classList.add('show');
         window.scrollTo({top:0,behavior:'smooth'});

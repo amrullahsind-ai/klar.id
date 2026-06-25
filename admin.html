@@ -26,29 +26,26 @@
 const EDURA_PRIMARY='#085842', EDURA_ACCENT='#39AE89';
 const SALT='|edupay-v4-final-rebuild', DEFAULT_ADMIN_HASH='d3eecabb3db83dcdf562b12ff510afbfbf351e2a12efda3963e11c0d41c52e93', DEFAULT_EMP_HASH='d3eecabb3db83dcdf562b12ff510afbfbf351e2a12efda3963e11c0d41c52e93', KEY='edupay_v4_admin_db', LICENSE_KEY='edupay_v4_license', SERVER_KEY='edupay_v4_server', SERVER_DRAFT_KEY='edupay_v4_server_draft', LICENSE_DRAFT_KEY='edupay_v4_license_draft';
 // === GERBANG LISENSI (HMAC-SHA256) ===
-// LICENSE_SECRET WAJIB diganti & HARUS SAMA PERSIS dengan di store-apps-script.gs dan master-apps-script-v5.gs.
-const LICENSE_SECRET='klaar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817', LICENSE_PREFIX='KLAAR';
+// (LICENSE_SECRET telah dipindah murni ke backend demi keamanan)
+const LICENSE_PREFIX='KLAAR';
 const fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), $=id=>document.getElementById(id), uid=p=>p+'_'+Math.random().toString(36).slice(2,8), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,''), parseRp=s=>Number(String(s||'').replace(/[^\d-]/g,''))||0, esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, monthKeyLocal=(dt=new Date())=>dateKeyLocal(dt).slice(0,7), today=()=>dateKeyLocal(), monthNow=()=>monthKeyLocal();
 function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
 // b64url dari Uint8Array (cocok byte-per-byte dengan Utilities.base64Encode di Apps Script).
 function bytesToB64url(bytes){let bin='';for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function b64urlToBytes(s){let b64=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';let bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out}
-function b64urlToStr(s){return new TextDecoder().decode(b64urlToBytes(s))}
 // Verifikasi token lisensi: KLAAR.<b64url(payload)>.<b64url(hmac)>. Return {ok, school, plan} atau {ok:false}.
 async function verifyLicenseToken(token){
   try{
     token=String(token||'').trim();
     let parts=token.split('.');
-    if(parts.length!==3||parts[0]!==LICENSE_PREFIX)return {ok:false,error:'Format kode lisensi salah.'};
-    let payloadStr=b64urlToStr(parts[1]);
-    let key=await crypto.subtle.importKey('raw',new TextEncoder().encode(LICENSE_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
-    let sigBuf=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payloadStr));
-    let expected=bytesToB64url(new Uint8Array(sigBuf));
-    if(expected!==parts[2])return {ok:false,error:'Tanda tangan lisensi tidak cocok.'};
+    if(parts.length!==3||parts[0]!==LICENSE_PREFIX)return{ok:false,error:'format token salah'};
+    let payloadStr=atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'));
+    // Validasi signature dihapus dari sisi client karena rahasia tidak boleh bocor.
+    // Validasi asli (HMAC) HANYA terjadi di sisi backend (master-apps-script-v5.gs).
     let payload=JSON.parse(payloadStr);
-    if(!payload||!payload.school)return {ok:false,error:'Lisensi tidak berisi nama sekolah.'};
-    return {ok:true,school:String(payload.school),plan:String(payload.plan||''),iat:payload.iat||''};
-  }catch(err){return {ok:false,error:'Kode lisensi tidak valid.'}}
+    if(!payload||!payload.school)return{ok:false,error:'payload tanpa school'};
+    return{ok:true,school:String(payload.school),plan:String(payload.plan||''),iat:payload.iat||''};
+  }catch(err){return{ok:false,error:err.message}}
 }
 // === MODE DEMO (offline, tanpa lisensi, tanpa server) ===
 let isDemo=false;
