@@ -174,19 +174,30 @@
           $('qrisBox').style.display = 'none'; // Sembunyikan QRIS manual
           $('outPayInfo').innerHTML = 'Silakan selesaikan pembayaran melalui popup Midtrans. Jika tertutup, <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">klik di sini untuk bayar</a>.';
           $('proofForm').style.display = 'none'; // Sembunyikan form bukti bayar
+          $('waBtn').style.display = 'none'; // WA tidak diperlukan lagi
           
           let payMidtrans = function() {
             window.snap.pay(res.snapToken, {
-              onSuccess: function(result){ showProofMsg('Pembayaran berhasil! Lisensi segera dikirim ke email Anda.', true); },
-              onPending: function(result){ showProofMsg('Menunggu pembayaran...', true); },
-              onError: function(result){ showErr('Pembayaran gagal.'); },
-              onClose: function(){ showProofMsg('Popup pembayaran ditutup.', false); }
+              onSuccess: function(result){ 
+                $('outPayInfo').innerHTML = '<b>✅ Pembayaran Berhasil!</b><br>Sistem sedang mengirimkan kode lisensi. Silakan cek inbox/spam email Anda sekarang.';
+                $('outPayInfo').style.backgroundColor = '#ecfdf5';
+                $('outPayInfo').style.borderColor = '#bbf7d0';
+                $('outPayInfo').style.color = '#166534';
+              },
+              onPending: function(result){ $('outPayInfo').innerHTML = 'Menunggu pembayaran... <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Bayar sekarang</a>'; },
+              onError: function(result){ $('outPayInfo').innerHTML = 'Pembayaran gagal. <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Coba lagi</a>'; },
+              onClose: function(){ /* user tutup popup */ }
             });
           };
           payMidtrans();
           
-          var payBtn = $('payMidtransBtn');
-          if(payBtn) payBtn.onclick = function(ev){ ev.preventDefault(); payMidtrans(); };
+          // Re-attach event handler untuk tombol yang baru dirender di dalam innerHTML
+          document.addEventListener('click', function(e) {
+            if(e.target && e.target.id === 'payMidtransBtn') {
+              e.preventDefault();
+              payMidtrans();
+            }
+          });
         }
 
         $('formCard').style.display='none';
