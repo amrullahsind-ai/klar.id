@@ -1,4 +1,4 @@
-# Fitur Klar Paket Deploy Ready
+# Fitur Klaar Paket Deploy Ready
 
 ## Admin
 
@@ -17,7 +17,7 @@
 - Finalisasi payroll
 - Kirim slip gaji
 - Laporan dasar
-- Import Excel template Klar
+- Import Excel template Klaar
 - Backup dan audit dasar
 
 ## Karyawan
@@ -33,7 +33,7 @@
 
 ## Import Excel
 
-Template `template-import-klar.xlsx` memuat:
+Template `template-import-klaar.xlsx` memuat:
 
 - Karyawan
 - Jabatan
@@ -44,4 +44,4 @@ Template `template-import-klar.xlsx` memuat:
 - Lembur
 - Payroll Awal
 
-Konsepnya: sekolah bisa mengatur logika gaji di Excel, lalu Klar mengimport aturan dan snapshot payroll awal.
+Konsepnya: sekolah bisa mengatur logika gaji di Excel, lalu Klaar mengimport aturan dan snapshot payroll awal.

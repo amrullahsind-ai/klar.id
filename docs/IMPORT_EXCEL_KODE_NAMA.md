@@ -1,4 +1,4 @@
-# Import Excel Kode-Nama Klar V4.9
+# Import Excel Kode-Nama Klaar V4.9
 
 Versi ini dipakai untuk Excel sekolah yang kolom NAMA memang berisi kode seperti AA1, AA2, dan seterusnya.
 

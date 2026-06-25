@@ -1,4 +1,4 @@
-# Struktur Database Klar V4
+# Struktur Database Klaar V4
 
 ## _licenses
 Master daftar pembeli/lisensi.

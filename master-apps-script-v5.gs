@@ -1,5 +1,5 @@
 /**
- * Klar - Apps Script License Server (Deploy Ready)
+ * Klaar - Apps Script License Server (Deploy Ready)
  * Deploy: Execute as: Me, Who has access: Anyone with the link.
  * Supports: admin load/save, employee login by NIP/Login/Nama/Kode, check-in/out, request, change password.
  */
@@ -12,18 +12,18 @@ const DEFAULT_LICENSE = 'EDUPAY-DEMO-0001';
 // === GERBANG LISENSI ===
 // LICENSE_SECRET WAJIB diganti dengan string acak panjang, dan HARUS SAMA PERSIS di:
 //   store-apps-script.gs (yang menandatangani), admin.html, dan file ini.
-// Jika tidak sama, token terbitan Klar Store akan ditolak.
-const LICENSE_SECRET = 'klar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
-// true = wajib token bertanda tangan dari Klar Store. Set false hanya untuk pengembangan.
+// Jika tidak sama, token terbitan Klaar Store akan ditolak.
+const LICENSE_SECRET = 'klaar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
+// true = wajib token bertanda tangan dari Klaar Store. Set false hanya untuk pengembangan.
 const REQUIRE_SIGNED_LICENSE = true;
-// Prefix token lisensi Klar.
-const LICENSE_PREFIX = 'KLAR';
+// Prefix token lisensi Klaar.
+const LICENSE_PREFIX = 'KLAAR';
 // Hash default admin (sha256 dari '1234'+SALT). Nilainya sama dengan DEFAULT_ADMIN_HASH di admin.html
 // supaya kredensial demo admin/1234 tetap berlaku untuk database baru.
 const DEFAULT_ADMIN_HASH = 'd3eecabb3db83dcdf562b12ff510afbfbf351e2a12efda3963e11c0d41c52e93';
 
 // === Helper verifikasi token lisensi (HMAC-SHA256) ===
-// Format token: KLAR.<b64url(payloadJson)>.<b64url(hmacBytes)>
+// Format token: KLAAR.<b64url(payloadJson)>.<b64url(hmacBytes)>
 // payloadJson = {"school":..,"plan":..,"iat":..,"v":1} (urutan kunci tetap).
 // Harus byte-identik dengan signLicense_ di store-apps-script.gs & verifyLicenseToken di admin.html.
 function b64url_(bytesOrStr){
@@ -81,13 +81,13 @@ function route_(p, post){
   const action = p.action || 'loadAdmin';
   const licenseCode = String(p.licenseCode || DEFAULT_LICENSE).trim();
   ensure_();
-  if(action === 'ping' || action === 'health') return {ok:true, app:'Klar', version:'deploy-ready', licenseCode, time:new Date().toISOString()};
+  if(action === 'ping' || action === 'health') return {ok:true, app:'Klaar', version:'deploy-ready', licenseCode, time:new Date().toISOString()};
   // Gerbang lisensi: semua action selain ping/health wajib token valid.
   if(REQUIRE_SIGNED_LICENSE){
     const lic = verifyLicenseToken_(licenseCode);
     if(!lic.ok){
       log_('license_denied', licenseCode, lic.error || 'token tidak valid');
-      return {ok:false, error:'Lisensi tidak valid. Aktivasi dengan kode lisensi resmi dari Klar Store.'};
+      return {ok:false, error:'Lisensi tidak valid. Aktivasi dengan kode lisensi resmi dari Klaar Store.'};
     }
   }
   if(action === 'repairDatabase') return repairDatabase_(licenseCode, p.force === '1' || p.force === 'true');
@@ -171,7 +171,7 @@ function normalizeDb_(data, licenseCode){
   data.backupLogs = Array.isArray(data.backupLogs) ? data.backupLogs : [];
   data.importHistory = Array.isArray(data.importHistory) ? data.importHistory : [];
   data.settings = data.settings && typeof data.settings === 'object' ? data.settings : {};
-  if(!data.settings.school) data.settings.school = schoolNameFromLicense_(licenseCode) || 'Klar';
+  if(!data.settings.school) data.settings.school = schoolNameFromLicense_(licenseCode) || 'Klaar';
   if(!data.settings.adminUser) data.settings.adminUser = 'admin';
   if(!data.settings.adminHash) data.settings.adminHash = DEFAULT_ADMIN_HASH;
   return data;
@@ -179,10 +179,10 @@ function normalizeDb_(data, licenseCode){
 function defaultDb_(licenseCode, schoolName){
   return normalizeDb_({
     version:'deploy-ready',
-    settings:{school: schoolName && schoolName !== 'DEMO' ? schoolName : 'Klar Demo', yayasan:'', logo:'', primary:'#085842', accent:'#39AE89', adminUser:'admin', adminHash:DEFAULT_ADMIN_HASH},
+    settings:{school: schoolName && schoolName !== 'DEMO' ? schoolName : 'Klaar Demo', yayasan:'', logo:'', primary:'#085842', accent:'#39AE89', adminUser:'admin', adminHash:DEFAULT_ADMIN_HASH},
     employees:[], positions:[], grades:[], components:[], deductions:[],
     attendanceRecords:{}, attendanceRequests:[], deviceRequests:[], locks:{}, sentSlips:{}, auditLogs:[], backupLogs:[], importHistory:[],
-    _createdAt:new Date().toISOString(), _note:'Database dibuat/diperbaiki otomatis oleh Klar'
+    _createdAt:new Date().toISOString(), _note:'Database dibuat/diperbaiki otomatis oleh Klaar'
   }, licenseCode);
 }
 function backupBroken_(licenseCode, raw, rowSnapshot, reason){
@@ -199,7 +199,7 @@ function ensureDemoLicense_(){
   try{
     const li = sh_(LICENSE_SHEET), vals = li.getDataRange().getValues();
     for(let i=1;i<vals.length;i++) if(String(vals[i][0]).trim() === DEFAULT_LICENSE) return;
-    li.appendRow([DEFAULT_LICENSE,'Klar Demo','active','demo','','Dibuat otomatis oleh Klar']);
+    li.appendRow([DEFAULT_LICENSE,'Klaar Demo','active','demo','','Dibuat otomatis oleh Klaar']);
   }catch(e){}
 }
 function repairDatabase_(licenseCode, force){
@@ -352,7 +352,7 @@ function empView_(db, emp, p){
   const pos = (db.positions||[]).find(x=>x.id===emp.position) || {}; const gr = (db.grades||[]).find(x=>x.id===emp.grade) || {};
   const hist = Object.keys(recs).sort().reverse().slice(0,40).map(date=>Object.assign({date}, (recs[date]||{})[emp.id]||{})).filter(x=>x.status);
   const slip = latestSlip_(db, emp.id);
-  return {ok:true, employee:Object.assign({}, emp, {positionName:pos.name||'', gradeName:gr.name||'', years:years_(emp.join, emp.yearsImported)}), school:(db.settings||{}).school||'Klar', todayRecord, history:hist, slip, todayRequest:(db.attendanceRequests||[]).find(r=>r.employeeId===emp.id && r.date===d && r.status==='pending') || null, deviceStatus:'aktif'};
+  return {ok:true, employee:Object.assign({}, emp, {positionName:pos.name||'', gradeName:gr.name||'', years:years_(emp.join, emp.yearsImported)}), school:(db.settings||{}).school||'Klaar', todayRecord, history:hist, slip, todayRequest:(db.attendanceRequests||[]).find(r=>r.employeeId===emp.id && r.date===d && r.status==='pending') || null, deviceStatus:'aktif'};
 }
 function loadEmployee_(licenseCode,p){ const db=loadPayload_(licenseCode); if(!db) throw new Error('Database belum ada. Sync dari Admin dulu.'); const emp=checkEmployee_(db,p); return empView_(db,emp,p); }
 function employeeChangePassword_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); emp.employeePinHash = p.newHash; emp.updatedAt = new Date().toISOString(); log_('employeeChangePassword', licenseCode, emp.name); return {ok:true,message:'Password berhasil diganti'}; }); }

@@ -1,13 +1,13 @@
 {
-  "name": "Klar Admin",
-  "short_name": "Klar Admin",
+  "name": "Klaar Admin",
+  "short_name": "Klaar Admin",
   "start_url": "/admin.html",
   "display": "standalone",
   "background_color": "#F5FBF8",
   "theme_color": "#085842",
   "icons": [
     {
-      "src": "/klar-logo.png",
+      "src": "/klaar-logo.png",
       "sizes": "192x192",
       "type": "image/png"
     }

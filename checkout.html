@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Checkout — Klar Store</title>
-  <link rel="icon" href="/klar-logo.png" />
+  <title>Checkout — Klaar Store</title>
+  <link rel="icon" href="/klaar-logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet" />
@@ -50,12 +50,12 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="brand"><img src="/klar-logo.png" alt="Klar"/> Klar Store</div>
+    <div class="brand"><img src="/klaar-logo.png" alt="Klaar"/> Klaar Store</div>
 
     <!-- FORM -->
     <div class="card" id="formCard">
       <a class="back" href="/store.html">← Kembali</a>
-      <h1>Pesan Lisensi Klar</h1>
+      <h1>Pesan Lisensi Klaar</h1>
       <p class="sub">Isi data sekolah & email. Setelah pembayaran dikonfirmasi, kode lisensi dikirim otomatis ke email Anda.</p>
       <form id="orderForm">
         <label for="school">Nama Sekolah / Yayasan</label>
@@ -71,7 +71,7 @@
         <textarea id="buyerNotes" placeholder="Opsional: nama pengirim transfer, nomor WhatsApp, atau catatan lain"></textarea>
 
         <div class="price-summary">
-          <div><b>Lisensi Klar</b><span>Semua fitur · 1 sekolah · selamanya</span></div>
+          <div><b>Lisensi Klaar</b><span>Semua fitur · 1 sekolah · selamanya</span></div>
           <div class="price-amount">Rp200.000</div>
         </div>
 
@@ -107,7 +107,7 @@
   </div>
 
   <script>
-    // ====== ISI URL WEB APP KLAR STORE DI SINI ======
+    // ====== ISI URL WEB APP KLAAR STORE DI SINI ======
     const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
     // Nomor WA penjual untuk konfirmasi (format internasional tanpa +). Kosongkan = tombol WA disembunyikan.
     const SELLER_WA = '6282283516237';
@@ -116,11 +116,11 @@
     // Satu paket saja.
     const plan = 'starter';
 
-    // JSONP helper (Apps Script web app, sama pola dengan aplikasi Klar).
+    // JSONP helper (Apps Script web app, sama pola dengan aplikasi Klaar).
     function jsonp(params){
       return new Promise((resolve,reject)=>{
         if(/GANTI_DENGAN_URL/.test(STORE_SERVER_URL)) return reject(new Error('STORE_SERVER_URL belum diisi di checkout.html.'));
-        let cb='klar_store_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+        let cb='klaar_store_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
         let s=document.createElement('script');
         let sep=STORE_SERVER_URL.includes('?')?'&':'?';
         let q=new URLSearchParams(Object.assign({callback:cb,t:Date.now()},params));
@@ -151,7 +151,7 @@
         $('outEmail').textContent=res.email;
         $('outPayInfo').textContent=res.payInfo||'';
         if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+(paymentProof?'\nBukti bayar: '+paymentProof:''));
+          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\nOrder ID: '+res.orderId+'\nSekolah: '+res.school+'\nPaket: '+res.plan+(paymentProof?'\nBukti bayar: '+paymentProof:''));
           $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
           $('waBtn').style.display='';
         }

@@ -1,17 +1,17 @@
-# Import Excel Fleksibel Klar V4.6
+# Import Excel Fleksibel Klaar V4.6
 
-Fitur ini dibuat untuk Excel sekolah/yayasan yang sudah lama dipakai dan biasanya punya banyak tab, judul tidak standar, dan nama sheet tidak sama dengan template Klar.
+Fitur ini dibuat untuk Excel sekolah/yayasan yang sudah lama dipakai dan biasanya punya banyak tab, judul tidak standar, dan nama sheet tidak sama dengan template Klaar.
 
 ## Cara pakai
 
-1. Buka **Klar Admin**.
+1. Buka **Klaar Admin**.
 2. Masuk ke menu **Import Excel**.
 3. Upload file Excel lama.
 4. Pilih mode **Fleksibel / Scan Semua Sheet**.
 5. Klik **Baca & Analisis**.
 6. Cek tabel **Analisis Semua Sheet**.
 7. Centang sheet yang ingin diimport.
-8. Ubah mode sheet jika tebakan Klar kurang tepat.
+8. Ubah mode sheet jika tebakan Klaar kurang tepat.
 9. Cek preview sheet aktif.
 10. Klik **Terapkan Import**.
 
@@ -25,7 +25,7 @@ Fitur ini dibuat untuk Excel sekolah/yayasan yang sudah lama dipakai dan biasany
 
 ## Catatan
 
-Import tetap harus dicek lewat preview. Payroll adalah data sensitif, jadi Klar tidak langsung menimpa data tanpa konfirmasi admin.
+Import tetap harus dicek lewat preview. Payroll adalah data sensitif, jadi Klaar tidak langsung menimpa data tanpa konfirmasi admin.
 
 
 ## Update V4.7 Flexible Import Fix

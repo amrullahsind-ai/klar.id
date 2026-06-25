@@ -1,4 +1,4 @@
-# Import Excel Stabil Klar V4.8
+# Import Excel Stabil Klaar V4.8
 
 Versi ini memperbaiki import Excel yang sebelumnya terlalu agresif.
 

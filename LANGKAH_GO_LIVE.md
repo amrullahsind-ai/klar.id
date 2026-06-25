@@ -1,4 +1,4 @@
-# Langkah Go-Live Klar (checklist penjual)
+# Langkah Go-Live Klaar (checklist penjual)
 
 Ikuti urut. Centang tiap selesai. Tanda 🧑 = kamu klik sendiri, 🤖 = Claude bisa bantu kerjakan.
 
@@ -9,12 +9,12 @@ Ikuti urut. Centang tiap selesai. Tanda 🧑 = kamu klik sendiri, 🤖 = Claude 
 ### Langkah 1 — Website ke Vercel (lewat Vercel CLI, tanpa GitHub)
 - [ ] 🤖 Install Vercel CLI: `npm i -g vercel`
 - [ ] 🧑 Login: buka prompt lalu ketik `!vercel login` → pilih "Continue with GitHub/Email" → ikuti di browser.
-- [ ] 🤖 Deploy folder ini ke production: `vercel --prod --yes` (dijalankan di folder klarfinal).
-- [ ] 🧑 Catat alamat web yang muncul, mis. `https://klarfinal-xxxx.vercel.app`.
+- [ ] 🤖 Deploy folder ini ke production: `vercel --prod --yes` (dijalankan di folder klaarfinal).
+- [ ] 🧑 Catat alamat web yang muncul, mis. `https://klaarfinal-xxxx.vercel.app`.
 - [ ] 🧑 Tes: buka `<alamat>/store` → halaman jualan tampil.
 
 ### Langkah 2 — Otak Toko (Google Apps Script)
-- [ ] 🧑 Google Drive → New → Google Sheets → namai `Klar Store DB`.
+- [ ] 🧑 Google Drive → New → Google Sheets → namai `Klaar Store DB`.
 - [ ] 🧑 Di sheet itu: menu **Extensions → Apps Script**.
 - [ ] 🧑 Hapus kode contoh → paste seluruh isi `store-apps-script.gs` → Save (ikon disket).
 - [ ] 🧑 (opsional) menu Run → pilih fungsi `testSignVerify` → jalankan → setujui izin Google saat diminta.
@@ -29,7 +29,7 @@ Ikuti urut. Centang tiap selesai. Tanda 🧑 = kamu klik sendiri, 🤖 = Claude 
 - [ ] 🤖 Isi rekening/QRIS `PAY_INFO` & `APP_ACTIVATION_URL` di `store-apps-script.gs`
        (lalu paste ulang ke Apps Script + Deploy versi baru).
 - [ ] 🧑 Ganti password panel penjual: di Apps Script jalankan `genSellerHash('passwordbaru')`,
-       lihat hasil di Logger, paste ke `ADMIN_PASS_HASH`. (Default sementara: `klarstore2026`.)
+       lihat hasil di Logger, paste ke `ADMIN_PASS_HASH`. (Default sementara: `klaarstore2026`.)
 - [ ] 🤖 Deploy ulang ke Vercel: `vercel --prod --yes`.
 - [ ] 🧑 Tes: buka `<alamat>/seller-admin` → login → buka `<alamat>/checkout` → buat order percobaan
        → konfirmasi di seller-admin → cek email masuk.

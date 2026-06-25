@@ -1,9 +1,9 @@
 /**
- * Klar Store - Apps Script (penjualan + penerbitan lisensi + email)
- * Milik PENJUAL (kamu), bukan pembeli. Deploy di Google Sheet "Klar Store DB" terpisah.
+ * Klaar Store - Apps Script (penjualan + penerbitan lisensi + email)
+ * Milik PENJUAL (kamu), bukan pembeli. Deploy di Google Sheet "Klaar Store DB" terpisah.
  *
  * Deploy:
- *   1. Buat Google Sheet baru, beri nama "Klar Store DB".
+ *   1. Buat Google Sheet baru, beri nama "Klaar Store DB".
  *   2. Extensions -> Apps Script -> hapus kode lama -> paste file ini -> Save.
  *   3. WAJIB: ganti LICENSE_SECRET (harus SAMA PERSIS dengan di admin.html & master-apps-script-v5.gs).
  *   4. WAJIB: ganti ADMIN_PASS_HASH (jalankan genSellerHash('passwordmu') di editor, salin hasilnya).
@@ -14,17 +14,17 @@
 
 // ====== KONFIGURASI WAJIB DIGANTI ======
 // HARUS SAMA PERSIS dengan LICENSE_SECRET di admin.html dan master-apps-script-v5.gs.
-const LICENSE_SECRET = 'klar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
-const LICENSE_PREFIX = 'KLAR';
+const LICENSE_SECRET = 'klaar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
+const LICENSE_PREFIX = 'KLAAR';
 
-// Hash password panel penjual. Default di bawah = password 'klarstore2026'.
+// Hash password panel penjual. Default di bawah = password 'klaarstore2026'.
 // GANTI: jalankan genSellerHash('passwordbaru') di editor, salin output ke sini.
 const ADMIN_PASS_HASH = '190a1114d4ebce7f9f5ef71af4351d62fcb3c85a869e0707a866dad2f9963b81';
-const SELLER_SALT = '|klar-store-seller-v1';
+const SELLER_SALT = '|klaar-store-seller-v1';
 
 // Tampilan & info pembayaran (muncul di email & checkout).
-const SELLER_EMAIL_FROM_NAME = 'Klar Store';
-const APP_ACTIVATION_URL = 'https://klar-id-five.vercel.app/admin'; // link admin app untuk pembeli
+const SELLER_EMAIL_FROM_NAME = 'Klaar Store';
+const APP_ACTIVATION_URL = 'https://klaar-id-five.vercel.app/admin'; // link admin app untuk pembeli
 const PAY_INFO = 'Pembayaran via QRIS. Scan QRIS yang tampil di halaman checkout dan bayar sesuai nominal. '
                + 'Pesanan Anda otomatis tercatat; lisensi dikirim ke email setelah pembayaran kami verifikasi. '
                + 'Simpan Order ID Anda.';
@@ -70,7 +70,7 @@ function doPost(e){
 function route_(p){
   const action = p.action || 'ping';
   ensureStore_();
-  if(action === 'ping' || action === 'health') return {ok:true, app:'Klar Store', time:new Date().toISOString()};
+  if(action === 'ping' || action === 'health') return {ok:true, app:'Klaar Store', time:new Date().toISOString()};
   if(action === 'createOrder') return createOrder_(p);
   // Action di bawah ini hanya untuk penjual (butuh adminHash benar).
   if(['listOrders','confirmOrder','resendLicense','issueManual'].indexOf(action) >= 0){
@@ -97,7 +97,7 @@ function genSellerHash(pass){
 }
 
 // ====== TOKEN LISENSI (HMAC-SHA256) ======
-// Format: KLAR.<b64url(payloadJson)>.<b64url(hmacBytes)>
+// Format: KLAAR.<b64url(payloadJson)>.<b64url(hmacBytes)>
 // Harus byte-identik dengan verifier di admin.html & master-apps-script-v5.gs.
 function b64url_(bytesOrStr){
   var b64 = (typeof bytesOrStr === 'string')
@@ -209,13 +209,13 @@ function issueManual_(p){
 function sendLicenseEmail_(email, school, token){
   try{
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email))) return {ok:false, error:'email kosong/invalid'};
-    var subject = 'Kode Lisensi Klar untuk ' + school;
+    var subject = 'Kode Lisensi Klaar untuk ' + school;
     var body =
       'Halo,\n\n' +
-      'Terima kasih sudah membeli Klar. Berikut kode lisensi resmi untuk ' + school + ':\n\n' +
+      'Terima kasih sudah membeli Klaar. Berikut kode lisensi resmi untuk ' + school + ':\n\n' +
       token + '\n\n' +
       'Cara aktivasi:\n' +
-      '1. Buka aplikasi Klar Admin: ' + APP_ACTIVATION_URL + '\n' +
+      '1. Buka aplikasi Klaar Admin: ' + APP_ACTIVATION_URL + '\n' +
       '2. Masukkan URL Apps Script sekolah Anda (lihat panduan deploy).\n' +
       '3. Tempel kode lisensi di atas, lalu klik Aktivasi.\n' +
       '4. Login admin (default admin / 1234) lalu segera ganti PIN.\n\n' +

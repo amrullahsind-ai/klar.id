@@ -1,4 +1,4 @@
-# Panduan Deploy Klar
+# Panduan Deploy Klaar
 
 ## A. Deploy frontend ke GitHub/Vercel
 
@@ -7,8 +7,8 @@
 3. Deploy repo ke Vercel.
 4. Setelah deploy, buka:
    - `/` untuk landing page
-   - `/admin.html` untuk Klar Admin
-   - `/employee.html` untuk Klar Hadir
+   - `/admin.html` untuk Klaar Admin
+   - `/employee.html` untuk Klaar Hadir
    - `/credential-center.html` untuk Credential Center
 
 ## B. Deploy backend Apps Script
@@ -26,11 +26,11 @@
 11. Deploy.
 12. Copy Web App URL yang berakhir `/exec`.
 
-## C. Aktivasi di Klar
+## C. Aktivasi di Klaar
 
 1. Buka `/admin.html`.
 2. Masukkan Web App URL Apps Script.
-3. Masukkan **kode lisensi resmi** (token `KLAR.xxxx.xxxx`) yang diterbitkan Klar Store / dikirim ke email pembeli.
+3. Masukkan **kode lisensi resmi** (token `KLAAR.xxxx.xxxx`) yang diterbitkan Klaar Store / dikirim ke email pembeli.
 4. Klik aktivasi. (Kode yang bukan token bertanda tangan akan ditolak.)
 5. Login admin.
 6. Klik Sync/Refresh untuk memastikan database sehat.
@@ -39,7 +39,7 @@
 
 ## ⚠️ PENTING: Set LICENSE_SECRET (gerbang lisensi)
 
-Sejak versi ini, app hanya menerima kode lisensi bertanda tangan dari Klar Store.
+Sejak versi ini, app hanya menerima kode lisensi bertanda tangan dari Klaar Store.
 Tanda tangannya memakai `LICENSE_SECRET`. **Secret ini WAJIB diganti dengan string acak panjang
 (min. 40 karakter) dan HARUS SAMA PERSIS di 3 tempat:**
 
@@ -56,17 +56,17 @@ Jaga kerahasiaan secret ini — siapa pun yang tahu secret bisa membuat lisensi 
 
 ---
 
-## D. Deploy Klar Store (web jualan + penerbit lisensi) — milik PENJUAL
+## D. Deploy Klaar Store (web jualan + penerbit lisensi) — milik PENJUAL
 
-Klar Store terpisah dari app pembeli. Cukup deploy SEKALI (milik Anda).
+Klaar Store terpisah dari app pembeli. Cukup deploy SEKALI (milik Anda).
 
 ### D.1 Backend Store (Apps Script)
-1. Buat Google Sheet baru, beri nama `Klar Store DB`.
+1. Buat Google Sheet baru, beri nama `Klaar Store DB`.
 2. `Extensions → Apps Script` → hapus kode lama → paste isi `store-apps-script.gs` → Save.
 3. Ganti `LICENSE_SECRET` (sama dengan 3 file di atas).
 4. Ganti password panel penjual: jalankan fungsi `genSellerHash('passwordbaru')` di editor
    (menu Run), lihat hasil di `Logger`, salin ke `ADMIN_PASS_HASH`.
-   (Default awal password = `klarstore2026`.)
+   (Default awal password = `klaarstore2026`.)
 5. Sesuaikan `PLAN_PRICES`, `PAY_INFO`, `APP_ACTIVATION_URL`, `SELLER_EMAIL_FROM_NAME`.
 6. `Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy`.
 7. Salin Web App URL (`/exec`).
