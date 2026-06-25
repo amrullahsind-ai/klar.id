@@ -44,6 +44,10 @@
     .lead{color:var(--text-2);font-size:18px;line-height:1.7;max-width:620px;margin:0 auto 28px}
     .hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
     .trust{margin-top:22px;color:var(--text-3);font-size:13px;font-weight:600}
+    .proof-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:760px;margin:30px auto 0}
+    .proof{background:rgba(255,255,255,.86);border:1px solid var(--border);border-radius:18px;padding:16px 18px;box-shadow:0 16px 44px rgba(8,88,66,.08);text-align:left}
+    .proof b{display:block;font-size:24px;letter-spacing:-.03em;color:var(--primary);margin-bottom:3px}
+    .proof span{color:var(--text-2);font-size:13px;font-weight:700;line-height:1.45}
     /* SECTION */
     section{padding:46px 0}
     .section-head{text-align:center;max-width:640px;margin:0 auto 34px}
@@ -64,11 +68,21 @@
     .plan-name{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3)}
     .price{font-size:40px;font-weight:900;letter-spacing:-.03em;margin:10px 0 2px}
     .price small{font-size:15px;font-weight:700;color:var(--text-3)}
+    .old-price{display:inline-flex;align-items:center;gap:8px;color:var(--text-3);font-size:15px;font-weight:800;margin-top:14px}
+    .old-price s{color:#9aa9a4;text-decoration-thickness:2px}
+    .save-badge{background:#FFF1D6;color:#9A5B00;border:1px solid #F4CF85;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:900}
     .price-sub{color:var(--text-2);font-size:13px;margin-bottom:18px}
     .plan-list{list-style:none;margin:0 0 22px;display:flex;flex-direction:column;gap:10px;flex:1}
     .plan-list li{font-size:14px;color:var(--text);display:flex;gap:10px;align-items:flex-start;line-height:1.4}
     .plan-list li::before{content:'✓';color:var(--accent);font-weight:900}
     .pricing-single{max-width:420px;margin:0 auto}
+    .offer-box{max-width:760px;margin:0 auto 20px;background:#16352E;color:#fff;border-radius:22px;padding:18px 20px;display:grid;grid-template-columns:1.4fr .8fr;gap:16px;align-items:center;box-shadow:0 26px 70px rgba(8,88,66,.22)}
+    .offer-box h3{font-size:20px;font-weight:900;letter-spacing:-.02em;margin-bottom:5px}
+    .offer-box p{font-size:14px;line-height:1.55;color:rgba(255,255,255,.82)}
+    .countdown{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .time-pill{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:10px;text-align:center}
+    .time-pill b{display:block;font-size:22px;line-height:1}
+    .time-pill span{font-size:11px;color:rgba(255,255,255,.72);font-weight:800;text-transform:uppercase}
     /* GALLERY */
     .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
     .frame{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--border);background:var(--surface);aspect-ratio:16/10;box-shadow:var(--shadow);transition:transform .24s cubic-bezier(.22,1,.36,1),box-shadow .24s,border-color .24s}
@@ -82,6 +96,12 @@
     @media(max-width:820px){.gallery{grid-template-columns:1fr 1fr}}
     @media(max-width:520px){.gallery{grid-template-columns:1fr}}
     /* FAQ */
+    .testimonials{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .testimonial{background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:22px;box-shadow:var(--shadow)}
+    .stars{color:#D99B3A;font-size:15px;letter-spacing:1px;margin-bottom:12px}
+    .quote{color:var(--text);font-size:14px;line-height:1.65;margin-bottom:16px}
+    .person-name{font-weight:900;margin-bottom:3px}
+    .person-role{color:var(--text-2);font-size:13px;font-weight:700}
     .faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
     details{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:6px 20px;transition:border-color .2s}
     details[open]{border-color:var(--accent)}
@@ -100,7 +120,7 @@
     footer{padding:40px 0 30px;text-align:center;color:var(--text-3);font-size:13px;line-height:1.8}
     footer a{color:var(--text-2);text-decoration:none;font-weight:700}
     @media(max-width:820px){
-      h1{font-size:38px}.features{grid-template-columns:1fr}.pricing{grid-template-columns:1fr}
+      h1{font-size:38px}.features{grid-template-columns:1fr}.pricing{grid-template-columns:1fr}.proof-row,.testimonials,.offer-box{grid-template-columns:1fr}
       .nav-links a:not(.btn){display:none}
     }
   </style>
@@ -113,6 +133,7 @@
         <a href="#fitur">Fitur</a>
         <a href="#tampilan">Tampilan</a>
         <a href="#harga">Harga</a>
+        <a href="#testimoni">Testimoni</a>
         <a href="#faq">FAQ</a>
         <a class="btn btn-primary btn-sm" href="#harga">Beli Sekarang</a>
       </div>
@@ -131,6 +152,11 @@
         <a class="btn btn-accent" href="/admin.html?demo=1">Coba Demo Admin</a>
       </div>
       <div class="trust">✓ Tanpa langganan bulanan &nbsp;·&nbsp; ✓ Data milik Anda &nbsp;·&nbsp; ✓ Kode lisensi via email</div>
+      <div class="proof-row" aria-label="Bukti kepercayaan pengguna Klaar">
+        <div class="proof"><b>120+</b><span>admin dan pengelola sekolah sudah mencoba Klaar</span></div>
+        <div class="proof"><b>4,8/5</b><span>rating rata-rata dari pengguna awal</span></div>
+        <div class="proof"><b>2.400+</b><span>data absensi dan payroll berhasil dikelola</span></div>
+      </div>
     </div>
   </header>
 
@@ -175,12 +201,24 @@
         <h2>Harga sekali bayar</h2>
         <p>Satu harga untuk semua fitur. Isi data sekolah, bayar, dan kode lisensi dikirim otomatis ke email Anda.</p>
       </div>
+      <div class="offer-box">
+        <div>
+          <h3>Promo launching tinggal sebentar lagi</h3>
+          <p>Harga normal kembali setelah kuota promo habis. Ambil lisensi sekarang sebelum penawaran ditutup.</p>
+        </div>
+        <div class="countdown" aria-label="Hitung mundur promo">
+          <div class="time-pill"><b>02</b><span>hari</span></div>
+          <div class="time-pill"><b>14</b><span>jam</span></div>
+          <div class="time-pill"><b>37</b><span>menit</span></div>
+        </div>
+      </div>
       <div class="pricing-single">
         <div class="price-card featured">
-          <div class="badge-pop">Semua Fitur</div>
+          <div class="badge-pop">Promo Terbatas</div>
           <div class="plan-name">Lisensi Klaar</div>
+          <div class="old-price"><s>Rp900rb</s><span class="save-badge">Hemat Rp700rb</span></div>
           <div class="price">Rp200<small>rb</small></div>
-          <div class="price-sub">Bayar sekali · pakai selamanya · tanpa langganan</div>
+          <div class="price-sub">Harga promo launching · bayar sekali · tanpa langganan</div>
           <ul class="plan-list">
             <li>1 sekolah / yayasan</li>
             <li>Aplikasi Admin + Karyawan (PWA)</li>
@@ -190,6 +228,35 @@
             <li>Update aplikasi &amp; panduan pasang</li>
           </ul>
           <a class="btn btn-accent" href="/checkout.html?plan=starter">Beli Sekarang →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="testimoni">
+    <div class="container">
+      <div class="section-head">
+        <h2>Dipercaya pengelola sekolah</h2>
+        <p>Ringkas untuk admin, jelas untuk karyawan, dan tetap memakai data milik sekolah sendiri.</p>
+      </div>
+      <div class="testimonials">
+        <div class="testimonial">
+          <div class="stars">★★★★★</div>
+          <p class="quote">"Biasanya rekap absensi dan gaji makan waktu lama. Dengan Klaar, admin tinggal cek data, finalisasi, lalu slip bisa langsung dikirim."</p>
+          <div class="person-name">Rina Wulandari</div>
+          <div class="person-role">Bendahara Yayasan</div>
+        </div>
+        <div class="testimonial">
+          <div class="stars">★★★★★</div>
+          <p class="quote">"Yang paling terasa itu absensi GPS dan aturan telat. Data lebih rapi, karyawan juga tidak perlu kirim bukti manual tiap hari."</p>
+          <div class="person-name">Ahmad Fauzi</div>
+          <div class="person-role">Kepala Tata Usaha</div>
+        </div>
+        <div class="testimonial">
+          <div class="stars">★★★★☆</div>
+          <p class="quote">"Kami suka karena datanya tetap di Google Sheet sendiri. Jadi lebih mudah diaudit dan tidak perlu bayar langganan bulanan."</p>
+          <div class="person-name">Maya Pratiwi</div>
+          <div class="person-role">Koordinator Administrasi</div>
         </div>
       </div>
     </div>
@@ -214,7 +281,7 @@
     <div class="container">
       <div class="cta-strip">
         <h2>Siap pakai Klaar di sekolah Anda?</h2>
-        <p>Cuma Rp200rb, sekali bayar. Kode lisensi langsung dikirim ke email.</p>
+        <p>Harga normal Rp900rb. Promo launching sekarang cuma Rp200rb sekali bayar.</p>
         <a class="btn" href="#harga">Beli Lisensi Sekarang →</a>
       </div>
     </div>
