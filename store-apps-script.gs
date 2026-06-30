@@ -10,7 +10,13 @@
  *   5. Ganti SELLER_EMAIL_FROM_NAME, PAY_INFO, dan harga PLAN_PRICES sesuai kebutuhan.
  *   6. Deploy -> New deployment -> Web app -> Execute as: Me -> Who has access: Anyone -> Deploy.
  *   7. Salin Web App URL (/exec) -> isikan ke STORE_SERVER_URL di checkout.html & seller-admin.html.
+ *   8. (OPSIONAL) Untuk Midtrans, daftar di Midtrans, ambil Server Key (Sandbox/Production), lalu isi di bawah.
+ *      Seting Notification URL di dashboard Midtrans ke Web App URL Anda.
  */
+
+// ====== KONFIGURASI MIDTRANS ======
+const MIDTRANS_SERVER_KEY = 'SB-Mid-server-xxxxxx'; // Ganti dengan Server Key Anda
+const MIDTRANS_IS_PRODUCTION = false; // Ubah ke true jika sudah live
 
 // ====== KONFIGURASI WAJIB DIGANTI ======
 // HARUS SAMA PERSIS dengan LICENSE_SECRET di admin.html dan master-apps-script-v5.gs.
@@ -61,6 +67,14 @@ function doGet(e){
   return ContentService.createTextOutput(cb + '(' + JSON.stringify(out) + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 function doPost(e){
+  if(e && e.postData && e.postData.contents){
+    try{
+      var payload = JSON.parse(e.postData.contents);
+      if(payload && payload.transaction_status && payload.order_id){
+        return handleMidtransWebhook_(payload);
+      }
+    }catch(err){}
+  }
   const p = Object.assign({}, e.parameter || {});
   const cb = p.callback || 'callback';
   let out;
@@ -145,8 +159,60 @@ function createOrder_(p){
   if(!PLAN_PRICES.hasOwnProperty(plan)) plan = 'starter';
   var amount = PLAN_PRICES[plan] || 0;
   var orderId = newOrderId_();
+  
+  // Midtrans Integration
+  var snapToken = '';
+  if(MIDTRANS_SERVER_KEY && MIDTRANS_SERVER_KEY !== 'SB-Mid-server-xxxxxx'){
+    var snapUrl = MIDTRANS_IS_PRODUCTION ? 'https://app.midtrans.com/snap/v1/transactions' : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+    var payload = {
+      transaction_details: { order_id: orderId, gross_amount: amount },
+      customer_details: { first_name: school, email: email }
+    };
+    var options = {
+      method: 'post',
+      headers: {
+        'Authorization': 'Basic ' + Utilities.base64Encode(MIDTRANS_SERVER_KEY + ':'),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+    var response = UrlFetchApp.fetch(snapUrl, options);
+    var resJson = JSON.parse(response.getContentText());
+    if(resJson && resJson.token) snapToken = resJson.token;
+  }
+
   sh_(ORDERS_SHEET).appendRow([orderId, school, email, plan, amount, 'pending', '', new Date(), '', '', '', buyerNotes]);
-  return {ok:true, orderId:orderId, school:school, email:email, plan:plan, amount:amount, payInfo:PAY_INFO};
+  return {ok:true, orderId:orderId, school:school, email:email, plan:plan, amount:amount, payInfo:PAY_INFO, snapToken: snapToken};
+}
+
+// ====== MIDTRANS WEBHOOK ======
+function handleMidtransWebhook_(payload){
+  try{
+    var status = payload.transaction_status;
+    if(status === 'settlement' || status === 'capture'){
+      var orderId = payload.order_id;
+      var row = findOrderRow_(orderId);
+      if(row){
+        var sheet = sh_(ORDERS_SHEET);
+        var vals = sheet.getRange(row, 1, 1, ORDER_HEADERS.length).getValues()[0];
+        var currentStatus = String(vals[5] || '').trim();
+        if(currentStatus !== 'paid'){
+          var o = rowToOrder_(vals);
+          var token = signLicense_(o.school, o.plan);
+          sheet.getRange(row, 6).setValue('paid');
+          sheet.getRange(row, 7).setValue(token);
+          sheet.getRange(row, 9).setValue(new Date());
+          sheet.getRange(row, 10).setValue('Auto-confirmed by Midtrans');
+          sendLicenseEmail_(o.email, o.school, token);
+        }
+      }
+    }
+    return ContentService.createTextOutput('OK').setMimeType(ContentService.MimeType.TEXT);
+  }catch(e){
+    return ContentService.createTextOutput('Error').setMimeType(ContentService.MimeType.TEXT);
+  }
 }
 
 function updatePaymentProof_(p){
