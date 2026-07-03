@@ -31,8 +31,8 @@ Paket ini dibuat sebagai paket bersih untuk deploy baru Klaar. File inti sudah b
 Aplikasi kini hanya menerima **kode lisensi bertanda tangan** (token `KLAAR.xxxx.xxxx`) yang diterbitkan
 Klaar Store. Kode mengikat ke nama sekolah dan diverifikasi (HMAC-SHA256) di frontend dan backend pembeli
 — **tanpa perlu server pusat selalu online**. Lihat `PANDUAN_DEPLOY.md` bagian "Set LICENSE_SECRET" dan
-"Deploy Klaar Store". Wajib set `LICENSE_SECRET` yang sama di `admin.html`, `master-apps-script-v5.gs`,
-dan `store-apps-script.gs`.
+"Deploy Klaar Store". Wajib set `LICENSE_SECRET` yang sama di `master-apps-script-v5.gs`
+dan `store-apps-script.gs` (backend saja — frontend tidak menyimpan secret).
 
 ## Default demo
 

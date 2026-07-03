@@ -52,7 +52,7 @@ Ikuti urut. Centang tiap selesai. Tanda 🧑 = kamu klik sendiri, 🤖 = Claude 
 ---
 
 ## Catatan penting
-- `LICENSE_SECRET` HARUS sama di `admin.html`, `master-apps-script-v5.gs`, `store-apps-script.gs`. (Sudah sama ✔)
+- `LICENSE_SECRET` HARUS sama di `master-apps-script-v5.gs` & `store-apps-script.gs` (backend saja; `admin.html` tidak menyimpan secret). **WAJIB ganti dari nilai default `GANTI_SECRET_INI_...` ke string acak min. 40 karakter sebelum jualan** — kalau tidak, siapa pun bisa membuat lisensi palsu.
 - Jangan bagikan `LICENSE_SECRET` ke siapa pun — itu kunci pembuat lisensi.
 - Tiap kali ubah file `.gs`, harus **Deploy versi baru** di Apps Script (bukan cuma Save).
 - Tiap kali ubah file `.html`, jalankan `vercel --prod --yes` lagi.

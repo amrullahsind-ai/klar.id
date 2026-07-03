@@ -41,13 +41,15 @@
 
 Sejak versi ini, app hanya menerima kode lisensi bertanda tangan dari Klaar Store.
 Tanda tangannya memakai `LICENSE_SECRET`. **Secret ini WAJIB diganti dengan string acak panjang
-(min. 40 karakter) dan HARUS SAMA PERSIS di 3 tempat:**
+(min. 40 karakter) dan HARUS SAMA PERSIS di 2 tempat:**
 
 1. `store-apps-script.gs`  → `const LICENSE_SECRET = '...'`
 2. `master-apps-script-v5.gs` → `const LICENSE_SECRET = '...'`
-3. `admin.html` → `const LICENSE_SECRET='...'`
 
-Kalau ketiganya tidak sama, token yang diterbitkan Store akan ditolak saat aktivasi.
+> Catatan: `admin.html` **tidak lagi** menyimpan secret. Verifikasi HMAC hanya terjadi di backend
+> (Apps Script) demi keamanan, jadi jangan cari `LICENSE_SECRET` di frontend.
+
+Kalau keduanya tidak sama, token yang diterbitkan Store akan ditolak saat aktivasi.
 Jaga kerahasiaan secret ini — siapa pun yang tahu secret bisa membuat lisensi sendiri.
 
 > Catatan: kode lisensi lama `EDUPAY-*` tidak lagi berlaku. Untuk pengujian sementara tanpa Store,
