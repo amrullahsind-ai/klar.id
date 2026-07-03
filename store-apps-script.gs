@@ -5,7 +5,7 @@
  * Deploy:
  *   1. Buat Google Sheet baru, beri nama "Klaar Store DB".
  *   2. Extensions -> Apps Script -> hapus kode lama -> paste file ini -> Save.
- *   3. WAJIB: ganti LICENSE_SECRET (harus SAMA PERSIS dengan di admin.html & master-apps-script-v5.gs).
+ *   3. WAJIB: ganti LICENSE_SECRET (harus SAMA PERSIS dengan di master-apps-script-v5.gs; frontend tidak menyimpan secret).
  *   4. WAJIB: ganti ADMIN_PASS_HASH (jalankan genSellerHash('passwordmu') di editor, salin hasilnya).
  *   5. Ganti SELLER_EMAIL_FROM_NAME, PAY_INFO, dan harga PLAN_PRICES sesuai kebutuhan.
  *   6. Deploy -> New deployment -> Web app -> Execute as: Me -> Who has access: Anyone -> Deploy.
@@ -19,8 +19,9 @@ const MIDTRANS_SERVER_KEY = 'SB-Mid-server-xxxxxx'; // Ganti dengan Server Key A
 const MIDTRANS_IS_PRODUCTION = false; // Ubah ke true jika sudah live
 
 // ====== KONFIGURASI WAJIB DIGANTI ======
-// HARUS SAMA PERSIS dengan LICENSE_SECRET di admin.html dan master-apps-script-v5.gs.
-const LICENSE_SECRET = 'klaar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
+// HARUS SAMA PERSIS dengan LICENSE_SECRET di master-apps-script-v5.gs (backend pembeli).
+// !!! JANGAN dibiarkan default: siapa pun yang tahu secret bisa membuat lisensi palsu. !!!
+const LICENSE_SECRET = 'GANTI_SECRET_INI_DENGAN_ACAK_MIN_40_KARAKTER';
 const LICENSE_PREFIX = 'KLAAR';
 
 // Hash password panel penjual. Default di bawah = password 'klaarstore2026'.

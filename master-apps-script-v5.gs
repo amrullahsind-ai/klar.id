@@ -10,10 +10,12 @@ const BROKEN_SHEET = '_database_broken';
 const DEFAULT_LICENSE = 'EDUPAY-DEMO-0001';
 
 // === GERBANG LISENSI ===
-// LICENSE_SECRET WAJIB diganti dengan string acak panjang, dan HARUS SAMA PERSIS di:
-//   store-apps-script.gs (yang menandatangani), admin.html, dan file ini.
+// LICENSE_SECRET WAJIB diganti dengan string acak panjang (min. 40 karakter),
+// dan HARUS SAMA PERSIS di store-apps-script.gs (yang menandatangani) dan file ini.
+// admin.html TIDAK menyimpan secret — verifikasi hanya di backend.
 // Jika tidak sama, token terbitan Klaar Store akan ditolak.
-const LICENSE_SECRET = 'klaar_2026_R4nd0mSecretSuperPanjangJanganDikasihSiapaPun_92817';
+// !!! JANGAN dibiarkan default: siapa pun yang tahu secret bisa membuat lisensi palsu. !!!
+const LICENSE_SECRET = 'GANTI_SECRET_INI_DENGAN_ACAK_MIN_40_KARAKTER';
 // true = wajib token bertanda tangan dari Klaar Store. Set false hanya untuk pengembangan.
 const REQUIRE_SIGNED_LICENSE = true;
 // Prefix token lisensi Klaar.

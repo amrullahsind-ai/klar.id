@@ -34,3 +34,10 @@ Import tetap harus dicek lewat preview. Payroll adalah data sensitif, jadi Klaar
 - Kolom masa kerja, join date, grade khusus, unit, rekening, dan gaji payroll seperti GAJI POKOK/TUNJANGAN/POTONGAN/GAJI BERSIH ikut dibaca.
 - Preview import sekarang menampilkan hasil terjemahan: Nama, Kode Slip, NRK, Jabatan, Golongan, Masa Kerja, Gaji Pokok, Tunjangan, Potongan, dan Gaji Bersih.
 - Sheet PER UNIT cocok dijadikan Payroll Awal, ABSENSI PER TMT cocok jadi master karyawan, Gapok jadi Golongan, dan TJ. FUNGSIONAL jadi Jabatan.
+
+## Update V6.2 Nominal Payroll Masuk ke Aturan Gaji
+- Import payroll (mis. sheet `PER UNIT`) kini otomatis **menurunkan Aturan Gaji**: nominal per golongan (gaji pokok + tunjangan hadir per grade khusus), per jabatan (tunjangan fungsional + rumah per kode jabatan), dan semua tunjangan/potongan lain sebagai komponen — bukan hanya masuk snapshot payroll.
+- Nominal golongan dipakai nilai **modal** (paling sering muncul) per kode grade khusus, jadi tiap golongan punya angka sendiri sesuai Excel.
+- Aturan yang sudah diisi sheet Gapok/TJ. FUNGSIONAL atau diedit admin **tidak ditimpa**; import hanya mengisi field yang masih kosong.
+- Angka payroll bulan yang diimport tetap **persis sama dengan Excel** (snapshot); Aturan Gaji terisi untuk dilihat/diedit dan dipakai bulan berikutnya.
+- Deteksi sheet kini berbasis **isi** (kolom identitas + kolom uang), bukan hanya nama sheet, agar template beragam dari berbagai sekolah tetap tertangkap.
