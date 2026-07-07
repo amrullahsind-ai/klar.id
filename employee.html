@@ -1,27 +1,464 @@
 <!DOCTYPE html>
-<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Klaar Hadir</title><link rel="manifest" href="employee-manifest.json"><style>
-:root{--primary:#085842;--accent:#39AE89;--bg:#F5FBF8;--surface:#fff;--surface2:#EAF6F0;--text:#16352E;--muted:#5F786F;--border:#D7E7E0;--danger:#D9534F;--warning:#D99B3A;--success:#37A35F;--shadow:0 18px 45px rgba(15,23,42,.08);--radius:22px;--logo-size:58px;--logo-fit:cover;--logo-x:50%;--logo-y:50%}
-[data-theme="dark"]{--bg:#F5FBF8;--surface:#16352E;--surface2:#EAF6F0;--text:#16352E;--muted:#5F786F;--border:#D7E7E0;--shadow:0 18px 45px rgba(0,0,0,.35)}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(135deg,var(--bg),var(--surface2));color:var(--text)}button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:11px 12px;outline:none;width:100%;min-width:0}textarea{min-height:82px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary),transparent 86%)}.hidden{display:none!important}.muted{color:var(--muted)}.screen{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px;background:linear-gradient(135deg,var(--bg),var(--surface2))}.screen-card{width:min(560px,100%);background:var(--surface);border:1px solid var(--border);border-radius:28px;box-shadow:var(--shadow);padding:24px}.logo{width:var(--logo-size);height:var(--logo-size);border-radius:18px;overflow:hidden;display:grid;place-items:center;color:white;font-weight:950;background:linear-gradient(135deg,var(--primary),var(--accent));flex:0 0 auto}.logo img{width:100%;height:100%;object-fit:var(--logo-fit);object-position:var(--logo-x) var(--logo-y)}.app{display:grid;grid-template-columns:292px 1fr;min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;overflow:auto;padding:22px;border-right:1px solid var(--border);background:rgba(255,255,255,.74);backdrop-filter:blur(18px)}[data-theme="dark"] .sidebar{background:rgba(15,23,42,.78)}.brand{display:flex;gap:12px;align-items:center;margin-bottom:20px;min-width:0}.brand h1{margin:0;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}.brand p{margin:3px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}.nav{display:grid;gap:8px}.nav button{border:0;background:transparent;color:var(--muted);text-align:left;padding:12px 14px;border-radius:15px;font-weight:850;display:flex;gap:10px;align-items:center}.nav button.active{color:white;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary),#000 15%));box-shadow:0 12px 22px color-mix(in srgb,var(--primary),transparent 76%)}.note{margin-top:18px;background:var(--surface2);border:1px solid var(--border);border-radius:18px;padding:14px;color:var(--muted);font-size:13px;line-height:1.5}.main{padding:28px;overflow:hidden}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}.title h2{margin:0;font-size:31px;letter-spacing:-.02em}.title p{margin:7px 0 0;color:var(--muted);line-height:1.5}.toolbar,.actions,.filters{display:flex;gap:10px;flex-wrap:wrap}.toolbar{justify-content:flex-end}.btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:14px;padding:10px 13px;font-weight:900;box-shadow:0 8px 22px rgba(15,23,42,.05)}.btn.primary{background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary),#000 14%));color:white;border-color:transparent}.btn.success{background:var(--success);color:white;border-color:transparent}.btn.danger{background:var(--danger);color:white;border-color:transparent}.btn.warn{background:var(--warning);color:#111827;border-color:transparent}.btn.small{font-size:12px;padding:7px 10px;border-radius:12px}.section{display:none;animation:fade .18s ease}.section.active{display:block}@keyframes fade{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}.grid{display:grid;gap:16px}.cards{grid-template-columns:repeat(4,minmax(170px,1fr))}.split{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start}.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;overflow:hidden}.card h3{margin:0 0 12px}.stat{min-height:132px;display:flex;flex-direction:column;justify-content:space-between;text-align:left}.stat-label{font-size:13px;color:var(--muted);font-weight:850}.stat-value{font-weight:950;letter-spacing:-.02em;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.money-fit{font-size:28px}.click-value{cursor:pointer}.click-value:hover{text-decoration:underline;text-decoration-color:var(--primary)}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:7px;min-width:0}.field label{font-size:12px;font-weight:950;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.wide{grid-column:1/-1}.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:18px;background:var(--surface)}table{width:100%;border-collapse:separate;border-spacing:0;min-width:880px}th,td{padding:12px 13px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}th{background:var(--surface2);color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;z-index:1;white-space:nowrap}td{font-size:14px}tr:last-child td{border-bottom:0}.money{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:900}.person{display:flex;gap:10px;align-items:center;min-width:230px}.avatar{width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:white;font-weight:950;flex:0 0 auto;overflow:hidden}.pmeta{min-width:0}.pname{font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}.psub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}.badge{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:950;border:1px solid var(--border);background:var(--surface2);color:var(--muted);white-space:nowrap}.badge.ok{color:var(--success);background:color-mix(in srgb,var(--success),transparent 88%);border-color:color-mix(in srgb,var(--success),transparent 70%)}.badge.warn{color:var(--warning);background:color-mix(in srgb,var(--warning),transparent 88%);border-color:color-mix(in srgb,var(--warning),transparent 70%)}.badge.bad{color:var(--danger);background:color-mix(in srgb,var(--danger),transparent 88%);border-color:color-mix(in srgb,var(--danger),transparent 70%)}.divider{height:1px;background:var(--border);margin:14px 0}.empty{text-align:center;color:var(--muted);padding:24px}.filters{margin-bottom:14px}.filters input,.filters select{min-width:160px;width:auto}.modal-bg{position:fixed;inset:0;background:rgba(2,6,23,.58);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal-bg.show{display:flex}.modal{width:min(980px,100%);max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:26px;padding:20px;box-shadow:0 25px 85px rgba(0,0,0,.35)}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}.modal-head h3{margin:0;font-size:22px}.modal-head p{margin:5px 0 0;color:var(--muted)}.slip{background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:22px;max-width:860px;margin:auto}.slip-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;border-bottom:3px solid var(--primary);padding-bottom:15px;margin-bottom:16px}.slip-brand{display:flex;gap:12px;align-items:center;min-width:0}.slip-brand h4{margin:0;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:480px}.slip-brand p{margin:4px 0 0;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:480px}.slip-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.slip-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed var(--border)}.slip-row strong{white-space:nowrap}.total{display:flex;justify-content:space-between;gap:12px;margin-top:14px;padding:15px;border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--primary),transparent 87%),color-mix(in srgb,var(--accent),transparent 89%));font-size:19px;font-weight:950}.bar-row{display:grid;grid-template-columns:145px 1fr 115px;gap:10px;align-items:center;margin:10px 0}.bar-label{font-size:13px;color:var(--muted);font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar{height:14px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:999px}.bar-value{text-align:right;font-weight:950;white-space:nowrap}.preview-logo{width:160px;height:160px;border-radius:24px;border:1px solid var(--border);background:var(--surface2);display:grid;place-items:center;overflow:hidden}.preview-logo img{width:100%;height:100%;object-fit:var(--logo-fit);object-position:var(--logo-x) var(--logo-y)}.toast{position:fixed;right:18px;bottom:18px;z-index:90;background:var(--text);color:var(--surface);padding:12px 14px;border-radius:15px;box-shadow:var(--shadow);font-weight:900}@media print{body{background:white;color:#111}.sidebar,.top,.no-print,.modal-head .btn{display:none!important}.app{display:block}.main{padding:0}.modal-bg{position:static;display:block;background:white;padding:0}.modal{box-shadow:none;border:0;max-height:none;width:100%;padding:0}.slip{border:0;max-width:100%;color:#111}.slip-row{border-color:#ddd}}@media(max-width:1150px){.app{grid-template-columns:1fr}.sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:30;padding:8px;border-right:0;border-top:1px solid var(--border)}.brand,.note{display:none}.nav{grid-template-columns:repeat(4,1fr);gap:4px}.nav button{justify-content:center;text-align:center;flex-direction:column;font-size:11px;padding:8px 6px}.main{padding:20px 14px 135px}.top{flex-direction:column}.toolbar{justify-content:flex-start}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}}@media(max-width:720px){.cards{grid-template-columns:1fr}.form{grid-template-columns:1fr}.title h2{font-size:24px}.slip-grid{grid-template-columns:1fr}.bar-row{grid-template-columns:1fr}.bar-value{text-align:left}.slip-head{flex-direction:column}}
-.employee-app{max-width:760px;margin:auto;padding:18px}.hero{background:var(--surface);border:1px solid var(--border);border-radius:28px;box-shadow:var(--shadow);padding:22px;margin-bottom:16px}.bigbtn{width:100%;padding:16px;border-radius:18px;font-size:18px}</style></head><body>
-<div class="screen" id="activationScreen"><div class="screen-card"><div class="logo">KH</div><h2 style="margin:14px 0 6px">Klaar Hadir</h2><p class="muted">Masukkan server dan kode lisensi sekolah.</p><form class="form" id="activationForm"><div class="field wide"><label>License Server URL</label><input id="serverUrl" required></div><div class="field wide"><label>Kode Lisensi</label><input id="licenseCode" value="EDUPAY-DEMO-0001" required></div><button class="btn primary wide">Lanjut Login</button></form></div></div>
-<div class="screen hidden" id="loginScreen"><div class="screen-card"><div class="logo">KH</div><h2 style="margin:14px 0 6px">Masuk Klaar Hadir</h2><p class="muted" id="connNote" style="margin:0 0 6px;color:var(--success);font-weight:850"></p><p class="muted">Masukkan NIP/Login/Nama dan password. Untuk karyawan hasil import Excel, default password adalah 1234 sampai admin menggantinya.</p><form class="form" id="loginForm"><div class="field wide"><label>NIP / Login</label><input id="nip" placeholder="G-001" required></div><div class="field wide"><label>PIN</label><input id="pin" type="password" required></div><button class="btn primary wide">Masuk</button></form><div class="actions" style="margin-top:12px"><button class="btn small" type="button" id="changeServerLogin">Ganti Server/Kode Lisensi</button></div></div></div>
-<main class="employee-app hidden" id="app"><div class="hero"><div style="display:flex;gap:12px;align-items:center"><div class="logo">KH</div><div><h2 style="margin:0" id="empName">Karyawan</h2><p class="muted" id="schoolName" style="margin:3px 0 0">Klaar Hadir</p></div></div><div class="divider"></div><div id="todayBox"></div><div class="actions" style="margin-top:14px"><button class="btn primary bigbtn" id="checkIn">Check-in</button><button class="btn success bigbtn" id="checkOut">Check-out</button></div><p class="muted" id="geoStatus"></p></div>
-<div class="grid"><div class="card"><h3>Profil Saya</h3><div id="profileBox"></div><div class="divider"></div><h3>Ganti Password</h3><form class="form" id="passForm"><div class="field"><label>Password baru</label><input id="newPass" type="password" minlength="4" required></div><div class="field"><label>Ulangi password baru</label><input id="newPass2" type="password" minlength="4" required></div><button class="btn primary wide">Simpan Password</button></form><p class="muted">Password tersimpan di server melalui kode lisensi, bukan di spreadsheet manual karyawan.</p></div><div class="card"><h3>Ajukan Izin / Sakit</h3><form class="form" id="requestForm"><div class="field"><label>Tanggal</label><input id="reqDate" type="date" required></div><div class="field"><label>Jenis</label><select id="reqType"><option value="izin">Izin</option><option value="sakit">Sakit</option></select></div><div class="field wide"><label>Alasan</label><textarea id="reqReason" required></textarea></div><div class="field wide"><label>Bukti / Catatan bukti (opsional)</label><input id="reqProof" placeholder="Contoh: surat dokter, foto, atau catatan"></div><button class="btn primary wide">Kirim Pengajuan</button></form></div><div class="card"><h3>Riwayat Saya</h3><div id="historyBox"></div></div><div class="card"><h3>Slip Gaji Saya</h3><div id="slipBox"></div></div><div class="actions"><button class="btn" id="reload">Refresh Data</button><button class="btn danger" id="logout">Keluar</button></div></div></main>
-<iframe name="syncFrame" class="hidden"></iframe><script>
-const SALT='|edupay-v4-final-rebuild', SERVER_KEY='edupay_emp_server', LICENSE_KEY='edupay_emp_license', SERVER_DRAFT_KEY='edupay_emp_server_draft', LICENSE_DRAFT_KEY='edupay_emp_license_draft', NIP_KEY='edupay_emp_nip', PINHASH_KEY='edupay_emp_pinhash';
-const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, today=()=>dateKeyLocal(), fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,'');
-let serverUrl=localStorage.getItem(SERVER_KEY)||'', license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
-function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}function show(id){['activationScreen','loginScreen','app'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden');if(id==='loginScreen'){let cn=$('connNote');if(cn)cn.textContent=serverUrl&&license?'✓ Sudah tersambung ke server sekolah. Tinggal login.':'';if(prefNip&&$('nip')&&!$('nip').value){$('nip').value=prefNip;if($('pin'))setTimeout(()=>$('pin').focus(),50)}}}
-function applyLinkToken(){try{let m=(location.hash||'').match(/[#&]k=([^&]+)/);if(!m)return;let raw=m[1].replace(/-/g,'+').replace(/_/g,'/');while(raw.length%4)raw+='=';let obj=JSON.parse(decodeURIComponent(escape(atob(raw))));if(obj&&obj.s&&obj.l){let ns=normalizeServerUrl(obj.s),nl=String(obj.l);if(ns!==serverUrl||nl!==license){nip='';pinHash='';localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY)}serverUrl=ns;license=nl;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);if(obj.n)prefNip=String(obj.n)}}catch(e){}finally{try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}}
-function boot(){applyLinkToken();if(!serverUrl||!license)show('activationScreen');else if(!nip||!pinHash)show('loginScreen');else loadEmployee().then(()=>show('app')).catch(e=>{alert(e.message);show('loginScreen')})}
-function jsonp(action,extra={}){return new Promise((resolve,reject)=>{let cb='emp_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script'),sep=serverUrl.includes('?')?'&':'?';let params=new URLSearchParams(Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName(),callback:cb,t:Date.now()},extra));let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi'))},16000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=r=>{cleanup();resolve(r)};script.onerror=()=>{cleanup();reject(new Error('Gagal akses server. Cek License Server URL: harus URL Apps Script Web App yang berakhiran /exec, bukan link Vercel/GitHub. Pastikan deployment: Execute as Me, Anyone with the link.'))};script.src=serverUrl+sep+params.toString();document.body.appendChild(script)})}
-async function loadEmployee(){let res=await jsonp('loadEmployee');if(!res.ok)throw new Error(res.error||'Login/load gagal');state=res;render()}function setBusy(on,msg){['checkIn','checkOut','reload'].forEach(id=>{if($(id))$(id).disabled=on});$('geoStatus').textContent=msg||''}async function runAction(action,fields,msg){setBusy(true,msg||'Mengirim data...');let res=await jsonp(action,fields||{});if(!res.ok)throw new Error(res.error||'Gagal mengirim data');$('geoStatus').textContent=res.record?.message||res.record?.checkoutMessage||res.message||'Berhasil. Memperbarui status...';await loadEmployee();setBusy(false,'Status sudah diperbarui.');return res}function getGPS(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:18000,maximumAge:0}))}
-function timeToMinLocal(v){let m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1]*60+(+m[2])):null}function employeeRecLate(r){if(!r||!r.checkInTime||['izin','sakit','alpha','pending'].includes(String(r.status||'').toLowerCase()))return false;if(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)return false;if(r.status==='telat'||r.isLate)return true;let n=timeToMinLocal(r.checkInTime),l=timeToMinLocal(r.lateAfter||'07:15');return n!=null&&l!=null&&n>l}function employeeLateMinutes(r){let n=timeToMinLocal(r?.checkInTime),l=timeToMinLocal(r?.lateAfter||'07:15');return n!=null&&l!=null?Math.max(0,n-l):(r?.lateMinutes||0)}function normalizeEmployeeRec(r){if(r&&(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)){r.status='hadir';r.isLate=false;return r;}if(employeeRecLate(r)){r.status='telat';r.isLate=true;r.lateMinutes=r.lateMinutes||employeeLateMinutes(r);r.lateAfter=r.lateAfter||'07:15'}return r}function statusLabel(r){normalizeEmployeeRec(r);return !r?'Belum absen':(r.status==='telat'||r.isLate?'Telat':r.status)}function statusBadge(r){normalizeEmployeeRec(r);return !r?'badge warn':(r.status==='alpha'?'badge bad':(r.status==='telat'||r.isLate?'badge warn':'badge ok'))}function render(){if(!state)return;let e=state.employee,r=normalizeEmployeeRec(state.todayRecord);$('empName').textContent=e.name;$('schoolName').textContent=state.school||'Klaar Hadir';$('reqDate').value=today();$('profileBox').innerHTML=`<div class="slip-row"><span>Nama</span><strong>${esc(e.name)}</strong></div><div class="slip-row"><span>Login</span><strong>${esc(e.loginName||e.name)}</strong></div><div class="slip-row"><span>NIP/ID</span><strong>${esc(e.nip)}</strong></div><div class="slip-row"><span>Jabatan</span><strong>${esc(e.positionName||'-')}</strong></div><div class="slip-row"><span>Golongan</span><strong>${esc(e.gradeName||'-')}</strong></div><div class="slip-row"><span>Status</span><strong>${esc(e.status||'-')}</strong></div><div class="slip-row"><span>Masa kerja</span><strong>${esc(e.years||0)} tahun</strong></div><div class="slip-row"><span>Rekening</span><strong>${esc(e.bank||'-')}</strong></div><div class="slip-row"><span>No. HP</span><strong>${esc(e.phone||'-')}</strong></div><div class="slip-row"><span>Device ini</span><strong>${esc(state.deviceStatus||'aktif')}</strong></div>`;$('todayBox').innerHTML=`${state.todayRequest?'<div class="slip-row"><span>Pengajuan hari ini</span><strong>Menunggu approval admin</strong></div>':''}<div class="slip-row"><span>Tanggal</span><strong>${today()}</strong></div><div class="slip-row"><span>Status</span><strong><span class="${statusBadge(r)}">${esc(statusLabel(r))}</span></strong></div><div class="slip-row"><span>Check-in</span><strong>${esc(r?.checkInTime||'-')}${r?.isLate?` <span class="badge warn">+${esc(r.lateMinutes||0)} menit</span>`:''}</strong></div>${r?.isLate?`<div class="slip-row"><span>Batas telat</span><strong>${esc(r.lateAfter||'-')}</strong></div>`:''}${r?.lateApproved?`<div class="slip-row"><span>Catatan</span><strong>Telat di-ACC admin sebagai hadir</strong></div>`:''}<div class="slip-row"><span>Check-out</span><strong>${esc(r?.checkOutTime||'-')}</strong></div><div class="slip-row"><span>Lokasi diterima</span><strong>${esc(r?.locationName||'-')}</strong></div><div class="slip-row"><span>Jarak check-in</span><strong>${r?.distanceMeters!=null?Math.round(r.distanceMeters)+'m':'-'}</strong></div><div class="slip-row"><span>Akurasi GPS</span><strong>${r?.accuracy!=null?Math.round(r.accuracy)+'m':'-'}</strong></div>`;let alreadyIn=!!(r&&r.checkInTime),blocked=!!(r&&['izin','sakit','alpha'].includes(r.status));$('checkIn').disabled=alreadyIn||blocked;$('checkOut').disabled=!alreadyIn||!!(r&&r.checkOutTime);if(alreadyIn)$('geoStatus').textContent=(r?.isLate?'Anda sudah check-in hari ini dengan status TELAT.':'Anda sudah check-in hari ini.')+' Check-in ulang hanya bisa jika admin menghapus status absensi hari ini.';else if(blocked)$('geoStatus').textContent='Status hari ini sudah '+r.status+'. Jika perlu check-in, minta admin hapus status tersebut.';else if(state.todayRequest)$('geoStatus').textContent='Pengajuan absensi hari ini sudah dikirim dan menunggu persetujuan admin.';$('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`<div class="slip-row"><span><b>${esc(x.date)}</b><br><span class="muted">${esc(x.reason||x.message||'')}</span></span><strong>${esc(x.status==='telat'||x.isLate?'telat':x.status)}${x.isLate&&x.lateMinutes?' (+'+esc(x.lateMinutes)+' menit)':''}</strong></div>`).join(''):'<div class="empty">Belum ada riwayat.</div>';$('slipBox').innerHTML=state.slip?`<div class="slip-row"><span>Periode</span><strong>${esc(state.slip.month)}</strong></div><div class="slip-row"><span>Hadir/Izin/Sakit</span><strong>${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}</strong></div><div class="slip-row"><span>Alpha/Telat</span><strong>${state.slip.summary.alpha}/${state.slip.summary.telat}</strong></div><div class="total"><span>Gaji Bersih</span><span>${rp(state.slip.net)}</span></div><div class="actions" style="margin-top:12px"><button class="btn primary" id="printSlipBtn">Print / Save PDF</button><button class="btn" id="copySlipBtn">Copy Ringkasan</button></div>`:'<div class="empty">Slip belum dikirim admin. Setelah admin klik Kirim Slip, tekan Refresh Data.</div>'}
-$('serverUrl').addEventListener('input',()=>localStorage.setItem(SERVER_DRAFT_KEY,$('serverUrl').value.trim()));$('licenseCode').addEventListener('input',()=>localStorage.setItem(LICENSE_DRAFT_KEY,$('licenseCode').value.trim()));$('activationForm').onsubmit=e=>{e.preventDefault();let rawUrl=$('serverUrl').value.trim(), rawLicense=$('licenseCode').value.trim();localStorage.setItem(SERVER_DRAFT_KEY,rawUrl);localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);let msg=validateServerUrl(rawUrl);if(msg){alert(msg);return}if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=normalizeServerUrl(rawUrl);license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};$('changeServerLogin').onclick=()=>{localStorage.removeItem(SERVER_KEY);localStorage.removeItem(LICENSE_KEY);localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);serverUrl='';license='';nip='';pinHash='';$('serverUrl').value=localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';show('activationScreen')};$('serverUrl').value=serverUrl||localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=license||localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';$('loginForm').onsubmit=async e=>{e.preventDefault();nip=$('nip').value.trim();pinHash=await sha($('pin').value);localStorage.setItem(NIP_KEY,nip);localStorage.setItem(PINHASH_KEY,pinHash);try{await loadEmployee();show('app')}catch(err){alert((err.message||'Login gagal')+'\n\nCek: 1) pakai NIP/Login/Nama yang ada di admin, 2) password default 1234 untuk hasil import, 3) admin sudah Sync Manual, 4) Apps Script sudah redeploy.')}};
-$('checkIn').onclick=async()=>{try{if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini. Jika salah, minta admin menghapus status absensi.');return}if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'. Minta admin menghapus status jika ingin check-in.');return}$('geoStatus').textContent='Mengambil GPS akurat...';let pos=await getGPS();$('geoStatus').textContent='GPS didapat. Mengirim check-in dan mengecek radius...';await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Mengirim check-in...')}catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}};$('checkOut').onclick=async()=>{try{if(!state?.todayRecord?.checkInTime){alert('Belum check-in, tidak bisa check-out.');return}if(state?.todayRecord?.checkOutTime){alert('Anda sudah check-out hari ini.');return}$('geoStatus').textContent='Mengambil GPS akurat...';let pos=await getGPS();$('geoStatus').textContent='GPS didapat. Mengirim check-out...';await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Mengirim check-out...')}catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}};$('requestForm').onsubmit=async e=>{e.preventDefault();try{await runAction('employeeRequest',{date:$('reqDate').value,type:$('reqType').value,reason:$('reqReason').value,proof:$('reqProof').value},'Mengirim pengajuan...');$('reqReason').value='';$('reqProof').value=''}catch(err){setBusy(false,'');alert('Pengajuan gagal: '+err.message)}};$('reload').onclick=async()=>{try{setBusy(true,'Memuat ulang data...');await loadEmployee();setBusy(false,'Data terbaru sudah dimuat.')}catch(e){setBusy(false,'');alert(e.message)}};document.addEventListener('click',e=>{if(e.target&&e.target.id==='printSlipBtn')window.print();if(e.target&&e.target.id==='copySlipBtn'&&state?.slip){let t=`Slip Gaji ${state.employee.name}
-Periode: ${state.slip.month}
-Hadir/Izin/Sakit: ${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}
-Alpha/Telat: ${state.slip.summary.alpha}/${state.slip.summary.telat}
-Gaji Bersih: ${rp(state.slip.net)}`;navigator.clipboard?.writeText(t);alert('Ringkasan slip disalin.')}});$('passForm').onsubmit=async e=>{e.preventDefault();let a=$('newPass').value,b=$('newPass2').value;if(a!==b){alert('Password baru tidak sama.');return}try{setBusy(true,'Mengganti password...');let newHash=await sha(a);let res=await jsonp('employeeChangePassword',{newHash});if(!res.ok)throw new Error(res.error||'Gagal mengganti password');pinHash=newHash;localStorage.setItem(PINHASH_KEY,newHash);$('newPass').value='';$('newPass2').value='';setBusy(false,'Password berhasil diganti.');alert('Password berhasil diganti. Mulai sekarang login pakai password baru.')}catch(err){setBusy(false,'');alert(err.message)}};$('logout').onclick=()=>{localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);nip='';pinHash='';show('loginScreen')};boot();
-</script></body></html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Klaar Hadir</title>
+  <link rel="manifest" href="employee-manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; -webkit-tap-highlight-color: transparent; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .bottom-nav-pb { padding-bottom: 100px; }
+    ::-webkit-scrollbar { display: none; }
+    .tab-content { display: none; animation: fade .25s ease; }
+    .tab-content.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    
+    /* Utility classes for injected HTML */
+    .row-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); font-size: 14px; }
+    .row-item:last-child { border-bottom: none; }
+    .row-item span { color: #94a3b8; }
+    .row-item strong { font-weight: 700; text-align: right; }
+    .badge { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge.ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge.warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge.bad { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .hist-card { background: rgba(30, 41, 59, 0.5); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
+  </style>
+</head>
+<body class="antialiased min-h-screen relative">
+
+  <!-- ACTIVATION SCREEN -->
+  <div id="activationScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-900">
+    <div class="glass w-full max-w-sm rounded-3xl p-8 shadow-2xl">
+      <div class="w-16 h-16 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-500/30">KH</div>
+      <h2 class="text-2xl font-black mb-2">Klaar Hadir</h2>
+      <p class="text-slate-400 text-sm mb-6">Masukkan server dan kode lisensi sekolah.</p>
+      
+      <form id="activationForm" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">License Server URL</label>
+          <input id="serverUrl" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kode Lisensi</label>
+          <input id="licenseCode" value="EDUPAY-DEMO-0001" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+        </div>
+        <button class="w-full bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold rounded-xl py-4 mt-2 shadow-lg shadow-emerald-500/25 transition transform active:scale-95">Lanjut Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-900 hidden">
+    <div class="glass w-full max-w-sm rounded-3xl p-8 shadow-2xl">
+      <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-blue-500/30">KH</div>
+      <h2 class="text-2xl font-black mb-2">Masuk Akun</h2>
+      <p id="connNote" class="text-emerald-400 text-sm font-bold mb-2"></p>
+      <p class="text-slate-400 text-sm mb-6 leading-relaxed">Masukkan NIP/Login dan password. Karyawan import Excel default: 1234.</p>
+      
+      <form id="loginForm" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">NIP / Login</label>
+          <input id="nip" placeholder="G-001" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">PIN / Password</label>
+          <input id="pin" type="password" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition">
+        </div>
+        <button class="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 text-white font-bold rounded-xl py-4 mt-2 shadow-lg shadow-blue-500/25 transition transform active:scale-95">Masuk Aplikasi</button>
+      </form>
+      
+      <button type="button" id="changeServerLogin" class="w-full mt-6 text-sm text-slate-400 font-semibold hover:text-white transition">Ganti Server/Lisensi</button>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <main id="app" class="hidden mx-auto max-w-md w-full min-h-screen relative bg-slate-900 bottom-nav-pb flex flex-col">
+    
+    <!-- HEADER -->
+    <header class="flex items-center justify-between p-6 pt-10">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xl font-black text-slate-200 shadow-inner" id="avatarInitials">KH</div>
+        <div>
+          <p class="text-[11px] font-black tracking-widest text-slate-400 uppercase mb-0.5" id="schoolName">Klaar Hadir</p>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">Halo, <span id="empNameShort">Karyawan</span>! 👋</h2>
+        </div>
+      </div>
+      <button id="logout" class="w-11 h-11 rounded-full bg-slate-800/80 flex items-center justify-center text-red-400 hover:bg-slate-700 transition">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </header>
+
+    <!-- TOAST / STATUS -->
+    <div id="geoStatusContainer" class="px-6 mb-4 hidden transition-all duration-300 ease-out">
+      <div class="glass border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm font-semibold p-4 rounded-2xl flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span id="geoStatus">Status...</span>
+      </div>
+    </div>
+
+    <!-- TAB: BERANDA -->
+    <section id="tab-beranda" class="tab-content active px-6">
+      
+      <!-- HERO / ABSEN CARD -->
+      <div class="rounded-[32px] p-6 mb-6 relative overflow-hidden bg-gradient-to-br from-indigo-600 to-blue-800 shadow-[0_20px_40px_rgba(79,70,229,0.25)] border border-indigo-500/30">
+        <div class="absolute -right-10 -top-10 w-40 h-40 bg-white opacity-5 rounded-full blur-2xl"></div>
+        <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-black opacity-20 rounded-full blur-2xl"></div>
+        
+        <div class="relative z-10">
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <p class="text-sm font-semibold text-indigo-200">Shift Hari Ini</p>
+              <h3 class="text-2xl font-black text-white mt-1" id="berandaStatus">Memuat...</h3>
+            </div>
+            <div id="berandaBadge" class="px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">Status</div>
+          </div>
+          
+          <div class="flex gap-3 mt-4">
+            <button id="checkIn" class="flex-1 bg-white hover:bg-slate-50 text-indigo-900 font-black py-4 px-4 rounded-2xl flex items-center justify-center gap-2 transition transform active:scale-95 shadow-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+              Absen Masuk
+            </button>
+            <button id="checkOut" class="flex-1 bg-slate-900/40 hover:bg-slate-900/60 text-white border border-white/20 font-black py-4 px-4 rounded-2xl flex items-center justify-center gap-2 transition transform active:scale-95 backdrop-blur-sm">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Absen Pulang
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFO GPS CARD -->
+      <div class="glass rounded-[24px] p-5 mb-8 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-bold text-slate-200">Lokasi GPS</h4>
+          <p class="text-xs font-medium text-slate-400 mt-1" id="berandaLocation">Belum ada data check-in hari ini</p>
+        </div>
+      </div>
+
+      <h3 class="text-lg font-black text-white mb-4">Akses Aplikasi</h3>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <!-- QUICK LINK: RIWAYAT -->
+        <button onclick="switchTab('tab-riwayat')" class="glass p-5 rounded-[24px] text-left hover:bg-slate-800/80 transition active:scale-95 group">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h4 class="font-bold text-slate-200 mb-1">Riwayat Absen</h4>
+          <p class="text-xs text-slate-400 font-medium">Cek jam kerja</p>
+        </button>
+        
+        <!-- QUICK LINK: SLIP GAJI -->
+        <button onclick="switchTab('tab-slip')" class="glass p-5 rounded-[24px] text-left hover:bg-slate-800/80 transition active:scale-95 group">
+          <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <h4 class="font-bold text-slate-200 mb-1">Slip Gaji</h4>
+          <p class="text-xs text-slate-400 font-medium">Lihat pendapatan</p>
+        </button>
+      </div>
+      
+      <button id="reload" class="w-full mt-6 py-4 glass rounded-2xl font-bold text-slate-300 flex justify-center items-center gap-2 hover:bg-slate-800 active:scale-95 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        Refresh Data Server
+      </button>
+
+    </section>
+
+    <!-- TAB: RIWAYAT -->
+    <section id="tab-riwayat" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6">Riwayat Absen</h3>
+      <div id="historyBox" class="flex flex-col gap-1"></div>
+    </section>
+
+    <!-- TAB: IZIN -->
+    <section id="tab-izin" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-2">Ajukan Izin</h3>
+      <p class="text-slate-400 text-sm mb-6">Pilih tanggal dan isi alasan dengan jelas.</p>
+      
+      <div class="glass rounded-[28px] p-6">
+        <form id="requestForm" class="flex flex-col gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal</label>
+            <input id="reqDate" type="date" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition [color-scheme:dark]">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Jenis</label>
+            <select id="reqType" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+              <option value="izin">Izin</option>
+              <option value="sakit">Sakit</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Alasan</label>
+            <textarea id="reqReason" required rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Bukti / Keterangan (Opsional)</label>
+            <input id="reqProof" placeholder="Surat dokter, dsb." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+          </div>
+          <button class="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold rounded-xl py-4 mt-2 shadow-lg hover:from-teal-400 hover:to-emerald-500 transition transform active:scale-95">Kirim Pengajuan</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB: SLIP -->
+    <section id="tab-slip" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6">Slip Gaji</h3>
+      <div id="slipBox" class="glass rounded-[28px] p-6"></div>
+    </section>
+
+    <!-- TAB: PROFIL -->
+    <section id="tab-profil" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6">Profil Saya</h3>
+      <div class="glass rounded-[28px] p-6 mb-6">
+        <div id="profileBox" class="flex flex-col"></div>
+      </div>
+      
+      <h3 class="text-xl font-bold mb-4 mt-8">Ganti Password</h3>
+      <div class="glass rounded-[28px] p-6">
+        <form id="passForm" class="flex flex-col gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Password Baru</label>
+            <input id="newPass" type="password" minlength="4" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ulangi Password Baru</label>
+            <input id="newPass2" type="password" minlength="4" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition">
+          </div>
+          <button class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl py-4 mt-2 transition transform active:scale-95">Simpan Password</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- BOTTOM NAV -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 px-4 pb-6 pt-4 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent pointer-events-none">
+      <div class="mx-auto max-w-md pointer-events-auto">
+        <div class="glass rounded-full px-2 py-2 flex justify-between items-center shadow-2xl">
+          
+          <button onclick="switchTab('tab-beranda')" class="nav-btn w-14 h-14 rounded-full flex flex-col items-center justify-center gap-1 text-slate-400 transition" data-target="tab-beranda">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span class="text-[9px] font-bold">Beranda</span>
+          </button>
+          
+          <button onclick="switchTab('tab-riwayat')" class="nav-btn w-14 h-14 rounded-full flex flex-col items-center justify-center gap-1 text-slate-400 transition" data-target="tab-riwayat">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span class="text-[9px] font-bold">Riwayat</span>
+          </button>
+          
+          <button onclick="switchTab('tab-izin')" class="nav-btn w-14 h-14 rounded-full flex flex-col items-center justify-center gap-1 text-slate-400 transition" data-target="tab-izin">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span class="text-[9px] font-bold">Izin</span>
+          </button>
+
+          <button onclick="switchTab('tab-profil')" class="nav-btn w-14 h-14 rounded-full flex flex-col items-center justify-center gap-1 text-slate-400 transition" data-target="tab-profil">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span class="text-[9px] font-bold">Profil</span>
+          </button>
+          
+        </div>
+      </div>
+    </nav>
+  </main>
+
+  <iframe name="syncFrame" class="hidden"></iframe>
+
+  <script>
+    // Tab Logic
+    function switchTab(targetId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById(targetId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(el => {
+        if(el.dataset.target === targetId) {
+          el.classList.add('text-white', 'bg-slate-700/50');
+          el.classList.remove('text-slate-400');
+        } else {
+          el.classList.remove('text-white', 'bg-slate-700/50');
+          el.classList.add('text-slate-400');
+        }
+      });
+      window.scrollTo(0,0);
+    }
+    // Initialize tab
+    switchTab('tab-beranda');
+
+    const SALT='|edupay-v4-final-rebuild', SERVER_KEY='edupay_emp_server', LICENSE_KEY='edupay_emp_license', SERVER_DRAFT_KEY='edupay_emp_server_draft', LICENSE_DRAFT_KEY='edupay_emp_license_draft', NIP_KEY='edupay_emp_nip', PINHASH_KEY='edupay_emp_pinhash';
+    const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, today=()=>dateKeyLocal(), fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,'');
+    let serverUrl=localStorage.getItem(SERVER_KEY)||'', license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
+    function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+    
+    function show(id){
+      ['activationScreen','loginScreen','app'].forEach(x=>$(x).classList.add('hidden'));
+      $(id).classList.remove('hidden');
+      if(id==='loginScreen'){
+        let cn=$('connNote');if(cn)cn.textContent=serverUrl&&license?'✓ Sudah tersambung ke server sekolah. Tinggal login.':'';
+        if(prefNip&&$('nip')&&!$('nip').value){$('nip').value=prefNip;if($('pin'))setTimeout(()=>$('pin').focus(),50)}
+      }
+    }
+    
+    function applyLinkToken(){try{let m=(location.hash||'').match(/[#&]k=([^&]+)/);if(!m)return;let raw=m[1].replace(/-/g,'+').replace(/_/g,'/');while(raw.length%4)raw+='=let obj=JSON.parse(decodeURIComponent(escape(atob(raw))));if(obj&&obj.s&&obj.l){let ns=normalizeServerUrl(obj.s),nl=String(obj.l);if(ns!==serverUrl||nl!==license){nip='';pinHash='';localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY)}serverUrl=ns;license=nl;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);if(obj.n)prefNip=String(obj.n)}}catch(e){}finally{try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}}
+    function boot(){applyLinkToken();if(!serverUrl||!license)show('activationScreen');else if(!nip||!pinHash)show('loginScreen');else loadEmployee().then(()=>show('app')).catch(e=>{alert(e.message);show('loginScreen')})}
+    
+    function jsonp(action,extra={}){return new Promise((resolve,reject)=>{let cb='emp_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script'),sep=serverUrl.includes('?')?'&':'?';let params=new URLSearchParams(Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName(),callback:cb,t:Date.now()},extra));let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi'))},16000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=r=>{cleanup();resolve(r)};script.onerror=()=>{cleanup();reject(new Error('Gagal akses server. Cek License Server URL: harus URL Apps Script Web App yang berakhiran /exec, bukan link Vercel/GitHub. Pastikan deployment: Execute as Me, Anyone with the link.'))};script.src=serverUrl+sep+params.toString();document.body.appendChild(script)})}
+    
+    async function loadEmployee(){let res=await jsonp('loadEmployee');if(!res.ok)throw new Error(res.error||'Login/load gagal');state=res;render()}
+    
+    function setBusy(on,msg){
+      ['checkIn','checkOut','reload'].forEach(id=>{
+        let el = $(id);
+        if(el){
+          el.disabled=on; 
+          if(on) el.classList.add('opacity-50','cursor-not-allowed');
+          else el.classList.remove('opacity-50','cursor-not-allowed');
+        }
+      });
+      let gs=$('geoStatusContainer');
+      if(msg) {
+        gs.classList.remove('hidden');
+        $('geoStatus').textContent=msg;
+      } else {
+        gs.classList.add('hidden');
+      }
+    }
+    
+    async function runAction(action,fields,msg){
+      setBusy(true,msg||'Mengirim data...');
+      let res=await jsonp(action,fields||{});
+      if(!res.ok)throw new Error(res.error||'Gagal mengirim data');
+      setBusy(true, res.record?.message||res.record?.checkoutMessage||res.message||'Berhasil. Memperbarui status...');
+      await loadEmployee();
+      setTimeout(()=>setBusy(false,''), 3000);
+      return res;
+    }
+    
+    function getGPS(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:18000,maximumAge:0}))}
+    function timeToMinLocal(v){let m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1]*60+(+m[2])):null}
+    function employeeRecLate(r){if(!r||!r.checkInTime||['izin','sakit','alpha','pending'].includes(String(r.status||'').toLowerCase()))return false;if(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)return false;if(r.status==='telat'||r.isLate)return true;let n=timeToMinLocal(r.checkInTime),l=timeToMinLocal(r.lateAfter||'07:15');return n!=null&&l!=null&&n>l}
+    function employeeLateMinutes(r){let n=timeToMinLocal(r?.checkInTime),l=timeToMinLocal(r?.lateAfter||'07:15');return n!=null&&l!=null?Math.max(0,n-l):(r?.lateMinutes||0)}
+    function normalizeEmployeeRec(r){if(r&&(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)){r.status='hadir';r.isLate=false;return r;}if(employeeRecLate(r)){r.status='telat';r.isLate=true;r.lateMinutes=r.lateMinutes||employeeLateMinutes(r);r.lateAfter=r.lateAfter||'07:15'}return r}
+    function statusLabel(r){normalizeEmployeeRec(r);return !r?'Belum absen':(r.status==='telat'||r.isLate?'Telat':r.status)}
+    function statusBadge(r){normalizeEmployeeRec(r);return !r?'badge warn':(r.status==='alpha'?'badge bad':(r.status==='telat'||r.isLate?'badge warn':'badge ok'))}
+    
+    function render(){
+      if(!state)return;
+      let e=state.employee,r=normalizeEmployeeRec(state.todayRecord);
+      
+      $('empName').textContent=e.name;
+      $('empNameShort').textContent=e.name.split(' ')[0];
+      $('schoolName').textContent=state.school||'Klaar Hadir';
+      
+      let initial = (e.name||'K').charAt(0).toUpperCase();
+      $('avatarInitials').textContent = initial;
+      
+      $('reqDate').value=today();
+      
+      // Beranda Status
+      let st = statusLabel(r);
+      $('berandaStatus').textContent = st === 'Belum absen' ? 'Libur / Off' : st;
+      if (st.toLowerCase() === 'hadir') $('berandaStatus').textContent = 'Hadir ✓';
+      $('berandaBadge').textContent = r?.checkInTime ? `In: ${r.checkInTime}` : 'Shift';
+      
+      let locText = 'Belum ada data check-in hari ini';
+      if (r?.locationName) locText = `${r.locationName} (${Math.round(r.distanceMeters||0)}m)`;
+      $('berandaLocation').textContent = locText;
+      
+      // Update logic string templates to use new Tailwind/CSS classes
+      $('profileBox').innerHTML=`
+        <div class="row-item"><span>Nama</span><strong>${esc(e.name)}</strong></div>
+        <div class="row-item"><span>Login</span><strong>${esc(e.loginName||e.name)}</strong></div>
+        <div class="row-item"><span>NIP/ID</span><strong>${esc(e.nip)}</strong></div>
+        <div class="row-item"><span>Jabatan</span><strong>${esc(e.positionName||'-')}</strong></div>
+        <div class="row-item"><span>Golongan</span><strong>${esc(e.gradeName||'-')}</strong></div>
+        <div class="row-item"><span>Status</span><strong>${esc(e.status||'-')}</strong></div>
+        <div class="row-item"><span>Masa kerja</span><strong>${esc(e.years||0)} tahun</strong></div>
+        <div class="row-item"><span>Rekening</span><strong>${esc(e.bank||'-')}</strong></div>
+        <div class="row-item"><span>No. HP</span><strong>${esc(e.phone||'-')}</strong></div>
+        <div class="row-item"><span>Device ini</span><strong>${esc(state.deviceStatus||'aktif')}</strong></div>
+      `;
+      
+      let alreadyIn=!!(r&&r.checkInTime),blocked=!!(r&&['izin','sakit','alpha'].includes(r.status));
+      $('checkIn').disabled=alreadyIn||blocked;
+      $('checkOut').disabled=!alreadyIn||!!(r&&r.checkOutTime);
+      
+      if(alreadyIn||blocked) {
+        $('checkIn').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        $('checkIn').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      
+      if(!alreadyIn||!!(r&&r.checkOutTime)) {
+        $('checkOut').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        $('checkOut').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      
+      // History
+      $('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`
+        <div class="hist-card">
+          <div>
+            <div class="font-bold text-white">${esc(x.date)}</div>
+            <div class="text-xs text-slate-400 mt-1 line-clamp-1">${esc(x.reason||x.message||'')}</div>
+          </div>
+          <div>
+            <span class="badge ${x.status==='alpha'?'bad':(x.status==='telat'||x.isLate?'warn':'ok')}">${esc(x.status==='telat'||x.isLate?'telat':x.status)}</span>
+            ${x.isLate&&x.lateMinutes?`<div class="text-[10px] text-amber-400 font-bold text-right mt-1">+${esc(x.lateMinutes)}m</div>`:''}
+          </div>
+        </div>
+      `).join(''):'<div class="text-center text-slate-500 py-8 text-sm">Belum ada riwayat.</div>';
+      
+      // Slip
+      $('slipBox').innerHTML=state.slip?`
+        <div class="row-item"><span>Periode</span><strong class="text-white text-lg">${esc(state.slip.month)}</strong></div>
+        <div class="row-item"><span>Hadir/Izin/Sakit</span><strong>${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}</strong></div>
+        <div class="row-item"><span>Alpha/Telat</span><strong>${state.slip.summary.alpha}/${state.slip.summary.telat}</strong></div>
+        <div class="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 flex justify-between items-center">
+          <span class="text-sm font-bold text-blue-200">Gaji Bersih</span>
+          <span class="text-xl font-black text-white">${rp(state.slip.net)}</span>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition" id="printSlipBtn">Save PDF</button>
+          <button class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition" id="copySlipBtn">Copy</button>
+        </div>
+      `:'<div class="text-center text-slate-500 py-8 text-sm">Slip belum dikirim admin.</div>';
+    }
+    
+    $('serverUrl').addEventListener('input',()=>localStorage.setItem(SERVER_DRAFT_KEY,$('serverUrl').value.trim()));
+    $('licenseCode').addEventListener('input',()=>localStorage.setItem(LICENSE_DRAFT_KEY,$('licenseCode').value.trim()));
+    
+    $('activationForm').onsubmit=e=>{e.preventDefault();let rawUrl=$('serverUrl').value.trim(), rawLicense=$('licenseCode').value.trim();localStorage.setItem(SERVER_DRAFT_KEY,rawUrl);localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);let msg=validateServerUrl(rawUrl);if(msg){alert(msg);return}if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=normalizeServerUrl(rawUrl);license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};
+    $('changeServerLogin').onclick=()=>{localStorage.removeItem(SERVER_KEY);localStorage.removeItem(LICENSE_KEY);localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);serverUrl='';license='';nip='';pinHash='';$('serverUrl').value=localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';show('activationScreen')};
+    $('serverUrl').value=serverUrl||localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=license||localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';
+    
+    $('loginForm').onsubmit=async e=>{e.preventDefault();nip=$('nip').value.trim();pinHash=await sha($('pin').value);localStorage.setItem(NIP_KEY,nip);localStorage.setItem(PINHASH_KEY,pinHash);try{await loadEmployee();show('app')}catch(err){alert((err.message||'Login gagal')+'\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.')}};
+    
+    $('checkIn').onclick=async()=>{try{if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'.');return}
+      setBusy(true, 'Mengambil lokasi GPS...');
+      let pos=await getGPS();
+      setBusy(true, 'Mengirim check-in...');
+      await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+    }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}};
+    
+    $('checkOut').onclick=async()=>{try{if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}if(state?.todayRecord?.checkOutTime){alert('Sudah check-out hari ini.');return}
+      setBusy(true, 'Mengambil lokasi GPS...');
+      let pos=await getGPS();
+      setBusy(true, 'Mengirim check-out...');
+      await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+    }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}};
+    
+    $('requestForm').onsubmit=async e=>{e.preventDefault();try{await runAction('employeeRequest',{date:$('reqDate').value,type:$('reqType').value,reason:$('reqReason').value,proof:$('reqProof').value},'Mengirim pengajuan...');$('reqReason').value='';$('reqProof').value=''; alert('Pengajuan berhasil dikirim.'); switchTab('tab-beranda'); }catch(err){setBusy(false,'');alert('Pengajuan gagal: '+err.message)}};
+    $('reload').onclick=async()=>{try{setBusy(true,'Memuat ulang data...');await loadEmployee();setBusy(false,'');}catch(e){setBusy(false,'');alert(e.message)}};
+    
+    document.addEventListener('click',e=>{if(e.target&&e.target.id==='printSlipBtn')window.print();if(e.target&&e.target.id==='copySlipBtn'&&state?.slip){let t=`Slip Gaji ${state.employee.name}\nPeriode: ${state.slip.month}\nHadir/Izin/Sakit: ${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}\nAlpha/Telat: ${state.slip.summary.alpha}/${state.slip.summary.telat}\nGaji Bersih: ${rp(state.slip.net)}`;navigator.clipboard?.writeText(t);alert('Ringkasan disalin.')}});
+    
+    $('passForm').onsubmit=async e=>{e.preventDefault();let a=$('newPass').value,b=$('newPass2').value;if(a!==b){alert('Password baru tidak sama.');return}try{setBusy(true,'Mengganti password...');let newHash=await sha(a);let res=await jsonp('employeeChangePassword',{newHash});if(!res.ok)throw new Error(res.error||'Gagal');pinHash=newHash;localStorage.setItem(PINHASH_KEY,newHash);$('newPass').value='';$('newPass2').value='';setBusy(false,'');alert('Password berhasil diganti.')}catch(err){setBusy(false,'');alert(err.message)}};
+    $('logout').onclick=()=>{localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);nip='';pinHash='';show('loginScreen')};
+    
+    boot();
+  </script>
+</body>
+</html>
