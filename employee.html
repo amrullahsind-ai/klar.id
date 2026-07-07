@@ -348,8 +348,8 @@
       if(!state)return;
       let e=state.employee,r=normalizeEmployeeRec(state.todayRecord);
       
-      $('empName').textContent=e.name;
-      $('empNameShort').textContent=e.name.split(' ')[0];
+      if($('empName')) $('empName').textContent=e.name;
+      if($('empNameShort')) $('empNameShort').textContent=e.name.split(' ')[0];
       $('schoolName').textContent=state.school||'Klaar Hadir';
       
       let initial = (e.name||'K').charAt(0).toUpperCase();
