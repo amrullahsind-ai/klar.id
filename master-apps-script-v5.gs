@@ -132,8 +132,12 @@ function ensure_(){
   ensureDemoLicense_();
 }
 function dbRow_(licenseCode){
-  const db = sh_(DB_SHEET), vals = db.getDataRange().getValues();
-  for(let i=1;i<vals.length;i++) if(String(vals[i][0]).trim() === licenseCode) return i+1;
+  const db = sh_(DB_SHEET);
+  const last = db.getLastRow();
+  if(last < 2) return 0;
+  // Hanya baca kolom A (licenseCode), jangan tarik seluruh payload besar tiap baris.
+  const keys = db.getRange(2, 1, last - 1, 1).getValues();
+  for(let i=0;i<keys.length;i++) if(String(keys[i][0]).trim() === licenseCode) return i + 2;
   return 0;
 }
 function loadPayload_(licenseCode){
@@ -141,26 +145,28 @@ function loadPayload_(licenseCode){
   const sheet = sh_(DB_SHEET);
   const lastCol = Math.max(sheet.getLastColumn(), 3);
   const vals = sheet.getRange(row,1,1,lastCol).getValues()[0];
-  const raw = vals[1];
+  const raw = joinPayloadFromRow_(vals);
   const parsed = safeParsePayload_(raw);
   if(parsed.ok) return normalizeDb_(parsed.data, licenseCode);
 
-  // Kalau kolom payload ketukar, cari JSON valid di kolom lain pada baris yang sama.
-  for(let i=2;i<vals.length;i++){
-    const alt = vals[i];
-    const p = safeParsePayload_(alt);
-    if(p.ok){
-      const fixed = normalizeDb_(p.data, licenseCode);
-      sheet.getRange(row,2,1,2).setValues([[JSON.stringify(fixed), new Date()]]);
-      backupBroken_(licenseCode, raw, vals, 'Payload utama invalid, ditemukan JSON valid di kolom ' + (i+1) + '. Dipindah ke kolom payload.');
-      return fixed;
+  // Kalau bukan payload terpecah dan kolom payload ketukar, cari JSON valid di kolom lain.
+  if(!isChunkMarker_(vals[1])){
+    for(let i=2;i<vals.length;i++){
+      const alt = vals[i];
+      const p = safeParsePayload_(alt);
+      if(p.ok){
+        const fixed = normalizeDb_(p.data, licenseCode);
+        writePayloadRow_(sheet, row, JSON.stringify(fixed));
+        backupBroken_(licenseCode, raw, vals, 'Payload utama invalid, ditemukan JSON valid di kolom ' + (i+1) + '. Dipindah ke kolom payload.');
+        return fixed;
+      }
     }
   }
 
   // Kalau isi payload cuma teks seperti DEMO, backup lalu reset ke database kosong yang valid.
   backupBroken_(licenseCode, raw, vals, parsed.error || 'Payload bukan JSON');
   const fresh = defaultDb_(licenseCode, String(raw||''));
-  sheet.getRange(row,2,1,2).setValues([[JSON.stringify(fresh), new Date()]]);
+  writePayloadRow_(sheet, row, JSON.stringify(fresh));
   log_('repairDatabaseAuto', licenseCode, 'Payload rusak direset otomatis: ' + String(raw).slice(0,80));
   return fresh;
 }
@@ -229,18 +235,65 @@ function repairDatabase_(licenseCode, force){
   }
   const sheet = sh_(DB_SHEET);
   const vals = sheet.getRange(row,1,1,Math.max(sheet.getLastColumn(),3)).getValues()[0];
-  const p = safeParsePayload_(vals[1]);
+  const raw = joinPayloadFromRow_(vals);
+  const p = safeParsePayload_(raw);
   if(p.ok && !force) return {ok:true,message:'Database sudah valid. Tidak direset.', data:normalizeDb_(p.data, licenseCode)};
-  backupBroken_(licenseCode, vals[1], vals, force ? 'Reset paksa oleh repairDatabase' : (p.error || 'Payload invalid'));
-  const fresh = defaultDb_(licenseCode, schoolNameFromLicense_(licenseCode) || String(vals[1]||''));
-  sheet.getRange(row,2,1,2).setValues([[JSON.stringify(fresh), new Date()]]);
+  backupBroken_(licenseCode, raw, vals, force ? 'Reset paksa oleh repairDatabase' : (p.error || 'Payload invalid'));
+  const fresh = defaultDb_(licenseCode, schoolNameFromLicense_(licenseCode) || String(raw||''));
+  writePayloadRow_(sheet, row, JSON.stringify(fresh));
   return {ok:true,message:'Database rusak sudah dibackup dan diganti database kosong valid.', data:fresh};
 }
 
+// ===== Penyimpanan payload tahan-batas-sel (Google Sheets maks 50.000 char/sel) =====
+// Import besar (banyak karyawan + absensi) sering membuat JSON > 50.000 char sehingga
+// setValue GAGAL / terpotong dan data "tidak masuk server". Payload besar dipecah ke
+// beberapa sel pada baris yang sama, ditandai marker di kolom payload.
+const MAX_CELL_CHARS = 45000;
+const CHUNK_MARK = '__KLAAR_CHUNKED__';
+function isChunkMarker_(v){ return typeof v === 'string' && v.indexOf(CHUNK_MARK + ':') === 0; }
+function joinPayloadFromRow_(vals){
+  // vals = nilai satu baris penuh (index 0 = kolom A). Kembalikan string JSON mentah.
+  const col2 = vals[1];
+  if(isChunkMarker_(col2)){
+    const n = parseInt(String(col2).split(':')[1], 10) || 0;
+    let s = '';
+    for(let i=0;i<n;i++){ const c = vals[3 + i]; s += (c == null ? '' : String(c)); }
+    return s;
+  }
+  return col2;
+}
+function writePayloadRow_(sheet, row, jsonStr){
+  const now = new Date();
+  const prevLastCol = Math.max(sheet.getLastColumn(), 3);
+  let rowVals;
+  if(jsonStr.length <= MAX_CELL_CHARS){
+    rowVals = [jsonStr, now];                       // kolom 2 = payload, 3 = updatedAt
+  } else {
+    const chunks = [];
+    for(let i=0;i<jsonStr.length;i+=MAX_CELL_CHARS) chunks.push(jsonStr.slice(i, i+MAX_CELL_CHARS));
+    rowVals = [CHUNK_MARK + ':' + chunks.length, now].concat(chunks); // 2=marker,3=date,4..=chunk
+  }
+  sheet.getRange(row, 2, 1, rowVals.length).setValues([rowVals]);
+  // Bersihkan sisa sel chunk lama di kanan supaya tidak ada potongan usang tertinggal.
+  const writtenLastCol = 1 + rowVals.length;
+  if(prevLastCol > writtenLastCol){
+    sheet.getRange(row, writtenLastCol + 1, 1, prevLastCol - writtenLastCol).clearContent();
+  }
+}
+// Baca ringan jumlah karyawan tersimpan TANPA efek samping (tidak memicu repair/reset).
+function peekEmployeeCount_(licenseCode){
+  const row = dbRow_(licenseCode); if(!row) return -1;
+  const sheet = sh_(DB_SHEET);
+  const lastCol = Math.max(sheet.getLastColumn(), 3);
+  const vals = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+  const parsed = safeParsePayload_(joinPayloadFromRow_(vals));
+  if(!parsed.ok || !parsed.data) return -1;
+  return Array.isArray(parsed.data.employees) ? parsed.data.employees.length : -1;
+}
 function savePayload_(licenseCode, data){
   const db = sh_(DB_SHEET); let row = dbRow_(licenseCode);
-  if(!row){ db.appendRow([licenseCode, JSON.stringify(data), new Date()]); row = db.getLastRow(); }
-  else db.getRange(row, 2, 1, 2).setValues([[JSON.stringify(data), new Date()]]);
+  if(!row){ db.appendRow([licenseCode]); row = db.getLastRow(); }
+  writePayloadRow_(db, row, JSON.stringify(data));
   return row;
 }
 // Verifikasi kredensial admin di sisi server. Kalau DB belum punya adminHash, dipakai DEFAULT (admin/1234).
@@ -286,9 +339,17 @@ function saveAdmin_(licenseCode, payload, p){
     if(es.adminHash){ data.settings.adminUser = es.adminUser || data.settings.adminUser; data.settings.adminHash = es.adminHash; }
     normalizeAllLateRecords_(data);
     data._serverUpdatedAt = new Date().toISOString();
+    const expectEmp = Array.isArray(data.employees) ? data.employees.length : 0;
     savePayload_(licenseCode, data);
-    log_('saveAdmin', licenseCode, 'payload saved');
-    return {ok:true, message:'Data tersimpan'};
+    // Verifikasi tulis: baca ulang jumlah karyawan langsung dari sheet. Kalau tidak cocok,
+    // berarti penyimpanan gagal/terpotong — JANGAN bilang berhasil ke client.
+    const savedEmp = peekEmployeeCount_(licenseCode);
+    if(savedEmp !== expectEmp){
+      log_('saveAdmin_verify_fail', licenseCode, 'harusnya '+expectEmp+' karyawan, tersimpan '+savedEmp);
+      return {ok:false, error:'Verifikasi server gagal: harusnya '+expectEmp+' karyawan, tersimpan '+savedEmp+'. Data mungkin terlalu besar untuk 1 baris. Coba lagi.'};
+    }
+    log_('saveAdmin', licenseCode, 'payload saved & verified ('+savedEmp+' karyawan)');
+    return {ok:true, message:'Data tersimpan & terverifikasi', employees:savedEmp, serverUpdatedAt:data._serverUpdatedAt};
   } finally { try{ lock.releaseLock(); }catch(e){} }
 }
 function changeAdminCredential_(licenseCode, p){
