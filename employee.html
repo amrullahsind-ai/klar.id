@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Klaar Hadir</title>
+  <link rel="manifest" href="employee-manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color:#f8fafc; color: #0f172a; -webkit-tap-highlight-color: transparent; }
+    .bottom-nav-pb { padding-bottom: 110px; }
+    ::-webkit-scrollbar { display: none; }
+    .tab-content { display: none; animation: fade .3s ease; }
+    .tab-content.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    
+    .row-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .row-item:last-child { border-bottom: none; }
+    .row-item span { color: #64748b; font-weight: 500; }
+    .row-item strong { font-weight: 700; text-align: right; color: #0f172a; }
+    .badge { display: inline-flex; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge.ok { background: #d1fae5; color: #059669; }
+    .badge.warn { background: #fef3c7; color: #d97706; }
+    .badge.bad { background: #fee2e2; color: #dc2626; }
+    .hist-card { background: #ffffff; border-radius: 20px; padding: 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+    
+    /* Modern inputs */
+    input, select, textarea { transition: all 0.2s ease; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1); }
+  </style>
+
+</head>
+<body class="antialiased min-h-screen relative">
+
+  <!-- ACTIVATION SCREEN -->
+  <div id="activationScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50">
+    <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100">
+      <div class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20">KH</div>
+      <h2 class="text-2xl font-black text-slate-900 mb-2">Klaar Hadir</h2>
+      <p class="text-slate-500 text-sm mb-8">Masukkan server dan kode lisensi sekolah.</p>
+      
+      <form id="activationForm" class="flex flex-col gap-5">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">License Server URL</label>
+          <input id="serverUrl" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kode Lisensi</label>
+          <input id="licenseCode" value="EDUPAY-DEMO-0001" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+        </div>
+        <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95">Lanjut Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50 hidden">
+    <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100">
+      <div class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20">KH</div>
+      <h2 class="text-2xl font-black text-slate-900 mb-2">Masuk Akun</h2>
+      <p id="connNote" class="text-emerald-500 text-sm font-bold mb-2"></p>
+      <p class="text-slate-500 text-sm mb-8 leading-relaxed">Masukkan NIP/Login dan password. Karyawan import Excel default: 1234.</p>
+      
+      <form id="loginForm" class="flex flex-col gap-5">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">NIP / Login</label>
+          <input id="nip" placeholder="G-001" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">PIN / Password</label>
+          <input id="pin" type="password" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+        </div>
+        <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95">Masuk Aplikasi</button>
+      </form>
+      
+      <button type="button" id="changeServerLogin" class="w-full mt-6 text-sm text-slate-400 font-semibold hover:text-emerald-600 transition">Ganti Server/Lisensi</button>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <main id="app" class="hidden mx-auto max-w-md w-full min-h-screen relative bg-slate-50 bottom-nav-pb flex flex-col">
+    
+    <!-- HEADER -->
+    <header class="flex items-center justify-between p-6 pt-10">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-xl font-black text-emerald-700" id="avatarInitials">KH</div>
+        <div>
+          <p class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-0.5" id="schoolName">Klaar Hadir</p>
+          <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">Halo, <span id="empNameShort">Karyawan</span>! 👋</h2>
+        </div>
+      </div>
+      <button id="logout" class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition shadow-sm">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </header>
+
+    <!-- TOAST / STATUS -->
+    <div id="geoStatusContainer" class="px-6 mb-4 hidden transition-all duration-300 ease-out">
+      <div class="bg-emerald-50 text-emerald-600 text-sm font-semibold p-4 rounded-2xl flex items-start gap-3 border border-emerald-100">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span id="geoStatus">Status...</span>
+      </div>
+    </div>
+
+    <!-- TAB: BERANDA -->
+    <section id="tab-beranda" class="tab-content active px-6">
+      
+      <!-- HERO / ABSEN CARD -->
+      <div class="rounded-[32px] p-7 mb-6 relative overflow-hidden bg-emerald-600 shadow-[0_15px_35px_rgba(5,150,105,0.25)]">
+        <!-- Decorative bg -->
+        <div class="absolute -right-10 -top-10 w-48 h-48 bg-emerald-400 opacity-20 rounded-full blur-3xl"></div>
+        <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-900 opacity-20 rounded-full blur-3xl"></div>
+        
+        <div class="relative z-10">
+          <div class="flex justify-between items-center mb-8">
+            <div>
+              <p class="text-sm font-semibold text-emerald-100">Shift Hari Ini</p>
+              <h3 class="text-3xl font-black text-white mt-1" id="berandaStatus">Memuat...</h3>
+            </div>
+            <div id="berandaBadge" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">Shift</div>
+          </div>
+          
+          <div class="flex gap-3 mt-4">
+            <button id="checkIn" class="flex-1 bg-white hover:bg-slate-50 text-emerald-700 font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 shadow-md">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+              Absen Masuk
+            </button>
+            <button id="checkOut" class="flex-1 bg-emerald-700/50 hover:bg-emerald-700/70 text-white font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 backdrop-blur-md border border-emerald-400/20">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Absen Pulang
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFO GPS CARD -->
+      <div class="bg-white rounded-[24px] p-5 mb-8 flex items-center gap-4 shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
+        <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-bold text-slate-800">Lokasi GPS</h4>
+          <p class="text-xs font-medium text-slate-500 mt-1" id="berandaLocation">Belum ada data check-in hari ini</p>
+        </div>
+      </div>
+
+      <h3 class="text-lg font-black text-slate-800 mb-4">Akses Aplikasi</h3>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <!-- QUICK LINK: RIWAYAT -->
+        <button onclick="switchTab('tab-riwayat')" class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
+          <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h4 class="font-bold text-slate-800 mb-1">Riwayat Absen</h4>
+          <p class="text-xs text-slate-500 font-medium">Cek jam kerja</p>
+        </button>
+        
+        <!-- QUICK LINK: SLIP GAJI -->
+        <button onclick="switchTab('tab-slip')" class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
+          <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <h4 class="font-bold text-slate-800 mb-1">Slip Gaji</h4>
+          <p class="text-xs text-slate-500 font-medium">Lihat pendapatan</p>
+        </button>
+      </div>
+      
+      <button id="reload" class="w-full mt-6 py-4 bg-white rounded-2xl font-bold text-slate-600 flex justify-center items-center gap-2 hover:bg-slate-50 active:scale-95 transition border border-slate-200 shadow-sm">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        Refresh Data Server
+      </button>
+
+    </section>
+
+    <!-- TAB: RIWAYAT -->
+    <section id="tab-riwayat" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6 text-slate-900">Riwayat Absen</h3>
+      <div id="historyBox" class="flex flex-col"></div>
+    </section>
+
+    <!-- TAB: IZIN -->
+    <section id="tab-izin" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-2 text-slate-900">Ajukan Izin</h3>
+      <p class="text-slate-500 text-sm mb-6">Pilih tanggal dan isi alasan dengan jelas.</p>
+      
+      <div class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
+        <form id="requestForm" class="flex flex-col gap-5">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal</label>
+            <input id="reqDate" type="date" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Jenis</label>
+            <select id="reqType" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+              <option value="izin">Izin</option>
+              <option value="sakit">Sakit</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Alasan</label>
+            <textarea id="reqReason" required rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Bukti / Keterangan (Opsional)</label>
+            <input id="reqProof" placeholder="Surat dokter, dsb." class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+          </div>
+          <button class="w-full bg-emerald-600 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg hover:bg-emerald-700 transition transform active:scale-95">Kirim Pengajuan</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB: SLIP -->
+    <section id="tab-slip" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6 text-slate-900">Slip Gaji</h3>
+      <div id="slipBox" class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"></div>
+    </section>
+
+    <!-- TAB: PROFIL -->
+    <section id="tab-profil" class="tab-content px-6">
+      <h3 class="text-2xl font-black mb-6 text-slate-900">Profil Saya</h3>
+      <div class="bg-white rounded-[28px] p-6 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
+        <div id="profileBox" class="flex flex-col"></div>
+      </div>
+      
+      <h3 class="text-xl font-bold mb-4 mt-8 text-slate-900">Ganti Password</h3>
+      <div class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
+        <form id="passForm" class="flex flex-col gap-5">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Password Baru</label>
+            <input id="newPass" type="password" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ulangi Password Baru</label>
+            <input id="newPass2" type="password" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+          </div>
+          <button class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl py-4 mt-2 transition transform active:scale-95">Simpan Password</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- BOTTOM NAV -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-safe pt-2 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
+      <div class="mx-auto max-w-md flex justify-between items-center pb-4">
+        <button onclick="switchTab('tab-beranda')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-beranda">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span class="text-[10px] font-bold mt-1">Beranda</span>
+        </button>
+        <button onclick="switchTab('tab-riwayat')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-riwayat">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span class="text-[10px] font-bold mt-1">Riwayat</span>
+        </button>
+        <button onclick="switchTab('tab-izin')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-izin">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span class="text-[10px] font-bold mt-1">Izin</span>
+        </button>
+        <button onclick="switchTab('tab-profil')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-profil">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span class="text-[10px] font-bold mt-1">Profil</span>
+        </button>
+      </div>
+    </nav>
+  </main>
+
+  <iframe name="syncFrame" class="hidden"></iframe>
+
+<script>
+    // Tab Logic
+    function switchTab(targetId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById(targetId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(el => {
+        if(el.dataset.target === targetId) {
+          el.classList.add('text-emerald-600');
+          el.classList.remove('text-slate-400');
+        } else {
+          el.classList.remove('text-emerald-600');
+          el.classList.add('text-slate-400');
+        }
+      });
+      window.scrollTo(0,0);
+    }
+    // Initialize tab
+    switchTab('tab-beranda');
+
+    const SALT='|edupay-v4-final-rebuild', SERVER_KEY='edupay_emp_server', LICENSE_KEY='edupay_emp_license', SERVER_DRAFT_KEY='edupay_emp_server_draft', LICENSE_DRAFT_KEY='edupay_emp_license_draft', NIP_KEY='edupay_emp_nip', PINHASH_KEY='edupay_emp_pinhash';
+    const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, today=()=>dateKeyLocal(), fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,'');
+    let serverUrl=localStorage.getItem(SERVER_KEY)||'', license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
+    function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+    
+    function show(id){
+      ['activationScreen','loginScreen','app'].forEach(x=>$(x).classList.add('hidden'));
+      $(id).classList.remove('hidden');
+      if(id==='loginScreen'){
+        let cn=$('connNote');if(cn)cn.textContent=serverUrl&&license?'✓ Sudah tersambung ke server sekolah. Tinggal login.':'';
+        if(prefNip&&$('nip')&&!$('nip').value){$('nip').value=prefNip;if($('pin'))setTimeout(()=>$('pin').focus(),50)}
+      }
+    }
+    
+    function applyLinkToken(){
+  try {
+    let str = location.href;
+    let m = str.match(/[?#&]k=([A-Za-z0-9\-_]+)/);
+    if (!m) return;
+    let raw = m[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(raw.length % 4) raw += '=';
+    let obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if(obj && obj.s && obj.l) {
+      let ns = normalizeServerUrl(obj.s), nl = String(obj.l);
+      if(ns !== serverUrl || nl !== license){
+        nip=''; pinHash='';
+        localStorage.removeItem(NIP_KEY); localStorage.removeItem(PINHASH_KEY);
+      }
+      serverUrl = ns; 
+      license = nl;
+      localStorage.setItem(SERVER_KEY, serverUrl);
+      localStorage.setItem(LICENSE_KEY, license);
+      if(obj.n) prefNip = String(obj.n);
+    }
+  } catch(e) {
+    console.error("Token error:", e);
+    alert("Gagal membaca link otomatis (Token rusak/terpotong). Silakan login manual.");
+  } finally {
+    try { history.replaceState(null, '', location.pathname) } catch(e) {}
+  }
+}
+    function boot(){applyLinkToken();if(!serverUrl||!license)show('activationScreen');else if(!nip||!pinHash)show('loginScreen');else loadEmployee().then(()=>show('app')).catch(e=>{alert(e.message);show('loginScreen')})}
+    
+    function jsonp(action,extra={}){return new Promise((resolve,reject)=>{let cb='emp_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script'),sep=serverUrl.includes('?')?'&':'?';let params=new URLSearchParams(Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName(),callback:cb,t:Date.now()},extra));let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi'))},16000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=r=>{cleanup();resolve(r)};script.onerror=()=>{cleanup();reject(new Error('Gagal akses server. Cek License Server URL: harus URL Apps Script Web App yang berakhiran /exec, bukan link Vercel/GitHub. Pastikan deployment: Execute as Me, Anyone with the link.'))};script.src=serverUrl+sep+params.toString();document.body.appendChild(script)})}
+    
+    async function loadEmployee(){let res=await jsonp('loadEmployee');if(!res.ok)throw new Error(res.error||'Login/load gagal');state=res;render()}
+    
+    function setBusy(on,msg){
+      ['checkIn','checkOut','reload'].forEach(id=>{
+        let el = $(id);
+        if(el){
+          el.disabled=on; 
+          if(on) el.classList.add('opacity-50','cursor-not-allowed');
+          else el.classList.remove('opacity-50','cursor-not-allowed');
+        }
+      });
+      let gs=$('geoStatusContainer');
+      if(msg) {
+        gs.classList.remove('hidden');
+        $('geoStatus').textContent=msg;
+      } else {
+        gs.classList.add('hidden');
+      }
+    }
+    
+    async function runAction(action,fields,msg){
+      setBusy(true,msg||'Mengirim data...');
+      let res=await jsonp(action,fields||{});
+      if(!res.ok)throw new Error(res.error||'Gagal mengirim data');
+      setBusy(true, res.record?.message||res.record?.checkoutMessage||res.message||'Berhasil. Memperbarui status...');
+      await loadEmployee();
+      setTimeout(()=>setBusy(false,''), 3000);
+      return res;
+    }
+    
+    function getGPS(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:18000,maximumAge:0}))}
+    function timeToMinLocal(v){let m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1]*60+(+m[2])):null}
+    function employeeRecLate(r){if(!r||!r.checkInTime||['izin','sakit','alpha','pending'].includes(String(r.status||'').toLowerCase()))return false;if(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)return false;if(r.status==='telat'||r.isLate)return true;let n=timeToMinLocal(r.checkInTime),l=timeToMinLocal(r.lateAfter||'07:15');return n!=null&&l!=null&&n>l}
+    function employeeLateMinutes(r){let n=timeToMinLocal(r?.checkInTime),l=timeToMinLocal(r?.lateAfter||'07:15');return n!=null&&l!=null?Math.max(0,n-l):(r?.lateMinutes||0)}
+    function normalizeEmployeeRec(r){if(r&&(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)){r.status='hadir';r.isLate=false;return r;}if(employeeRecLate(r)){r.status='telat';r.isLate=true;r.lateMinutes=r.lateMinutes||employeeLateMinutes(r);r.lateAfter=r.lateAfter||'07:15'}return r}
+    function statusLabel(r){normalizeEmployeeRec(r);return !r?'Belum absen':(r.status==='telat'||r.isLate?'Telat':r.status)}
+    function statusBadge(r){normalizeEmployeeRec(r);return !r?'badge warn':(r.status==='alpha'?'badge bad':(r.status==='telat'||r.isLate?'badge warn':'badge ok'))}
+    
+    function render(){
+      if(!state)return;
+      let e=state.employee,r=normalizeEmployeeRec(state.todayRecord);
+      
+      if($('empName')) $('empName').textContent=e.name;
+      if($('empNameShort')) $('empNameShort').textContent=e.name.split(' ')[0];
+      $('schoolName').textContent=state.school||'Klaar Hadir';
+      
+      let initial = (e.name||'K').charAt(0).toUpperCase();
+      $('avatarInitials').textContent = initial;
+      
+      $('reqDate').value=today();
+      
+      // Beranda Status
+      let st = statusLabel(r);
+      $('berandaStatus').textContent = st === 'Belum absen' ? 'Libur / Off' : st;
+      if (st.toLowerCase() === 'hadir') $('berandaStatus').textContent = 'Hadir ✓';
+      $('berandaBadge').textContent = r?.checkInTime ? `In: ${r.checkInTime}` : 'Shift';
+      
+      let locText = 'Belum ada data check-in hari ini';
+      if (r?.locationName) locText = `${r.locationName} (${Math.round(r.distanceMeters||0)}m)`;
+      $('berandaLocation').textContent = locText;
+      
+      // Update logic string templates to use new Tailwind/CSS classes
+      $('profileBox').innerHTML=`
+        <div class="row-item"><span>Nama</span><strong>${esc(e.name)}</strong></div>
+        <div class="row-item"><span>Login</span><strong>${esc(e.loginName||e.name)}</strong></div>
+        <div class="row-item"><span>NIP/ID</span><strong>${esc(e.nip)}</strong></div>
+        <div class="row-item"><span>Jabatan</span><strong>${esc(e.positionName||'-')}</strong></div>
+        <div class="row-item"><span>Golongan</span><strong>${esc(e.gradeName||'-')}</strong></div>
+        <div class="row-item"><span>Status</span><strong>${esc(e.status||'-')}</strong></div>
+        <div class="row-item"><span>Masa kerja</span><strong>${esc(e.years||0)} tahun</strong></div>
+        <div class="row-item"><span>Rekening</span><strong>${esc(e.bank||'-')}</strong></div>
+        <div class="row-item"><span>No. HP</span><strong>${esc(e.phone||'-')}</strong></div>
+        <div class="row-item"><span>Device ini</span><strong>${esc(state.deviceStatus||'aktif')}</strong></div>
+      `;
+      
+      let alreadyIn=!!(r&&r.checkInTime),blocked=!!(r&&['izin','sakit','alpha'].includes(r.status));
+      $('checkIn').disabled=alreadyIn||blocked;
+      $('checkOut').disabled=!alreadyIn||!!(r&&r.checkOutTime);
+      
+      if(alreadyIn||blocked) {
+        $('checkIn').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        $('checkIn').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      
+      if(!alreadyIn||!!(r&&r.checkOutTime)) {
+        $('checkOut').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        $('checkOut').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      
+      // History
+      $('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`
+        <div class="hist-card">
+          <div>
+            <div class="font-bold text-slate-800">${esc(x.date)}</div>
+            <div class="text-xs text-slate-500 mt-1 line-clamp-1">${esc(x.reason||x.message||'')}</div>
+          </div>
+          <div>
+            <span class="badge ${x.status==='alpha'?'bad':(x.status==='telat'||x.isLate?'warn':'ok')}">${esc(x.status==='telat'||x.isLate?'telat':x.status)}</span>
+            ${x.isLate&&x.lateMinutes?`<div class="text-[10px] text-amber-400 font-bold text-right mt-1">+${esc(x.lateMinutes)}m</div>`:''}
+          </div>
+        </div>
+      `).join(''):'<div class="text-center text-slate-500 py-8 text-sm">Belum ada riwayat.</div>';
+      
+      // Slip
+      $('slipBox').innerHTML=state.slip?`
+        <div class="row-item"><span>Periode</span><strong class="text-slate-800 text-lg">${esc(state.slip.month)}</strong></div>
+        <div class="row-item"><span>Hadir/Izin/Sakit</span><strong>${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}</strong></div>
+        <div class="row-item"><span>Alpha/Telat</span><strong>${state.slip.summary.alpha}/${state.slip.summary.telat}</strong></div>
+        <div class="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 flex justify-between items-center">
+          <span class="text-sm font-bold text-blue-200">Gaji Bersih</span>
+          <span class="text-xl font-black text-emerald-600">${rp(state.slip.net)}</span>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button class="flex-1 bg-blue-600 hover:bg-blue-500 text-slate-900 font-bold py-3 rounded-xl transition" id="printSlipBtn">Save PDF</button>
+          <button class="flex-1 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl transition" id="copySlipBtn">Copy</button>
+        </div>
+      `:'<div class="text-center text-slate-500 py-8 text-sm">Slip belum dikirim admin.</div>';
+    }
+    
+    $('serverUrl').addEventListener('input',()=>localStorage.setItem(SERVER_DRAFT_KEY,$('serverUrl').value.trim()));
+    $('licenseCode').addEventListener('input',()=>localStorage.setItem(LICENSE_DRAFT_KEY,$('licenseCode').value.trim()));
+    
+    $('activationForm').onsubmit=e=>{e.preventDefault();let rawUrl=$('serverUrl').value.trim(), rawLicense=$('licenseCode').value.trim();localStorage.setItem(SERVER_DRAFT_KEY,rawUrl);localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);let msg=validateServerUrl(rawUrl);if(msg){alert(msg);return}if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=normalizeServerUrl(rawUrl);license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};
+    $('changeServerLogin').onclick=()=>{localStorage.removeItem(SERVER_KEY);localStorage.removeItem(LICENSE_KEY);localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);serverUrl='';license='';nip='';pinHash='';$('serverUrl').value=localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';show('activationScreen')};
+    $('serverUrl').value=serverUrl||localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=license||localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';
+    
+    $('loginForm').onsubmit=async e=>{e.preventDefault();nip=$('nip').value.trim();pinHash=await sha($('pin').value);localStorage.setItem(NIP_KEY,nip);localStorage.setItem(PINHASH_KEY,pinHash);try{await loadEmployee();show('app')}catch(err){alert((err.message||'Login gagal')+'\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.')}};
+    
+    $('checkIn').onclick=async()=>{try{if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'.');return}
+      setBusy(true, 'Mengambil lokasi GPS...');
+      let pos=await getGPS();
+      setBusy(true, 'Mengirim check-in...');
+      await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+    }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}};
+    
+    $('checkOut').onclick=async()=>{try{if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}if(state?.todayRecord?.checkOutTime){alert('Sudah check-out hari ini.');return}
+      setBusy(true, 'Mengambil lokasi GPS...');
+      let pos=await getGPS();
+      setBusy(true, 'Mengirim check-out...');
+      await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+    }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}};
+    
+    $('requestForm').onsubmit=async e=>{e.preventDefault();try{await runAction('employeeRequest',{date:$('reqDate').value,type:$('reqType').value,reason:$('reqReason').value,proof:$('reqProof').value},'Mengirim pengajuan...');$('reqReason').value='';$('reqProof').value=''; alert('Pengajuan berhasil dikirim.'); switchTab('tab-beranda'); }catch(err){setBusy(false,'');alert('Pengajuan gagal: '+err.message)}};
+    $('reload').onclick=async()=>{try{setBusy(true,'Memuat ulang data...');await loadEmployee();setBusy(false,'');}catch(e){setBusy(false,'');alert(e.message)}};
+    
+    document.addEventListener('click',e=>{if(e.target&&e.target.id==='printSlipBtn')window.print();if(e.target&&e.target.id==='copySlipBtn'&&state?.slip){let t=`Slip Gaji ${state.employee.name}\nPeriode: ${state.slip.month}\nHadir/Izin/Sakit: ${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}\nAlpha/Telat: ${state.slip.summary.alpha}/${state.slip.summary.telat}\nGaji Bersih: ${rp(state.slip.net)}`;navigator.clipboard?.writeText(t);alert('Ringkasan disalin.')}});
+    
+    $('passForm').onsubmit=async e=>{e.preventDefault();let a=$('newPass').value,b=$('newPass2').value;if(a!==b){alert('Password baru tidak sama.');return}try{setBusy(true,'Mengganti password...');let newHash=await sha(a);let res=await jsonp('employeeChangePassword',{newHash});if(!res.ok)throw new Error(res.error||'Gagal');pinHash=newHash;localStorage.setItem(PINHASH_KEY,newHash);$('newPass').value='';$('newPass2').value='';setBusy(false,'');alert('Password berhasil diganti.')}catch(err){setBusy(false,'');alert(err.message)}};
+    $('logout').onclick=()=>{localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);nip='';pinHash='';show('loginScreen')};
+    
+    boot();
+  </script>
+<script src="https://unpkg.com/lucide@latest"></script><script>lucide.createIcons();</script></body>
+</html>
