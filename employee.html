@@ -113,12 +113,29 @@
         <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-900 opacity-20 rounded-full blur-3xl"></div>
         
         <div class="relative z-10">
-          <div class="flex justify-between items-center mb-8">
+          <div class="flex justify-between items-center mb-6">
             <div>
               <p class="text-sm font-semibold text-emerald-100">Shift Hari Ini</p>
               <h3 class="text-3xl font-black text-white mt-1" id="berandaStatus">Memuat...</h3>
             </div>
             <div id="berandaBadge" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">Shift</div>
+          </div>
+          
+          <div class="flex justify-center mb-6">
+             <button id="biometricBtn" class="w-24 h-24 rounded-full bg-emerald-700/50 border-4 border-emerald-400/30 flex flex-col items-center justify-center text-white hover:bg-emerald-700/70 hover:scale-105 transition transform active:scale-95 shadow-[0_0_25px_rgba(5,150,105,0.4)] backdrop-blur-md">
+               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-1">
+                 <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                 <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                 <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                 <path d="M2 12a10 10 0 0 1 18-6"/>
+                 <path d="M2 16h.01"/>
+                 <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+                 <path d="M5 19.5C5.5 18 6 15 6 12c0-.71.125-1.5.34-2"/>
+                 <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+                 <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+               </svg>
+               <span class="text-[10px] font-bold tracking-widest uppercase opacity-90" id="biometricBtnText">ABSEN</span>
+             </button>
           </div>
           
           <div class="flex gap-3 mt-4">
@@ -420,6 +437,25 @@
         $('checkOut').classList.remove('opacity-50', 'cursor-not-allowed');
       }
       
+      let bioBtn = $('biometricBtn');
+      let bioText = $('biometricBtnText');
+      if (bioBtn) {
+         let alreadyOut=!!(r&&r.checkOutTime);
+         if (blocked) {
+            bioBtn.classList.add('opacity-50','cursor-not-allowed');
+            bioText.textContent = 'BLOK';
+         } else if (!alreadyIn) {
+            bioBtn.classList.remove('opacity-50','cursor-not-allowed');
+            bioText.textContent = 'MASUK';
+         } else if (!alreadyOut) {
+            bioBtn.classList.remove('opacity-50','cursor-not-allowed');
+            bioText.textContent = 'PULANG';
+         } else {
+            bioBtn.classList.add('opacity-50','cursor-not-allowed');
+            bioText.textContent = 'SELESAI';
+         }
+      }
+      
       // History
       $('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`
         <div class="hist-card">
@@ -459,19 +495,95 @@
     
     $('loginForm').onsubmit=async e=>{e.preventDefault();nip=$('nip').value.trim();pinHash=await sha($('pin').value);localStorage.setItem(NIP_KEY,nip);localStorage.setItem(PINHASH_KEY,pinHash);try{await loadEmployee();show('app')}catch(err){alert((err.message||'Login gagal')+'\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.')}};
     
-    $('checkIn').onclick=async()=>{try{if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'.');return}
-      setBusy(true, 'Mengambil lokasi GPS...');
-      let pos=await getGPS();
-      setBusy(true, 'Mengirim check-in...');
-      await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
-    }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}};
+    async function doBiometricAuth() {
+      if (!window.PublicKeyCredential) return true;
+      try {
+        const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (!isAvailable) return true;
+      } catch(e) { return true; }
+      
+      const credIdHex = localStorage.getItem('bio_cred_id_' + nip);
+      if (!credIdHex) {
+        try {
+          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+          const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
+          const rp = { name: "Klaar Hadir" };
+          if(window.location.hostname) rp.id = window.location.hostname;
+          const credential = await navigator.credentials.create({
+            publicKey: {
+              challenge, rp,
+              user: { id: userId, name: nip||"karyawan", displayName: state?.employee?.name||"Karyawan" },
+              pubKeyCredParams: [{type: "public-key", alg: -7}, {type: "public-key", alg: -257}],
+              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+              timeout: 60000, attestation: "none"
+            }
+          });
+          const newCredId = Array.from(new Uint8Array(credential.rawId)).map(b=>b.toString(16).padStart(2,'0')).join('');
+          localStorage.setItem('bio_cred_id_' + nip, newCredId);
+          return true;
+        } catch(e) {
+          if(e.name==='NotAllowedError') throw new Error("Pendaftaran sidik jari dibatalkan. Anda harus mendaftar agar bisa absen.");
+          return true;
+        }
+      } else {
+        try {
+          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+          const credIdBytes = new Uint8Array(credIdHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+          await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              allowCredentials: [{id: credIdBytes, type: "public-key", transports: ["internal"]}],
+              userVerification: "required",
+              timeout: 60000
+            }
+          });
+          return true;
+        } catch(e) {
+          if(e.name==='NotAllowedError') throw new Error("Verifikasi sidik jari dibatalkan atau gagal.");
+          return true;
+        }
+      }
+    }
+
+    async function processCheckIn() {
+      try{
+        if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}
+        if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'.');return}
+        
+        await doBiometricAuth();
+        
+        setBusy(true, 'Mengambil lokasi GPS...');
+        let pos=await getGPS();
+        setBusy(true, 'Mengirim check-in...');
+        await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+      }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}
+    }
     
-    $('checkOut').onclick=async()=>{try{if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}if(state?.todayRecord?.checkOutTime){alert('Sudah check-out hari ini.');return}
-      setBusy(true, 'Mengambil lokasi GPS...');
-      let pos=await getGPS();
-      setBusy(true, 'Mengirim check-out...');
-      await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
-    }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}};
+    async function processCheckOut() {
+      try{
+        if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}
+        if(state?.todayRecord?.checkOutTime){alert('Sudah check-out hari ini.');return}
+        
+        await doBiometricAuth();
+        
+        setBusy(true, 'Mengambil lokasi GPS...');
+        let pos=await getGPS();
+        setBusy(true, 'Mengirim check-out...');
+        await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+      }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}
+    }
+
+    $('checkIn').onclick=processCheckIn;
+    $('checkOut').onclick=processCheckOut;
+    if($('biometricBtn')) {
+      $('biometricBtn').onclick = () => {
+         let r = normalizeEmployeeRec(state?.todayRecord);
+         let blocked = !!(r&&['izin','sakit','alpha'].includes(r.status));
+         if (blocked || (r && r.checkInTime && r.checkOutTime)) return;
+         if (!r || !r.checkInTime) processCheckIn();
+         else if (!r.checkOutTime) processCheckOut();
+      };
+    }
     
     $('requestForm').onsubmit=async e=>{e.preventDefault();try{await runAction('employeeRequest',{date:$('reqDate').value,type:$('reqType').value,reason:$('reqReason').value,proof:$('reqProof').value},'Mengirim pengajuan...');$('reqReason').value='';$('reqProof').value=''; alert('Pengajuan berhasil dikirim.'); switchTab('tab-beranda'); }catch(err){setBusy(false,'');alert('Pengajuan gagal: '+err.message)}};
     $('reload').onclick=async()=>{try{setBusy(true,'Memuat ulang data...');await loadEmployee();setBusy(false,'');}catch(e){setBusy(false,'');alert(e.message)}};
