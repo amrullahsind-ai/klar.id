@@ -118,22 +118,7 @@
             <div id="berandaBadge" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">Shift</div>
           </div>
           
-          <div class="flex justify-center mb-6">
-             <button id="biometricBtn" class="w-24 h-24 rounded-full bg-emerald-700/50 border-4 border-emerald-400/30 flex flex-col items-center justify-center text-white hover:bg-emerald-700/70 hover:scale-105 transition transform active:scale-95 shadow-[0_0_25px_rgba(5,150,105,0.4)] backdrop-blur-md">
-               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-1">
-                 <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
-                 <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
-                 <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
-                 <path d="M2 12a10 10 0 0 1 18-6"/>
-                 <path d="M2 16h.01"/>
-                 <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
-                 <path d="M5 19.5C5.5 18 6 15 6 12c0-.71.125-1.5.34-2"/>
-                 <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
-                 <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
-               </svg>
-               <span class="text-[10px] font-bold tracking-widest uppercase opacity-90" id="biometricBtnText">ABSEN</span>
-             </button>
-          </div>
+
           
           <div class="flex gap-3 mt-4">
             <button id="checkIn" class="flex-1 bg-white hover:bg-slate-50 text-emerald-700 font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 shadow-md">
@@ -256,23 +241,50 @@
 
     <!-- BOTTOM NAV -->
     <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-safe pt-2 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
-      <div class="mx-auto max-w-md flex justify-between items-center pb-4">
-        <button onclick="switchTab('tab-beranda')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-beranda">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-          <span class="text-[10px] font-bold mt-1">Beranda</span>
-        </button>
-        <button onclick="switchTab('tab-riwayat')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-riwayat">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span class="text-[10px] font-bold mt-1">Riwayat</span>
-        </button>
-        <button onclick="switchTab('tab-izin')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-izin">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          <span class="text-[10px] font-bold mt-1">Izin</span>
-        </button>
-        <button onclick="switchTab('tab-profil')" class="nav-btn flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-profil">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span class="text-[10px] font-bold mt-1">Profil</span>
-        </button>
+      
+      <!-- Biometric FAB -->
+      <div class="absolute left-1/2 -top-6 -translate-x-1/2 z-50 flex flex-col items-center">
+         <button id="biometricBtn" class="w-16 h-16 rounded-full bg-emerald-600 border-[3px] border-white flex flex-col items-center justify-center text-white hover:bg-emerald-700 hover:scale-105 transition transform active:scale-95 shadow-[0_8px_20px_rgba(5,150,105,0.4)]">
+           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+             <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+             <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+             <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+             <path d="M2 12a10 10 0 0 1 18-6"/>
+             <path d="M2 16h.01"/>
+             <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+             <path d="M5 19.5C5.5 18 6 15 6 12c0-.71.125-1.5.34-2"/>
+             <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+             <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+           </svg>
+         </button>
+         <span class="text-[9px] font-bold tracking-widest uppercase text-emerald-600 mt-1" id="biometricBtnText">ABSEN</span>
+      </div>
+
+      <div class="mx-auto max-w-md flex justify-between items-center pb-4 relative">
+        <div class="flex-1 flex justify-around">
+          <button onclick="switchTab('tab-beranda')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-beranda">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span class="text-[10px] font-bold mt-1">Beranda</span>
+          </button>
+          <button onclick="switchTab('tab-riwayat')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-riwayat">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span class="text-[10px] font-bold mt-1">Riwayat</span>
+          </button>
+        </div>
+        
+        <!-- Spacer for FAB -->
+        <div class="w-16 shrink-0"></div>
+        
+        <div class="flex-1 flex justify-around">
+          <button onclick="switchTab('tab-izin')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-izin">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span class="text-[10px] font-bold mt-1">Izin</span>
+          </button>
+          <button onclick="switchTab('tab-profil')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-profil">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span class="text-[10px] font-bold mt-1">Profil</span>
+          </button>
+        </div>
       </div>
     </nav>
   </main>
