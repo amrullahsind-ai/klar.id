@@ -38,13 +38,10 @@
     <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100">
       <div class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20">KH</div>
       <h2 class="text-2xl font-black text-slate-900 mb-2">Klaar Hadir</h2>
-      <p class="text-slate-500 text-sm mb-8">Masukkan server dan kode lisensi sekolah.</p>
-      
+      <p class="text-slate-500 text-sm mb-8">Masukkan kode lisensi sekolah.</p>
+
       <form id="activationForm" class="flex flex-col gap-5">
-        <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">License Server URL</label>
-          <input id="serverUrl" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-        </div>
+        <input id="serverUrl" type="hidden">
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kode Lisensi</label>
           <input id="licenseCode" value="EDUPAY-DEMO-0001" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
@@ -302,8 +299,10 @@
     switchTab('tab-beranda');
 
     const SALT='|edupay-v4-final-rebuild', SERVER_KEY='edupay_emp_server', LICENSE_KEY='edupay_emp_license', SERVER_DRAFT_KEY='edupay_emp_server_draft', LICENSE_DRAFT_KEY='edupay_emp_license_draft', NIP_KEY='edupay_emp_nip', PINHASH_KEY='edupay_emp_pinhash';
+    // === Backend Supabase (multi-tenant). HARUS SAMA dgn KLAAR_API di admin.html. ===
+    const KLAAR_API='https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler';
     const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, today=()=>dateKeyLocal(), fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,'');
-    let serverUrl=localStorage.getItem(SERVER_KEY)||'', license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
+    let serverUrl=KLAAR_API, license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
     function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
     
     function show(id){
@@ -323,13 +322,13 @@
     let raw = m[1].replace(/-/g,'+').replace(/_/g,'/');
     while(raw.length % 4) raw += '=';
     let obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if(obj && obj.s && obj.l) {
-      let ns = normalizeServerUrl(obj.s), nl = String(obj.l);
-      if(ns !== serverUrl || nl !== license){
+    if(obj && obj.l) {
+      let nl = String(obj.l);
+      if(nl !== license){
         nip=''; pinHash='';
         localStorage.removeItem(NIP_KEY); localStorage.removeItem(PINHASH_KEY);
       }
-      serverUrl = ns; 
+      serverUrl = KLAAR_API;   // backend terpusat; abaikan URL lama di link.
       license = nl;
       localStorage.setItem(SERVER_KEY, serverUrl);
       localStorage.setItem(LICENSE_KEY, license);
@@ -344,7 +343,10 @@
 }
     function boot(){applyLinkToken();if(!serverUrl||!license)show('activationScreen');else if(!nip||!pinHash)show('loginScreen');else loadEmployee().then(()=>show('app')).catch(e=>{alert(e.message);show('loginScreen')})}
     
-    function jsonp(action,extra={}){return new Promise((resolve,reject)=>{let cb='emp_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script'),sep=serverUrl.includes('?')?'&':'?';let params=new URLSearchParams(Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName(),callback:cb,t:Date.now()},extra));let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi'))},16000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=r=>{cleanup();resolve(r)};script.onerror=()=>{cleanup();reject(new Error('Gagal akses server. Cek License Server URL: harus URL Apps Script Web App yang berakhiran /exec, bukan link Vercel/GitHub. Pastikan deployment: Execute as Me, Anyone with the link.'))};script.src=serverUrl+sep+params.toString();document.body.appendChild(script)})}
+    // api() = pengganti JSONP: fetch JSON ke Edge Function Supabase (CORS, andal).
+async function api(action,extra={}){let ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),20000);try{let body=Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName()},extra);let res=await fetch(KLAAR_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal});if(!res.ok)throw new Error('HTTP '+res.status);return await res.json()}catch(e){throw new Error(e&&e.name==='AbortError'?'Timeout koneksi':(e.message||'Gagal akses server Klaar. Cek koneksi internet.'))}finally{clearTimeout(timer)}}
+// Alias kompatibilitas: seluruh call-site lama pakai jsonp(...).
+function jsonp(action,extra={}){return api(action,extra)}
     
     async function loadEmployee(){let res=await jsonp('loadEmployee');if(!res.ok)throw new Error(res.error||'Login/load gagal');state=res;render()}
     
@@ -489,7 +491,7 @@
     $('serverUrl').addEventListener('input',()=>localStorage.setItem(SERVER_DRAFT_KEY,$('serverUrl').value.trim()));
     $('licenseCode').addEventListener('input',()=>localStorage.setItem(LICENSE_DRAFT_KEY,$('licenseCode').value.trim()));
     
-    $('activationForm').onsubmit=e=>{e.preventDefault();let rawUrl=$('serverUrl').value.trim(), rawLicense=$('licenseCode').value.trim();localStorage.setItem(SERVER_DRAFT_KEY,rawUrl);localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);let msg=validateServerUrl(rawUrl);if(msg){alert(msg);return}if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=normalizeServerUrl(rawUrl);license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};
+    $('activationForm').onsubmit=e=>{e.preventDefault();let rawLicense=$('licenseCode').value.trim();localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=KLAAR_API;license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};
     $('changeServerLogin').onclick=()=>{localStorage.removeItem(SERVER_KEY);localStorage.removeItem(LICENSE_KEY);localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);serverUrl='';license='';nip='';pinHash='';$('serverUrl').value=localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';show('activationScreen')};
     $('serverUrl').value=serverUrl||localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=license||localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';
     
