@@ -28,6 +28,114 @@
     /* Modern inputs */
     input, select, textarea { transition: all 0.2s ease; }
     input:focus, select:focus, textarea:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1); }
+
+    /* ===== SELFIE MODAL ===== */
+    #selfieModal {
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,0.92);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    #selfieModal.hidden { display: none !important; }
+    #selfieModalInner {
+      width: 100%; max-width: 440px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0; position: relative;
+    }
+    #selfieModalHeader {
+      width: 100%; padding: 16px 20px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #selfieModalTitle { color: #fff; font-weight: 800; font-size: 17px; }
+    #selfieModalSubtitle { color: #94a3b8; font-size: 12px; font-weight: 500; margin-top: 2px; }
+    #selfieVideoWrap {
+      width: 100%; aspect-ratio: 3/4;
+      background: #000; position: relative; overflow: hidden;
+    }
+    #selfieVideo {
+      width: 100%; height: 100%; object-fit: cover;
+      transform: scaleX(-1); /* mirror for selfie */
+    }
+    /* Watermark overlay on video preview */
+    #selfieOverlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+      padding: 18px 16px 14px;
+      pointer-events: none;
+    }
+    #selfieOverlayText {
+      color: #fff; font-size: 11px; font-weight: 600;
+      line-height: 1.6; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+    #selfieOverlayText .loc-line { color: #86efac; font-size: 12px; font-weight: 700; }
+    #selfieOverlayText .coord-line { color: #bfdbfe; font-size: 10px; }
+    #selfieOverlayText .time-line { color: #fde68a; font-size: 13px; font-weight: 800; }
+    /* GPS dot */
+    .gps-dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: #22c55e;
+      animation: gpsBlink 1.2s infinite; margin-right: 4px;
+    }
+    @keyframes gpsBlink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    #selfieCaptured { display: none; width: 100%; aspect-ratio: 3/4; object-fit: cover; }
+    #selfieActions {
+      width: 100%; padding: 16px 20px;
+      display: flex; gap: 10px; align-items: center; justify-content: center;
+    }
+    #selfieShutterBtn {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: #fff; border: 5px solid rgba(255,255,255,0.3);
+      cursor: pointer; transition: transform 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #selfieShutterBtn:active { transform: scale(0.93); }
+    #selfieShutterBtn .inner { width: 56px; height: 56px; border-radius: 50%; background: #fff; }
+    #selfieRetakeBtn {
+      flex: 1; background: rgba(255,255,255,0.12); color: #fff;
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 16px;
+      padding: 14px; font-weight: 700; font-size: 14px; cursor: pointer;
+      transition: background 0.2s;
+    }
+    #selfieRetakeBtn:hover { background: rgba(255,255,255,0.2); }
+    #selfieConfirmBtn {
+      flex: 2; background: #059669; color: #fff;
+      border: none; border-radius: 16px;
+      padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer;
+      transition: background 0.2s; display: none;
+    }
+    #selfieConfirmBtn:hover { background: #047857; }
+    #selfieConfirmBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+    #selfieProgress {
+      color: #86efac; font-size: 12px; font-weight: 600; text-align: center;
+      padding: 0 20px 12px; display: none;
+    }
+    #selfieError {
+      color: #fca5a5; font-size: 12px; font-weight: 600; text-align: center;
+      padding: 4px 20px; display: none;
+    }
+    /* Small selfie thumbnail in history */
+    .selfie-thumb {
+      width: 40px; height: 40px; border-radius: 10px;
+      object-fit: cover; border: 2px solid #d1fae5;
+      cursor: pointer; transition: transform 0.2s;
+    }
+    .selfie-thumb:hover { transform: scale(1.08); }
+    /* Selfie viewer modal */
+    #selfieViewModal {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.96);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #selfieViewModal.hidden { display: none !important; }
+    #selfieViewImg { max-width: 100%; max-height: 80vh; border-radius: 16px; object-fit: contain; }
+    #selfieViewClose {
+      position: absolute; top: 20px; right: 20px;
+      background: rgba(255,255,255,0.15); border: none;
+      color: #fff; border-radius: 50%; width: 40px; height: 40px;
+      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    #selfieViewMeta { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 12px; }
   </style>
 
 </head>
@@ -289,6 +397,59 @@
     </nav>
   </main>
 
+  <!-- SELFIE CAMERA MODAL -->
+  <div id="selfieModal" class="hidden">
+    <div id="selfieModalInner">
+      <div id="selfieModalHeader">
+        <div>
+          <div id="selfieModalTitle">📸 Foto Absensi</div>
+          <div id="selfieModalSubtitle">Arahkan kamera ke wajah Anda</div>
+        </div>
+        <button id="selfieCloseBtn" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+
+      <!-- Video / Captured image -->
+      <div id="selfieVideoWrap">
+        <video id="selfieVideo" autoplay playsinline muted></video>
+        <img id="selfieCaptured" alt="Foto selfie">
+        <!-- Watermark overlay realtime -->
+        <div id="selfieOverlay">
+          <div id="selfieOverlayText">
+            <div class="time-line" id="selfieClock">--:--</div>
+            <div class="loc-line"><span class="gps-dot"></span><span id="selfieLocName">Mengambil GPS...</span></div>
+            <div class="coord-line" id="selfieCoords">lat: -- | lng: --</div>
+            <div id="selfieEmpLine" style="color:#e2e8f0;font-size:11px;"></div>
+            <div style="color:#94a3b8;font-size:10px;margin-top:2px;" id="selfieAccLine">Akurasi: --</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="selfieError"></div>
+      <div id="selfieProgress"></div>
+
+      <!-- Action buttons -->
+      <div id="selfieActions">
+        <!-- Before capture: shutter only -->
+        <button id="selfieShutterBtn" title="Ambil Foto">
+          <div class="inner"></div>
+        </button>
+        <!-- After capture: retake + confirm -->
+        <button id="selfieRetakeBtn" style="display:none;">🔄 Ulangi</button>
+        <button id="selfieConfirmBtn">✅ Kirim Absen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELFIE VIEWER MODAL (for history) -->
+  <div id="selfieViewModal" class="hidden">
+    <button id="selfieViewClose">✕</button>
+    <img id="selfieViewImg" src="" alt="Bukti selfie">
+    <div id="selfieViewMeta"></div>
+  </div>
+
+  <!-- Canvas (hidden) untuk watermark processing -->
+  <canvas id="selfieCanvas" style="display:none;"></canvas>
+
   <iframe name="syncFrame" class="hidden"></iframe>
 
 <script>
@@ -473,11 +634,15 @@ function jsonp(action,extra={}){return api(action,extra)}
       // History
       $('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`
         <div class="hist-card">
-          <div>
-            <div class="font-bold text-slate-800">${esc(x.date)}</div>
-            <div class="text-xs text-slate-500 mt-1 line-clamp-1">${esc(x.reason||x.message||'')}</div>
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+            ${(x.checkInSelfieUrl||x.checkOutSelfieUrl)?`<img class="selfie-thumb" src="${esc(x.checkInSelfieUrl||x.checkOutSelfieUrl)}" onclick="viewSelfie('${esc(x.checkInSelfieUrl||x.checkOutSelfieUrl)}','${esc(x.date)}')" title="Lihat foto absensi">`:'<div style="width:40px;height:40px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>'}
+            <div style="min-width:0;">
+              <div class="font-bold text-slate-800">${esc(x.date)}</div>
+              <div class="text-xs text-slate-500 mt-1 line-clamp-1">${esc(x.reason||x.message||'')}</div>
+              ${x.checkInTime?`<div class="text-xs text-emerald-600 font-semibold mt-0.5">In: ${esc(x.checkInTime)}${x.checkOutTime?' · Out: '+esc(x.checkOutTime):''}</div>`:''}
+            </div>
           </div>
-          <div>
+          <div style="flex-shrink:0;text-align:right;">
             <span class="badge ${x.status==='alpha'?'bad':(x.status==='telat'||x.isLate?'warn':'ok')}">${esc(x.status==='telat'||x.isLate?'telat':x.status)}</span>
             ${x.isLate&&x.lateMinutes?`<div class="text-[10px] text-amber-400 font-bold text-right mt-1">+${esc(x.lateMinutes)}m</div>`:''}
           </div>
@@ -559,6 +724,340 @@ function jsonp(action,extra={}){return api(action,extra)}
       }
     }
 
+    // ===== SELFIE SYSTEM =====
+    let _selfieStream = null;
+    let _selfieBlob = null;
+    let _selfieB64 = null;
+    let _selfieGps = null;
+    let _selfieType = 'checkin'; // 'checkin' | 'checkout'
+    let _selfieResolve = null;
+    let _selfieReject = null;
+    let _selfieClockInterval = null;
+
+    // Buka modal kamera selfie — return Promise<{selfieUrl, selfieB64}>
+    function openSelfieModal(gpsPos, selfieType) {
+      return new Promise((resolve, reject) => {
+        _selfieResolve = resolve;
+        _selfieReject = reject;
+        _selfieType = selfieType || 'checkin';
+        _selfieGps = gpsPos;
+        _selfieBlob = null;
+        _selfieB64 = null;
+
+        // Reset UI
+        const modal = $('selfieModal');
+        const video = $('selfieVideo');
+        const captured = $('selfieCaptured');
+        const shutter = $('selfieShutterBtn');
+        const retake = $('selfieRetakeBtn');
+        const confirm = $('selfieConfirmBtn');
+        const progress = $('selfieProgress');
+        const errEl = $('selfieError');
+        modal.classList.remove('hidden');
+        captured.style.display = 'none';
+        video.style.display = 'block';
+        shutter.style.display = 'flex';
+        retake.style.display = 'none';
+        confirm.style.display = 'none';
+        confirm.disabled = false;
+        confirm.textContent = '✅ Kirim Absen';
+        progress.style.display = 'none';
+        errEl.style.display = 'none';
+        errEl.textContent = '';
+
+        // Title
+        $('selfieModalTitle').textContent = selfieType === 'checkout' ? '📸 Foto Pulang' : '📸 Foto Masuk';
+        $('selfieModalSubtitle').textContent = 'Arahkan kamera ke wajah Anda';
+
+        // Watermark GPS info
+        const lat = gpsPos?.coords?.latitude;
+        const lng = gpsPos?.coords?.longitude;
+        const acc = gpsPos?.coords?.accuracy;
+        const todayRec = state?.todayRecord;
+        const locName = todayRec?.locationName || (gpsPos?._locationName) || 'GPS Aktif';
+        if ($('selfieLocName')) $('selfieLocName').textContent = locName;
+        if ($('selfieCoords') && lat) $('selfieCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        if ($('selfieAccLine') && acc) $('selfieAccLine').textContent = `Akurasi ±${Math.round(acc)}m`;
+        if ($('selfieEmpLine')) {
+          const empName = state?.employee?.name || nip || '';
+          const schoolName = state?.school || 'Klaar Hadir';
+          $('selfieEmpLine').textContent = `${empName} · ${schoolName}`;
+        }
+
+        // Live clock update
+        function updateClock() {
+          const now = new Date();
+          const h = String(now.getHours()).padStart(2,'0');
+          const m = String(now.getMinutes()).padStart(2,'0');
+          const s = String(now.getSeconds()).padStart(2,'0');
+          const dd = String(now.getDate()).padStart(2,'0');
+          const mm = String(now.getMonth()+1).padStart(2,'0');
+          const yy = now.getFullYear();
+          if ($('selfieClock')) $('selfieClock').textContent = `${h}:${m}:${s} · ${dd}/${mm}/${yy}`;
+        }
+        updateClock();
+        if (_selfieClockInterval) clearInterval(_selfieClockInterval);
+        _selfieClockInterval = setInterval(updateClock, 1000);
+
+        // Start camera
+        navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+          audio: false
+        }).then(stream => {
+          _selfieStream = stream;
+          video.srcObject = stream;
+          video.play();
+        }).catch(err => {
+          errEl.style.display = 'block';
+          errEl.textContent = 'Kamera tidak bisa dibuka: ' + (err.message || err);
+        });
+      });
+    }
+
+    function closeSelfieModal(cancelled) {
+      if (_selfieClockInterval) clearInterval(_selfieClockInterval);
+      if (_selfieStream) {
+        _selfieStream.getTracks().forEach(t => t.stop());
+        _selfieStream = null;
+      }
+      const video = $('selfieVideo');
+      if (video) { video.srcObject = null; }
+      $('selfieModal').classList.add('hidden');
+      if (cancelled && _selfieReject) {
+        _selfieReject(new Error('Foto absensi dibatalkan.'));
+        _selfieResolve = null; _selfieReject = null;
+      }
+    }
+
+    // Gambar watermark CamGPS style ke canvas
+    function drawWatermark(canvas, gpsPos, selfieType) {
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const lat = gpsPos?.coords?.latitude;
+      const lng = gpsPos?.coords?.longitude;
+      const acc = gpsPos?.coords?.accuracy;
+      const now = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const dateStr = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+      const todayRec = state?.todayRecord;
+      const locName = todayRec?.locationName || (gpsPos?._locationName) || 'Klaar GPS';
+      const empName = state?.employee?.name || nip || '';
+      const school = state?.school || 'Klaar Hadir';
+      const typeLabel = selfieType === 'checkout' ? 'ABSEN PULANG' : 'ABSEN MASUK';
+
+      // Semi-transparent black bar at bottom
+      const barH = Math.round(H * 0.22);
+      const grad = ctx.createLinearGradient(0, H - barH, 0, H);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.3, 'rgba(0,0,0,0.75)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, H - barH, W, barH);
+
+      const pad2 = Math.round(W * 0.03);
+      let y = H - barH + Math.round(barH * 0.18);
+      const lineH = Math.round(barH * 0.2);
+
+      // TYPE label (top of watermark)
+      ctx.font = `bold ${Math.round(W * 0.038)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#4ade80';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(typeLabel, pad2, y + lineH * 0.8);
+      y += lineH;
+
+      // Time + Date
+      ctx.font = `bold ${Math.round(W * 0.06)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#fde68a';
+      ctx.fillText(`${timeStr}`, pad2, y + lineH);
+      y += lineH * 1.3;
+
+      ctx.font = `${Math.round(W * 0.032)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(dateStr, pad2, y + lineH * 0.7);
+      y += lineH;
+
+      // Location name
+      ctx.font = `bold ${Math.round(W * 0.036)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#86efac';
+      ctx.fillText('📍 ' + locName, pad2, y + lineH * 0.75);
+      y += lineH;
+
+      // Coordinates
+      if (lat) {
+        ctx.font = `${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = '#bfdbfe';
+        ctx.fillText(`${lat.toFixed(6)}, ${lng.toFixed(6)}  ±${Math.round(acc||0)}m`, pad2, y + lineH * 0.7);
+        y += lineH * 0.9;
+      }
+
+      // Divider line
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad2, y + 4); ctx.lineTo(W - pad2, y + 4); ctx.stroke();
+      y += lineH * 0.5;
+
+      // Employee name + school (small)
+      ctx.font = `${Math.round(W * 0.028)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`${empName}  ·  ${school}`, pad2, y + lineH * 0.7);
+
+      // Top-right: GPS verified badge
+      const bW = Math.round(W * 0.28), bH = Math.round(H * 0.045);
+      const bX = W - bW - pad2, bY = Math.round(H * 0.025);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(bX, bY, bW, bH, 6) : ctx.rect(bX, bY, bW, bH);
+      ctx.fill();
+      ctx.font = `bold ${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText('● GPS Verified', bX + 8, bY + bH * 0.72);
+
+      ctx.shadowBlur = 0;
+    }
+
+    // Kompres foto: resize max 800px, quality 0.55
+    async function compressSelfie(videoEl, gpsPos, selfieType) {
+      const canvas = $('selfieCanvas');
+      const vW = videoEl.videoWidth || 640;
+      const vH = videoEl.videoHeight || 480;
+      const maxDim = 800;
+      let cW = vW, cH = vH;
+      if (cW > maxDim || cH > maxDim) {
+        const ratio = Math.min(maxDim / cW, maxDim / cH);
+        cW = Math.round(cW * ratio);
+        cH = Math.round(cH * ratio);
+      }
+      canvas.width = cW;
+      canvas.height = cH;
+      const ctx = canvas.getContext('2d');
+      // Mirror: flip horizontal like selfie camera
+      ctx.save();
+      ctx.translate(cW, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoEl, 0, 0, cW, cH);
+      ctx.restore();
+      // Draw watermark
+      drawWatermark(canvas, gpsPos, selfieType);
+      // Convert to blob (compressed)
+      return new Promise(resolve => {
+        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.55);
+      });
+    }
+
+    // Baca blob sebagai base64
+    function blobToBase64(blob) {
+      return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result);
+        reader.onerror = rej;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    // Upload selfie ke server
+    async function uploadSelfieToServer(b64, gpsPos, selfieType) {
+      const lat = gpsPos?.coords?.latitude || 0;
+      const lng = gpsPos?.coords?.longitude || 0;
+      const acc = gpsPos?.coords?.accuracy || 0;
+      const locName = state?.todayRecord?.locationName || '';
+      const now = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      const watermarkText = [
+        (selfieType === 'checkout' ? 'ABSEN PULANG' : 'ABSEN MASUK'),
+        `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`,
+        `${lat.toFixed(6)}, ${lng.toFixed(6)} ±${Math.round(acc)}m`,
+        locName,
+        `${state?.employee?.name || nip} · ${state?.school || 'Klaar Hadir'}`
+      ].join(' | ');
+      const res = await api('uploadSelfie', {
+        photoBase64: b64,
+        selfieType,
+        lat: lat.toString(),
+        lng: lng.toString(),
+        accuracy: acc.toString(),
+        locationName: locName,
+        watermarkText,
+      });
+      return res;
+    }
+
+    // Selfie modal: shutter button
+    $('selfieShutterBtn').onclick = async () => {
+      const video = $('selfieVideo');
+      const captured = $('selfieCaptured');
+      try {
+        const blob = await compressSelfie(video, _selfieGps, _selfieType);
+        _selfieBlob = blob;
+        _selfieB64 = await blobToBase64(blob);
+        // Show captured image
+        captured.src = _selfieB64;
+        captured.style.display = 'block';
+        video.style.display = 'none';
+        // Show retake + confirm
+        $('selfieShutterBtn').style.display = 'none';
+        $('selfieRetakeBtn').style.display = 'flex';
+        $('selfieConfirmBtn').style.display = 'flex';
+        const sizeKB = Math.round((blob.size||0) / 1024);
+        $('selfieModalSubtitle').textContent = `Foto OK · ${sizeKB} KB — Kirim atau Ulangi`;
+      } catch(e) {
+        $('selfieError').style.display = 'block';
+        $('selfieError').textContent = 'Gagal ambil foto: ' + (e.message || e);
+      }
+    };
+
+    // Retake
+    $('selfieRetakeBtn').onclick = () => {
+      const video = $('selfieVideo');
+      const captured = $('selfieCaptured');
+      captured.style.display = 'none';
+      video.style.display = 'block';
+      $('selfieShutterBtn').style.display = 'flex';
+      $('selfieRetakeBtn').style.display = 'none';
+      $('selfieConfirmBtn').style.display = 'none';
+      $('selfieModalSubtitle').textContent = 'Arahkan kamera ke wajah Anda';
+      $('selfieError').style.display = 'none';
+      _selfieBlob = null; _selfieB64 = null;
+    };
+
+    // Confirm — upload then resolve
+    $('selfieConfirmBtn').onclick = async () => {
+      if (!_selfieB64) { $('selfieError').style.display='block'; $('selfieError').textContent='Ambil foto dulu.'; return; }
+      $('selfieConfirmBtn').disabled = true;
+      $('selfieConfirmBtn').textContent = '⏳ Mengunggah...';
+      $('selfieProgress').style.display = 'block';
+      $('selfieProgress').textContent = 'Mengupload foto absensi...';
+      $('selfieError').style.display = 'none';
+      try {
+        const uploadRes = await uploadSelfieToServer(_selfieB64, _selfieGps, _selfieType);
+        if (!uploadRes.ok) throw new Error(uploadRes.error || 'Upload gagal');
+        $('selfieProgress').textContent = `✅ Foto tersimpan (${uploadRes.sizeKB}KB)`;
+        const selfieUrl = uploadRes.selfieUrl || '';
+        closeSelfieModal(false);
+        if (_selfieResolve) { _selfieResolve({ selfieUrl, selfieB64: _selfieB64 }); _selfieResolve = null; _selfieReject = null; }
+      } catch(e) {
+        $('selfieConfirmBtn').disabled = false;
+        $('selfieConfirmBtn').textContent = '✅ Kirim Absen';
+        $('selfieProgress').style.display = 'none';
+        $('selfieError').style.display = 'block';
+        $('selfieError').textContent = e.message || 'Upload gagal. Cek koneksi.';
+      }
+    };
+
+    // Close / cancel selfie modal
+    $('selfieCloseBtn').onclick = () => closeSelfieModal(true);
+
+    // Selfie viewer for history
+    function viewSelfie(url, dateStr) {
+      $('selfieViewImg').src = url;
+      $('selfieViewMeta').textContent = dateStr ? 'Tanggal: ' + dateStr : '';
+      $('selfieViewModal').classList.remove('hidden');
+    }
+    $('selfieViewClose').onclick = () => $('selfieViewModal').classList.add('hidden');
+    $('selfieViewModal').onclick = (e) => { if (e.target === $('selfieViewModal')) $('selfieViewModal').classList.add('hidden'); };
+
+    // ===== CHECK-IN with selfie =====
     async function processCheckIn() {
       try{
         if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}
@@ -567,12 +1066,30 @@ function jsonp(action,extra={}){return api(action,extra)}
         await doBiometricAuth();
         
         setBusy(true, 'Mengambil lokasi GPS...');
-        let pos=await getGPS();
+        let pos = await getGPS();
+        setBusy(false, '');
+
+        // Buka modal kamera selfie
+        let selfieResult = null;
+        try {
+          selfieResult = await openSelfieModal(pos, 'checkin');
+        } catch(selfieErr) {
+          // Jika kamera tidak ada / dibatalkan, lanjut tanpa selfie
+          if (selfieErr.message && selfieErr.message.includes('dibatalkan')) throw selfieErr;
+          console.warn('Selfie error (skip):', selfieErr);
+        }
+
         setBusy(true, 'Mengirim check-in...');
-        await runAction('employeeCheckIn',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+        await runAction('employeeCheckIn',{
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          selfieUrl: selfieResult?.selfieUrl || '',
+        }, 'Memproses...')
       }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}
     }
     
+    // ===== CHECK-OUT with selfie =====
     async function processCheckOut() {
       try{
         if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}
@@ -581,9 +1098,25 @@ function jsonp(action,extra={}){return api(action,extra)}
         await doBiometricAuth();
         
         setBusy(true, 'Mengambil lokasi GPS...');
-        let pos=await getGPS();
+        let pos = await getGPS();
+        setBusy(false, '');
+
+        // Buka modal kamera selfie
+        let selfieResult = null;
+        try {
+          selfieResult = await openSelfieModal(pos, 'checkout');
+        } catch(selfieErr) {
+          if (selfieErr.message && selfieErr.message.includes('dibatalkan')) throw selfieErr;
+          console.warn('Selfie error (skip):', selfieErr);
+        }
+
         setBusy(true, 'Mengirim check-out...');
-        await runAction('employeeCheckOut',{lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy},'Memproses...')
+        await runAction('employeeCheckOut',{
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          selfieUrl: selfieResult?.selfieUrl || '',
+        }, 'Memproses...')
       }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}
     }
 
