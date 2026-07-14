@@ -3527,19 +3527,10 @@
           e.baseSalary !== "";
         if (meth === "grade") {
           base = hasEmpBase ? +e.baseSalary || 0 : moneyOfGrade(g);
-          let fullish = sum.hadir + sum.telat >= work;
-          let att = fullish
-            ? +g.attendanceFull || 0
-            : (+g.attendanceDaily || 0) * (sum.hadir + sum.telat);
           if (+g.amount)
             allow.push({
               name: "Tunjangan Golongan " + g.name,
               amount: +g.amount,
-            });
-          if (att)
-            allow.push({
-              name: "Tunjangan Kehadiran " + (fullish ? "full" : "harian"),
-              amount: att,
             });
           (g.customComponents || []).forEach((c) => {
             if (c.deduction) ded.push({ name: c.name, amount: +c.amount });
@@ -3564,6 +3555,18 @@
         } else {
           // excel / custom: gaji pokok & tunjangan diambil dari data per-karyawan (hasil import atau input manual)
           base = hasEmpBase ? +e.baseSalary || 0 : 0;
+        }
+
+        // Tunjangan Kehadiran dari Golongan sekarang ditarik keluar agar berlaku di SEMUA mode (termasuk Mode Excel)
+        let fullish = sum.hadir + sum.telat >= work;
+        let att = fullish
+          ? +g.attendanceFull || 0
+          : (+g.attendanceDaily || 0) * (sum.hadir + sum.telat);
+        if (att) {
+          allow.push({
+            name: "Tunjangan Kehadiran " + (fullish ? "full" : "harian"),
+            amount: att,
+          });
         }
         // Tunjangan & potongan tetap milik karyawan (hasil import Excel / input manual) — berlaku SEMUA metode, SETIAP bulan
         (e.allowances || []).forEach((a) => {
