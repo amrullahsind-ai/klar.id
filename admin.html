@@ -1454,11 +1454,9 @@
                 <div class="field wide">
                   <label>Catatan</label><textarea id="empNote"></textarea>
                 </div>
-                <div class="actions wide">
-                  <button class="btn primary">Simpan Karyawan</button
-                  ><button class="btn" type="button" id="resetEmp">
-                    Reset
-                  </button>
+                <div class="actions wide" style="margin-top: 10px">
+                  <button class="btn" type="button" onclick="document.getElementById('empForm').reset(); document.getElementById('empId').value = ''; if(window.renderEmpComps) renderEmpComps([], []);">Batal</button>
+                  <button class="btn primary" type="submit">Simpan Karyawan</button>
                 </div>
               </form>
             </div>
@@ -1549,7 +1547,10 @@
                     placeholder="mis. 50000 per tahun mengabdi"
                   />
                 </div>
-                <button class="btn primary wide">Simpan Jabatan</button>
+                <div class="actions wide" style="margin-top: 10px">
+                  <button class="btn" type="button" onclick="document.getElementById('posForm').reset(); document.getElementById('posId').value = '';">Batal</button>
+                  <button class="btn primary" type="submit">Simpan Jabatan</button>
+                </div>
               </form>
               <div class="divider"></div>
               <div class="table-wrap">
@@ -1611,21 +1612,9 @@
                     gap: 15px;
                   "
                 ></div>
-                <div class="actions wide">
-                  <button class="btn primary">Simpan Golongan</button
-                  ><button
-                    class="btn"
-                    type="button"
-                    onclick="
-                      document.getElementById('gradeForm').reset();
-                      document.getElementById('gradeId').value = '';
-                      if (document.getElementById('gradeCustomComps'))
-                        document.getElementById('gradeCustomComps').innerHTML =
-                          '';
-                    "
-                  >
-                    Reset Baru
-                  </button>
+                <div class="actions wide" style="margin-top: 10px">
+                  <button class="btn" type="button" onclick="document.getElementById('gradeForm').reset(); document.getElementById('gradeId').value = ''; if (document.getElementById('gradeCustomComps')) document.getElementById('gradeCustomComps').innerHTML = '';">Batal</button>
+                  <button class="btn primary" type="submit">Simpan Golongan</button>
                 </div>
               </form>
               <div class="divider"></div>
@@ -1735,10 +1724,8 @@
                   />
                 </div>
                 <div class="actions wide" style="margin-top: 10px">
-                  <button class="btn" type="button" id="resetComp">Batal</button
-                  ><button class="btn primary" type="submit">
-                    Simpan Komponen
-                  </button>
+                  <button class="btn" type="button" onclick="document.getElementById('compForm').reset(); document.getElementById('compId').value = '';">Batal</button>
+                  <button class="btn primary" type="submit">Simpan Komponen</button>
                 </div>
               </form>
               <div class="divider"></div>
@@ -1781,7 +1768,10 @@
                     <option value="telat">Telat</option>
                   </select>
                 </div>
-                <button class="btn primary wide">Simpan Potongan</button>
+                <div class="actions wide" style="margin-top: 10px">
+                  <button class="btn" type="button" onclick="document.getElementById('dedForm').reset(); document.getElementById('dedId').value = '';">Batal</button>
+                  <button class="btn primary" type="submit">Simpan Potongan</button>
+                </div>
               </form>
               <div class="divider"></div>
               <div class="table-wrap">
