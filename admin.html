@@ -4675,9 +4675,11 @@
         if (ss) sendSlip(ss.dataset.sendSlip);
         let ee = e.target.closest("[data-edit-emp]");
         if (ee) {
+          closeModal();
           let x = empById(ee.dataset.editEmp);
           if (x) {
             $("empId").value = x.id;
+            $("empForm").scrollIntoView({ behavior: "smooth", block: "center" });
             $("empName").value = x.name || "";
             $("empLogin").value = x.loginName || x.name || "";
             $("empNik").value = x.nik || "";
@@ -4910,9 +4912,11 @@
         document.addEventListener("click", (e) => {
           let ep = e.target.closest("[data-edit-pos]");
           if (ep) {
+            closeModal();
             let x = db.positions.find((a) => a.id == ep.dataset.editPos);
             $("posId").value = x.id;
             $("posName").value = x.name;
+            $("posForm").scrollIntoView({ behavior: "smooth", block: "center" });
             $("posSalary").value = rp(x.salary || 0);
             $("posFunctional").value = rp(x.functionalAllowance || 0);
             $("posHouse").value = rp(x.houseAllowance || 0);
@@ -4927,9 +4931,11 @@
           }
           let eg = e.target.closest("[data-edit-grade]");
           if (eg) {
+            closeModal();
             let x = db.grades.find((a) => a.id == eg.dataset.editGrade);
             $("gradeId").value = x.id;
             $("gradeName").value = x.name;
+            $("gradeForm").scrollIntoView({ behavior: "smooth", block: "center" });
             $("gradeBaseSalary").value = rp(x.baseSalary || 0);
             $("gradeAttendanceDaily").value = rp(x.attendanceDaily || 0);
             $("gradeAttendanceFull").value = rp(x.attendanceFull || 0);
@@ -4954,9 +4960,11 @@
           }
           let ec = e.target.closest("[data-edit-comp]");
           if (ec) {
+            closeModal();
             let x = db.components.find((a) => a.id == ec.dataset.editComp);
             $("compId").value = x.id;
             $("compName").value = x.name;
+            $("compForm").scrollIntoView({ behavior: "smooth", block: "center" });
             $("compKind").value = x.kind;
             $("compAmount").value = rp(x.amount);
             $("compScope").value = x.scope;
