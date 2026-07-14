@@ -1,656 +1,1534 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Klaar Hadir</title>
-  <link rel="manifest" href="employee-manifest.json">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; background-color:#f8fafc; color: #0f172a; -webkit-tap-highlight-color: transparent; }
-    .bottom-nav-pb { padding-bottom: 110px; }
-    ::-webkit-scrollbar { display: none; }
-    .tab-content { display: none; animation: fade .3s ease; }
-    .tab-content.active { display: block; }
-    @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-    
-    .row-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    .row-item:last-child { border-bottom: none; }
-    .row-item span { color: #64748b; font-weight: 500; }
-    .row-item strong { font-weight: 700; text-align: right; color: #0f172a; }
-    .badge { display: inline-flex; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .badge.ok { background: #d1fae5; color: #059669; }
-    .badge.warn { background: #fef3c7; color: #d97706; }
-    .badge.bad { background: #fee2e2; color: #dc2626; }
-    .hist-card { background: #ffffff; border-radius: 20px; padding: 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-    
-    /* Modern inputs */
-    input, select, textarea { transition: all 0.2s ease; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1); }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Klaar Hadir</title>
+    <link rel="manifest" href="employee-manifest.json" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .bottom-nav-pb {
+        padding-bottom: 110px;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      .tab-content {
+        display: none;
+        animation: fade 0.3s ease;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
 
-    /* ===== SELFIE MODAL ===== */
-    #selfieModal {
-      position: fixed; inset: 0; z-index: 999;
-      background: rgba(0,0,0,0.92);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 0;
-    }
-    #selfieModal.hidden { display: none !important; }
-    #selfieModalInner {
-      width: 100%; max-width: 440px;
-      display: flex; flex-direction: column; align-items: center;
-      gap: 0; position: relative;
-    }
-    #selfieModalHeader {
-      width: 100%; padding: 16px 20px 12px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    #selfieModalTitle { color: #fff; font-weight: 800; font-size: 17px; }
-    #selfieModalSubtitle { color: #94a3b8; font-size: 12px; font-weight: 500; margin-top: 2px; }
-    #selfieVideoWrap {
-      width: 100%; aspect-ratio: 3/4;
-      background: #000; position: relative; overflow: hidden;
-    }
-    #selfieVideo {
-      width: 100%; height: 100%; object-fit: cover;
-      transform: scaleX(-1); /* mirror for selfie */
-    }
-    /* Watermark overlay on video preview */
-    #selfieOverlay {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
-      padding: 18px 16px 14px;
-      pointer-events: none;
-    }
-    #selfieOverlayText {
-      color: #fff; font-size: 11px; font-weight: 600;
-      line-height: 1.6; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    }
-    #selfieOverlayText .loc-line { color: #86efac; font-size: 12px; font-weight: 700; }
-    #selfieOverlayText .coord-line { color: #bfdbfe; font-size: 10px; }
-    #selfieOverlayText .time-line { color: #fde68a; font-size: 13px; font-weight: 800; }
-    /* GPS dot */
-    .gps-dot {
-      display: inline-block; width: 8px; height: 8px;
-      border-radius: 50%; background: #22c55e;
-      animation: gpsBlink 1.2s infinite; margin-right: 4px;
-    }
-    @keyframes gpsBlink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-    #selfieCaptured { display: none; width: 100%; aspect-ratio: 3/4; object-fit: cover; }
-    #selfieActions {
-      width: 100%; padding: 16px 20px;
-      display: flex; gap: 10px; align-items: center; justify-content: center;
-    }
-    #selfieShutterBtn {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: #fff; border: 5px solid rgba(255,255,255,0.3);
-      cursor: pointer; transition: transform 0.15s;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #selfieShutterBtn:active { transform: scale(0.93); }
-    #selfieShutterBtn .inner { width: 56px; height: 56px; border-radius: 50%; background: #fff; }
-    #selfieRetakeBtn {
-      flex: 1; background: rgba(255,255,255,0.12); color: #fff;
-      border: 1px solid rgba(255,255,255,0.2); border-radius: 16px;
-      padding: 14px; font-weight: 700; font-size: 14px; cursor: pointer;
-      transition: background 0.2s;
-    }
-    #selfieRetakeBtn:hover { background: rgba(255,255,255,0.2); }
-    #selfieConfirmBtn {
-      flex: 2; background: #059669; color: #fff;
-      border: none; border-radius: 16px;
-      padding: 14px; font-weight: 800; font-size: 15px; cursor: pointer;
-      transition: background 0.2s; display: none;
-    }
-    #selfieConfirmBtn:hover { background: #047857; }
-    #selfieConfirmBtn:disabled { opacity: 0.6; cursor: not-allowed; }
-    #selfieProgress {
-      color: #86efac; font-size: 12px; font-weight: 600; text-align: center;
-      padding: 0 20px 12px; display: none;
-    }
-    #selfieError {
-      color: #fca5a5; font-size: 12px; font-weight: 600; text-align: center;
-      padding: 4px 20px; display: none;
-    }
-    /* Small selfie thumbnail in history */
-    .selfie-thumb {
-      width: 40px; height: 40px; border-radius: 10px;
-      object-fit: cover; border: 2px solid #d1fae5;
-      cursor: pointer; transition: transform 0.2s;
-    }
-    .selfie-thumb:hover { transform: scale(1.08); }
-    /* Selfie viewer modal */
-    #selfieViewModal {
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,0.96);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 20px;
-    }
-    #selfieViewModal.hidden { display: none !important; }
-    #selfieViewImg { max-width: 100%; max-height: 80vh; border-radius: 16px; object-fit: contain; }
-    #selfieViewClose {
-      position: absolute; top: 20px; right: 20px;
-      background: rgba(255,255,255,0.15); border: none;
-      color: #fff; border-radius: 50%; width: 40px; height: 40px;
-      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    }
-    #selfieViewMeta { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 12px; }
-  </style>
+      .row-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+      }
+      .row-item:last-child {
+        border-bottom: none;
+      }
+      .row-item span {
+        color: #64748b;
+        font-weight: 500;
+      }
+      .row-item strong {
+        font-weight: 700;
+        text-align: right;
+        color: #0f172a;
+      }
+      .badge {
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .badge.ok {
+        background: #d1fae5;
+        color: #059669;
+      }
+      .badge.warn {
+        background: #fef3c7;
+        color: #d97706;
+      }
+      .badge.bad {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+      .hist-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 18px;
+        margin-bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+      }
 
-</head>
-<body class="antialiased min-h-screen relative">
+      /* Modern inputs */
+      input,
+      select,
+      textarea {
+        transition: all 0.2s ease;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #059669;
+        box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1);
+      }
 
-  <!-- ACTIVATION SCREEN -->
-  <div id="activationScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50">
-    <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100">
-      <div class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20">KH</div>
-      <h2 class="text-2xl font-black text-slate-900 mb-2">Klaar Hadir</h2>
-      <p class="text-slate-500 text-sm mb-8">Masukkan kode lisensi sekolah.</p>
-
-      <form id="activationForm" class="flex flex-col gap-5">
-        <input id="serverUrl" type="hidden">
-        <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kode Lisensi</label>
-          <input id="licenseCode" value="EDUPAY-DEMO-0001" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+      /* ===== SELFIE MODAL ===== */
+      #selfieModal {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        background: rgba(0, 0, 0, 0.92);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      #selfieModal.hidden {
+        display: none !important;
+      }
+      #selfieModalInner {
+        width: 100%;
+        max-width: 440px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        position: relative;
+      }
+      #selfieModalHeader {
+        width: 100%;
+        padding: 16px 20px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      #selfieModalTitle {
+        color: #fff;
+        font-weight: 800;
+        font-size: 17px;
+      }
+      #selfieModalSubtitle {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 500;
+        margin-top: 2px;
+      }
+      #selfieVideoWrap {
+        width: 100%;
+        aspect-ratio: 3/4;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+      }
+      #selfieVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1); /* mirror for selfie */
+      }
+      /* Watermark overlay on video preview */
+      #selfieOverlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.85) 0%,
+          rgba(0, 0, 0, 0.4) 60%,
+          transparent 100%
+        );
+        padding: 18px 16px 14px;
+        pointer-events: none;
+      }
+      #selfieOverlayText {
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.6;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      }
+      #selfieOverlayText .loc-line {
+        color: #86efac;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      #selfieOverlayText .coord-line {
+        color: #bfdbfe;
+        font-size: 10px;
+      }
+      #selfieOverlayText .time-line {
+        color: #fde68a;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      /* GPS dot */
+      .gps-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        animation: gpsBlink 1.2s infinite;
+        margin-right: 4px;
+      }
+      @keyframes gpsBlink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      #selfieCaptured {
+        display: none;
+        width: 100%;
+        aspect-ratio: 3/4;
+        object-fit: cover;
+      }
+      #selfieActions {
+        width: 100%;
+        padding: 16px 20px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+      }
+      #selfieShutterBtn {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: #fff;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        transition: transform 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #selfieShutterBtn:active {
+        transform: scale(0.93);
+      }
+      #selfieShutterBtn .inner {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      #selfieRetakeBtn {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        padding: 14px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #selfieRetakeBtn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      #selfieConfirmBtn {
+        flex: 2;
+        background: #059669;
+        color: #fff;
+        border: none;
+        border-radius: 16px;
+        padding: 14px;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: none;
+      }
+      #selfieConfirmBtn:hover {
+        background: #047857;
+      }
+      #selfieConfirmBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      #selfieProgress {
+        color: #86efac;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        padding: 0 20px 12px;
+        display: none;
+      }
+      #selfieError {
+        color: #fca5a5;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        padding: 4px 20px;
+        display: none;
+      }
+      /* Small selfie thumbnail in history */
+      .selfie-thumb {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 2px solid #d1fae5;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+      .selfie-thumb:hover {
+        transform: scale(1.08);
+      }
+      /* Selfie viewer modal */
+      #selfieViewModal {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.96);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      #selfieViewModal.hidden {
+        display: none !important;
+      }
+      #selfieViewImg {
+        max-width: 100%;
+        max-height: 80vh;
+        border-radius: 16px;
+        object-fit: contain;
+      }
+      #selfieViewClose {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: #fff;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #selfieViewMeta {
+        color: #94a3b8;
+        font-size: 12px;
+        text-align: center;
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body class="antialiased min-h-screen relative">
+    <!-- ACTIVATION SCREEN -->
+    <div
+      id="activationScreen"
+      class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50"
+    >
+      <div
+        class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
+      >
+        <div
+          class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20"
+        >
+          KH
         </div>
-        <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95">Lanjut Login</button>
-      </form>
+        <h2 class="text-2xl font-black text-slate-900 mb-2">Klaar Hadir</h2>
+        <p class="text-slate-500 text-sm mb-8">
+          Masukkan kode lisensi sekolah.
+        </p>
+
+        <form id="activationForm" class="flex flex-col gap-5">
+          <input id="serverUrl" type="hidden" />
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+              >Kode Lisensi</label
+            >
+            <input
+              id="licenseCode"
+              value="EDUPAY-DEMO-0001"
+              required
+              class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+            />
+          </div>
+          <button
+            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95"
+          >
+            Lanjut Login
+          </button>
+        </form>
+      </div>
     </div>
-  </div>
 
-  <!-- LOGIN SCREEN -->
-  <div id="loginScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50 hidden">
-    <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100">
-      <div class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20">KH</div>
-      <h2 class="text-2xl font-black text-slate-900 mb-2">Masuk Akun</h2>
-      <p id="connNote" class="text-emerald-500 text-sm font-bold mb-2"></p>
-      <p class="text-slate-500 text-sm mb-8 leading-relaxed">Masukkan NIP/Login dan password. Karyawan import Excel default: 1234.</p>
-      
-      <form id="loginForm" class="flex flex-col gap-5">
-        <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">NIP / Login</label>
-          <input id="nip" placeholder="G-001" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+    <!-- LOGIN SCREEN -->
+    <div
+      id="loginScreen"
+      class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50 hidden"
+    >
+      <div
+        class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
+      >
+        <div
+          class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20"
+        >
+          KH
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">PIN / Password</label>
-          <input id="pin" type="password" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-        </div>
-        <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95">Masuk Aplikasi</button>
-      </form>
-      
-      <button type="button" id="changeServerLogin" class="w-full mt-6 text-sm text-slate-400 font-semibold hover:text-emerald-600 transition">Ganti Server/Lisensi</button>
+        <h2 class="text-2xl font-black text-slate-900 mb-2">Masuk Akun</h2>
+        <p id="connNote" class="text-emerald-500 text-sm font-bold mb-2"></p>
+        <p class="text-slate-500 text-sm mb-8 leading-relaxed">
+          Masukkan NIP/Login dan password. Karyawan import Excel default: 1234.
+        </p>
+
+        <form id="loginForm" class="flex flex-col gap-5">
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+              >NIP / Login</label
+            >
+            <input
+              id="nip"
+              placeholder="G-001"
+              required
+              class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+              >PIN / Password</label
+            >
+            <input
+              id="pin"
+              type="password"
+              required
+              class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+            />
+          </div>
+          <button
+            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg shadow-emerald-600/20 transition transform active:scale-95"
+          >
+            Masuk Aplikasi
+          </button>
+        </form>
+
+        <button
+          type="button"
+          id="changeServerLogin"
+          class="w-full mt-6 text-sm text-slate-400 font-semibold hover:text-emerald-600 transition"
+        >
+          Ganti Server/Lisensi
+        </button>
+      </div>
     </div>
-  </div>
 
-  <!-- MAIN APP -->
-  <main id="app" class="hidden mx-auto max-w-md w-full min-h-screen relative bg-slate-50 bottom-nav-pb flex flex-col">
-    
-    <!-- HEADER -->
-    <header class="flex items-center justify-between p-6 pt-10">
-      <div class="flex items-center gap-4">
-        <div class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-xl font-black text-emerald-700" id="avatarInitials">KH</div>
-        <div>
-          <p class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-0.5" id="schoolName">Klaar Hadir</p>
-          <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">Halo, <span id="empNameShort">Karyawan</span>! 👋</h2>
+    <!-- MAIN APP -->
+    <main
+      id="app"
+      class="hidden mx-auto max-w-md w-full min-h-screen relative bg-slate-50 bottom-nav-pb flex flex-col"
+    >
+      <!-- HEADER -->
+      <header class="flex items-center justify-between p-6 pt-10">
+        <div class="flex items-center gap-4">
+          <div
+            class="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-xl font-black text-emerald-700"
+            id="avatarInitials"
+          >
+            KH
+          </div>
+          <div>
+            <p
+              class="text-[11px] font-bold tracking-widest text-slate-400 uppercase mb-0.5"
+              id="schoolName"
+            >
+              Klaar Hadir
+            </p>
+            <h2
+              class="text-xl font-black text-slate-800 flex items-center gap-2"
+            >
+              Halo, <span id="empNameShort">Karyawan</span>! 👋
+            </h2>
+          </div>
+        </div>
+        <button
+          id="logout"
+          class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition shadow-sm"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </header>
+
+      <!-- TOAST / STATUS -->
+      <div
+        id="geoStatusContainer"
+        class="px-6 mb-4 hidden transition-all duration-300 ease-out"
+      >
+        <div
+          class="bg-emerald-50 text-emerald-600 text-sm font-semibold p-4 rounded-2xl flex items-start gap-3 border border-emerald-100"
+        >
+          <svg
+            class="w-5 h-5 mt-0.5 shrink-0 animate-pulse"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            stroke-width="2.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
+          </svg>
+          <span id="geoStatus">Status...</span>
         </div>
       </div>
-      <button id="logout" class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition shadow-sm">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-      </button>
-    </header>
 
-    <!-- TOAST / STATUS -->
-    <div id="geoStatusContainer" class="px-6 mb-4 hidden transition-all duration-300 ease-out">
-      <div class="bg-emerald-50 text-emerald-600 text-sm font-semibold p-4 rounded-2xl flex items-start gap-3 border border-emerald-100">
-        <svg class="w-5 h-5 mt-0.5 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span id="geoStatus">Status...</span>
-      </div>
-    </div>
+      <!-- TAB: BERANDA -->
+      <section id="tab-beranda" class="tab-content active px-6">
+        <!-- HERO / ABSEN CARD -->
+        <div
+          class="rounded-[32px] p-7 mb-6 relative overflow-hidden bg-emerald-600 shadow-[0_15px_35px_rgba(5,150,105,0.25)]"
+        >
+          <!-- Decorative bg -->
+          <div
+            class="absolute -right-10 -top-10 w-48 h-48 bg-emerald-400 opacity-20 rounded-full blur-3xl"
+          ></div>
+          <div
+            class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-900 opacity-20 rounded-full blur-3xl"
+          ></div>
 
-    <!-- TAB: BERANDA -->
-    <section id="tab-beranda" class="tab-content active px-6">
-      
-      <!-- HERO / ABSEN CARD -->
-      <div class="rounded-[32px] p-7 mb-6 relative overflow-hidden bg-emerald-600 shadow-[0_15px_35px_rgba(5,150,105,0.25)]">
-        <!-- Decorative bg -->
-        <div class="absolute -right-10 -top-10 w-48 h-48 bg-emerald-400 opacity-20 rounded-full blur-3xl"></div>
-        <div class="absolute -left-10 -bottom-10 w-48 h-48 bg-emerald-900 opacity-20 rounded-full blur-3xl"></div>
-        
-        <div class="relative z-10">
-          <div class="flex justify-between items-center mb-6">
-            <div>
-              <p class="text-sm font-semibold text-emerald-100">Shift Hari Ini</p>
-              <h3 class="text-3xl font-black text-white mt-1" id="berandaStatus">Memuat...</h3>
+          <div class="relative z-10">
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <p class="text-sm font-semibold text-emerald-100">
+                  Shift Hari Ini
+                </p>
+                <h3
+                  class="text-3xl font-black text-white mt-1"
+                  id="berandaStatus"
+                >
+                  Memuat...
+                </h3>
+              </div>
+              <div
+                id="berandaBadge"
+                class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md"
+              >
+                Shift
+              </div>
             </div>
-            <div id="berandaBadge" class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md">Shift</div>
-          </div>
-          
 
-          
-          <div class="flex gap-3 mt-4">
-            <button id="checkIn" class="flex-1 bg-white hover:bg-slate-50 text-emerald-700 font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 shadow-md">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-              Absen Masuk
+            <div class="flex gap-3 mt-4">
+              <button
+                id="checkIn"
+                class="flex-1 bg-white hover:bg-slate-50 text-emerald-700 font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 shadow-md"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                  <polyline points="10 17 15 12 10 7"></polyline>
+                  <line x1="15" y1="12" x2="3" y2="12"></line>
+                </svg>
+                Absen Masuk
+              </button>
+              <button
+                id="checkOut"
+                class="flex-1 bg-emerald-700/50 hover:bg-emerald-700/70 text-white font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 backdrop-blur-md border border-emerald-400/20"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Absen Pulang
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- INFO GPS CARD -->
+        <div
+          class="bg-white rounded-[24px] p-5 mb-8 flex items-center gap-4 shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100"
+        >
+          <div
+            class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h4 class="font-bold text-slate-800">Lokasi GPS</h4>
+            <p
+              class="text-xs font-medium text-slate-500 mt-1"
+              id="berandaLocation"
+            >
+              Belum ada data check-in hari ini
+            </p>
+          </div>
+        </div>
+
+        <h3 class="text-lg font-black text-slate-800 mb-4">Akses Aplikasi</h3>
+
+        <div class="grid grid-cols-2 gap-4">
+          <!-- QUICK LINK: RIWAYAT -->
+          <button
+            onclick="switchTab('tab-riwayat')"
+            class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100"
+          >
+            <div
+              class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h4 class="font-bold text-slate-800 mb-1">Riwayat Absen</h4>
+            <p class="text-xs text-slate-500 font-medium">Cek jam kerja</p>
+          </button>
+
+          <!-- QUICK LINK: SLIP GAJI -->
+          <button
+            onclick="switchTab('tab-slip')"
+            class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100"
+          >
+            <div
+              class="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path
+                  d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                ></path>
+              </svg>
+            </div>
+            <h4 class="font-bold text-slate-800 mb-1">Slip Gaji</h4>
+            <p class="text-xs text-slate-500 font-medium">Lihat pendapatan</p>
+          </button>
+        </div>
+
+        <button
+          id="reload"
+          class="w-full mt-6 py-4 bg-white rounded-2xl font-bold text-slate-600 flex justify-center items-center gap-2 hover:bg-slate-50 active:scale-95 transition border border-slate-200 shadow-sm"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path
+              d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+            ></path>
+          </svg>
+          Refresh Data Server
+        </button>
+      </section>
+
+      <!-- TAB: RIWAYAT -->
+      <section id="tab-riwayat" class="tab-content px-6">
+        <h3 class="text-2xl font-black mb-6 text-slate-900">Riwayat Absen</h3>
+        <div id="historyBox" class="flex flex-col"></div>
+      </section>
+
+      <!-- TAB: IZIN -->
+      <section id="tab-izin" class="tab-content px-6">
+        <h3 class="text-2xl font-black mb-2 text-slate-900">Ajukan Izin</h3>
+        <p class="text-slate-500 text-sm mb-6">
+          Pilih tanggal dan isi alasan dengan jelas.
+        </p>
+
+        <div
+          class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"
+        >
+          <form id="requestForm" class="flex flex-col gap-5">
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Tanggal</label
+              >
+              <input
+                id="reqDate"
+                type="date"
+                required
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              />
+            </div>
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Jenis</label
+              >
+              <select
+                id="reqType"
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              >
+                <option value="izin">Izin</option>
+                <option value="sakit">Sakit</option>
+              </select>
+            </div>
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Alasan</label
+              >
+              <textarea
+                id="reqReason"
+                required
+                rows="3"
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 resize-none"
+              ></textarea>
+            </div>
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Bukti / Keterangan (Opsional)</label
+              >
+              <input
+                id="reqProof"
+                placeholder="Surat dokter, dsb."
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              />
+            </div>
+            <button
+              class="w-full bg-emerald-600 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg hover:bg-emerald-700 transition transform active:scale-95"
+            >
+              Kirim Pengajuan
             </button>
-            <button id="checkOut" class="flex-1 bg-emerald-700/50 hover:bg-emerald-700/70 text-white font-bold py-4 px-4 rounded-[20px] flex items-center justify-center gap-2 transition transform active:scale-95 backdrop-blur-md border border-emerald-400/20">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Absen Pulang
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB: SLIP -->
+      <section id="tab-slip" class="tab-content px-6">
+        <h3 class="text-2xl font-black mb-6 text-slate-900">Slip Gaji</h3>
+        <div
+          id="slipBox"
+          class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"
+        ></div>
+      </section>
+
+      <!-- TAB: PROFIL -->
+      <section id="tab-profil" class="tab-content px-6">
+        <h3 class="text-2xl font-black mb-6 text-slate-900">Profil Saya</h3>
+        <div
+          class="bg-white rounded-[28px] p-6 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"
+        >
+          <div id="profileBox" class="flex flex-col"></div>
+        </div>
+
+        <h3 class="text-xl font-bold mb-4 mt-8 text-slate-900">
+          Ganti Password
+        </h3>
+        <div
+          class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"
+        >
+          <form id="passForm" class="flex flex-col gap-5">
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Password Baru</label
+              >
+              <input
+                id="newPass"
+                type="password"
+                minlength="4"
+                required
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              />
+            </div>
+            <div>
+              <label
+                class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+                >Ulangi Password Baru</label
+              >
+              <input
+                id="newPass2"
+                type="password"
+                minlength="4"
+                required
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              />
+            </div>
+            <button
+              class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl py-4 mt-2 transition transform active:scale-95"
+            >
+              Simpan Password
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- BOTTOM NAV -->
+      <nav
+        class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-safe pt-2 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]"
+      >
+        <!-- Biometric FAB -->
+        <div
+          class="absolute left-1/2 -top-6 -translate-x-1/2 z-50 flex flex-col items-center"
+        >
+          <button
+            id="biometricBtn"
+            class="w-16 h-16 rounded-full bg-emerald-600 border-[3px] border-white flex flex-col items-center justify-center text-white hover:bg-emerald-700 hover:scale-105 transition transform active:scale-95 shadow-[0_8px_20px_rgba(5,150,105,0.4)]"
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+              <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+              <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+              <path d="M2 12a10 10 0 0 1 18-6" />
+              <path d="M2 16h.01" />
+              <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+              <path d="M5 19.5C5.5 18 6 15 6 12c0-.71.125-1.5.34-2" />
+              <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+              <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+            </svg>
+          </button>
+          <span
+            class="text-[9px] font-bold tracking-widest uppercase text-emerald-600 mt-1"
+            id="biometricBtnText"
+            >ABSEN</span
+          >
+        </div>
+
+        <div
+          class="mx-auto max-w-md flex justify-between items-center pb-4 relative"
+        >
+          <div class="flex-1 flex justify-around">
+            <button
+              onclick="switchTab('tab-beranda')"
+              class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition"
+              data-target="tab-beranda"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span class="text-[10px] font-bold mt-1">Beranda</span>
+            </button>
+            <button
+              onclick="switchTab('tab-riwayat')"
+              class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition"
+              data-target="tab-riwayat"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span class="text-[10px] font-bold mt-1">Riwayat</span>
+            </button>
+          </div>
+
+          <!-- Spacer for FAB -->
+          <div class="w-16 shrink-0"></div>
+
+          <div class="flex-1 flex justify-around">
+            <button
+              onclick="switchTab('tab-izin')"
+              class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition"
+              data-target="tab-izin"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                ></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span class="text-[10px] font-bold mt-1">Izin</span>
+            </button>
+            <button
+              onclick="switchTab('tab-profil')"
+              class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition"
+              data-target="tab-profil"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span class="text-[10px] font-bold mt-1">Profil</span>
             </button>
           </div>
         </div>
-      </div>
+      </nav>
+    </main>
 
-      <!-- INFO GPS CARD -->
-      <div class="bg-white rounded-[24px] p-5 mb-8 flex items-center gap-4 shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
-        <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-        </div>
-        <div class="flex-1">
-          <h4 class="font-bold text-slate-800">Lokasi GPS</h4>
-          <p class="text-xs font-medium text-slate-500 mt-1" id="berandaLocation">Belum ada data check-in hari ini</p>
-        </div>
-      </div>
-
-      <h3 class="text-lg font-black text-slate-800 mb-4">Akses Aplikasi</h3>
-      
-      <div class="grid grid-cols-2 gap-4">
-        <!-- QUICK LINK: RIWAYAT -->
-        <button onclick="switchTab('tab-riwayat')" class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
-          <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-          <h4 class="font-bold text-slate-800 mb-1">Riwayat Absen</h4>
-          <p class="text-xs text-slate-500 font-medium">Cek jam kerja</p>
-        </button>
-        
-        <!-- QUICK LINK: SLIP GAJI -->
-        <button onclick="switchTab('tab-slip')" class="bg-white p-5 rounded-[24px] text-left hover:shadow-md transition active:scale-95 group shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
-          <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-          </div>
-          <h4 class="font-bold text-slate-800 mb-1">Slip Gaji</h4>
-          <p class="text-xs text-slate-500 font-medium">Lihat pendapatan</p>
-        </button>
-      </div>
-      
-      <button id="reload" class="w-full mt-6 py-4 bg-white rounded-2xl font-bold text-slate-600 flex justify-center items-center gap-2 hover:bg-slate-50 active:scale-95 transition border border-slate-200 shadow-sm">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        Refresh Data Server
-      </button>
-
-    </section>
-
-    <!-- TAB: RIWAYAT -->
-    <section id="tab-riwayat" class="tab-content px-6">
-      <h3 class="text-2xl font-black mb-6 text-slate-900">Riwayat Absen</h3>
-      <div id="historyBox" class="flex flex-col"></div>
-    </section>
-
-    <!-- TAB: IZIN -->
-    <section id="tab-izin" class="tab-content px-6">
-      <h3 class="text-2xl font-black mb-2 text-slate-900">Ajukan Izin</h3>
-      <p class="text-slate-500 text-sm mb-6">Pilih tanggal dan isi alasan dengan jelas.</p>
-      
-      <div class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
-        <form id="requestForm" class="flex flex-col gap-5">
+    <!-- SELFIE CAMERA MODAL -->
+    <div id="selfieModal" class="hidden">
+      <div id="selfieModalInner">
+        <div id="selfieModalHeader">
           <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal</label>
-            <input id="reqDate" type="date" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
+            <div id="selfieModalTitle">📸 Foto Absensi</div>
+            <div id="selfieModalSubtitle">Arahkan kamera ke wajah Anda</div>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Jenis</label>
-            <select id="reqType" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-              <option value="izin">Izin</option>
-              <option value="sakit">Sakit</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Alasan</label>
-            <textarea id="reqReason" required rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 resize-none"></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Bukti / Keterangan (Opsional)</label>
-            <input id="reqProof" placeholder="Surat dokter, dsb." class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-          </div>
-          <button class="w-full bg-emerald-600 text-white font-bold rounded-2xl py-4 mt-2 shadow-lg hover:bg-emerald-700 transition transform active:scale-95">Kirim Pengajuan</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- TAB: SLIP -->
-    <section id="tab-slip" class="tab-content px-6">
-      <h3 class="text-2xl font-black mb-6 text-slate-900">Slip Gaji</h3>
-      <div id="slipBox" class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"></div>
-    </section>
-
-    <!-- TAB: PROFIL -->
-    <section id="tab-profil" class="tab-content px-6">
-      <h3 class="text-2xl font-black mb-6 text-slate-900">Profil Saya</h3>
-      <div class="bg-white rounded-[28px] p-6 mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
-        <div id="profileBox" class="flex flex-col"></div>
-      </div>
-      
-      <h3 class="text-xl font-bold mb-4 mt-8 text-slate-900">Ganti Password</h3>
-      <div class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
-        <form id="passForm" class="flex flex-col gap-5">
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Password Baru</label>
-            <input id="newPass" type="password" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ulangi Password Baru</label>
-            <input id="newPass2" type="password" minlength="4" required class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900">
-          </div>
-          <button class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl py-4 mt-2 transition transform active:scale-95">Simpan Password</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- BOTTOM NAV -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-safe pt-2 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
-      
-      <!-- Biometric FAB -->
-      <div class="absolute left-1/2 -top-6 -translate-x-1/2 z-50 flex flex-col items-center">
-         <button id="biometricBtn" class="w-16 h-16 rounded-full bg-emerald-600 border-[3px] border-white flex flex-col items-center justify-center text-white hover:bg-emerald-700 hover:scale-105 transition transform active:scale-95 shadow-[0_8px_20px_rgba(5,150,105,0.4)]">
-           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-             <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
-             <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
-             <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
-             <path d="M2 12a10 10 0 0 1 18-6"/>
-             <path d="M2 16h.01"/>
-             <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
-             <path d="M5 19.5C5.5 18 6 15 6 12c0-.71.125-1.5.34-2"/>
-             <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
-             <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
-           </svg>
-         </button>
-         <span class="text-[9px] font-bold tracking-widest uppercase text-emerald-600 mt-1" id="biometricBtnText">ABSEN</span>
-      </div>
-
-      <div class="mx-auto max-w-md flex justify-between items-center pb-4 relative">
-        <div class="flex-1 flex justify-around">
-          <button onclick="switchTab('tab-beranda')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-beranda">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span class="text-[10px] font-bold mt-1">Beranda</span>
-          </button>
-          <button onclick="switchTab('tab-riwayat')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-riwayat">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <span class="text-[10px] font-bold mt-1">Riwayat</span>
+          <button
+            id="selfieCloseBtn"
+            style="
+              background: rgba(255, 255, 255, 0.1);
+              border: none;
+              color: #fff;
+              border-radius: 50%;
+              width: 36px;
+              height: 36px;
+              font-size: 18px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            ✕
           </button>
         </div>
-        
-        <!-- Spacer for FAB -->
-        <div class="w-16 shrink-0"></div>
-        
-        <div class="flex-1 flex justify-around">
-          <button onclick="switchTab('tab-izin')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-izin">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            <span class="text-[10px] font-bold mt-1">Izin</span>
-          </button>
-          <button onclick="switchTab('tab-profil')" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 py-2 transition" data-target="tab-profil">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            <span class="text-[10px] font-bold mt-1">Profil</span>
-          </button>
-        </div>
-      </div>
-    </nav>
-  </main>
 
-  <!-- SELFIE CAMERA MODAL -->
-  <div id="selfieModal" class="hidden">
-    <div id="selfieModalInner">
-      <div id="selfieModalHeader">
-        <div>
-          <div id="selfieModalTitle">📸 Foto Absensi</div>
-          <div id="selfieModalSubtitle">Arahkan kamera ke wajah Anda</div>
-        </div>
-        <button id="selfieCloseBtn" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
-      </div>
-
-      <!-- Video / Captured image -->
-      <div id="selfieVideoWrap">
-        <video id="selfieVideo" autoplay playsinline muted></video>
-        <img id="selfieCaptured" alt="Foto selfie">
-        <!-- Watermark overlay realtime -->
-        <div id="selfieOverlay">
-          <div id="selfieOverlayText">
-            <div class="time-line" id="selfieClock">--:--</div>
-            <div class="loc-line"><span class="gps-dot"></span><span id="selfieLocName">Mengambil GPS...</span></div>
-            <div class="coord-line" id="selfieCoords">lat: -- | lng: --</div>
-            <div id="selfieEmpLine" style="color:#e2e8f0;font-size:11px;"></div>
-            <div style="color:#94a3b8;font-size:10px;margin-top:2px;" id="selfieAccLine">Akurasi: --</div>
+        <!-- Video / Captured image -->
+        <div id="selfieVideoWrap">
+          <video id="selfieVideo" autoplay playsinline muted></video>
+          <img id="selfieCaptured" alt="Foto selfie" />
+          <!-- Watermark overlay realtime -->
+          <div id="selfieOverlay">
+            <div id="selfieOverlayText">
+              <div class="time-line" id="selfieClock">--:--</div>
+              <div class="loc-line">
+                <span class="gps-dot"></span
+                ><span id="selfieLocName">Mengambil GPS...</span>
+              </div>
+              <div class="coord-line" id="selfieCoords">lat: -- | lng: --</div>
+              <div
+                id="selfieEmpLine"
+                style="color: #e2e8f0; font-size: 11px"
+              ></div>
+              <div
+                style="color: #94a3b8; font-size: 10px; margin-top: 2px"
+                id="selfieAccLine"
+              >
+                Akurasi: --
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div id="selfieError"></div>
-      <div id="selfieProgress"></div>
+        <div id="selfieError"></div>
+        <div id="selfieProgress"></div>
 
-      <!-- Action buttons -->
-      <div id="selfieActions">
-        <!-- Before capture: shutter only -->
-        <button id="selfieShutterBtn" title="Ambil Foto">
-          <div class="inner"></div>
-        </button>
-        <!-- After capture: retake + confirm -->
-        <button id="selfieRetakeBtn" style="display:none;">🔄 Ulangi</button>
-        <button id="selfieConfirmBtn">✅ Kirim Absen</button>
+        <!-- Action buttons -->
+        <div id="selfieActions">
+          <!-- Before capture: shutter only -->
+          <button id="selfieShutterBtn" title="Ambil Foto">
+            <div class="inner"></div>
+          </button>
+          <!-- After capture: retake + confirm -->
+          <button id="selfieRetakeBtn" style="display: none">🔄 Ulangi</button>
+          <button id="selfieConfirmBtn">✅ Kirim Absen</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- SELFIE VIEWER MODAL (for history) -->
-  <div id="selfieViewModal" class="hidden">
-    <button id="selfieViewClose">✕</button>
-    <img id="selfieViewImg" src="" alt="Bukti selfie">
-    <div id="selfieViewMeta"></div>
-  </div>
+    <!-- SELFIE VIEWER MODAL (for history) -->
+    <div id="selfieViewModal" class="hidden">
+      <button id="selfieViewClose">✕</button>
+      <img id="selfieViewImg" src="" alt="Bukti selfie" />
+      <div id="selfieViewMeta"></div>
+    </div>
 
-  <!-- Canvas (hidden) untuk watermark processing -->
-  <canvas id="selfieCanvas" style="display:none;"></canvas>
+    <!-- Canvas (hidden) untuk watermark processing -->
+    <canvas id="selfieCanvas" style="display: none"></canvas>
 
-  <iframe name="syncFrame" class="hidden"></iframe>
+    <iframe name="syncFrame" class="hidden"></iframe>
 
-<script>
-    // Tab Logic
-    function switchTab(targetId) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.getElementById(targetId).classList.add('active');
-      document.querySelectorAll('.nav-btn').forEach(el => {
-        if(el.dataset.target === targetId) {
-          el.classList.add('text-emerald-600');
-          el.classList.remove('text-slate-400');
+    <script>
+      // Tab Logic
+      function switchTab(targetId) {
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById(targetId).classList.add("active");
+        document.querySelectorAll(".nav-btn").forEach((el) => {
+          if (el.dataset.target === targetId) {
+            el.classList.add("text-emerald-600");
+            el.classList.remove("text-slate-400");
+          } else {
+            el.classList.remove("text-emerald-600");
+            el.classList.add("text-slate-400");
+          }
+        });
+        window.scrollTo(0, 0);
+      }
+      // Initialize tab
+      switchTab("tab-beranda");
+
+      const SALT = "|edupay-v4-final-rebuild",
+        SERVER_KEY = "edupay_emp_server",
+        LICENSE_KEY = "edupay_emp_license",
+        SERVER_DRAFT_KEY = "edupay_emp_server_draft",
+        LICENSE_DRAFT_KEY = "edupay_emp_license_draft",
+        NIP_KEY = "edupay_emp_nip",
+        PINHASH_KEY = "edupay_emp_pinhash";
+      // === Backend Supabase (multi-tenant). HARUS SAMA dgn KLAAR_API di admin.html. ===
+      const KLAAR_API =
+        "https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler";
+      const $ = (id) => document.getElementById(id),
+        esc = (s) =>
+          String(s ?? "").replace(
+            /[&<>"']/g,
+            (m) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;",
+              })[m],
+          ),
+        dateKeyLocal = (dt = new Date()) => {
+          let y = dt.getFullYear(),
+            m = String(dt.getMonth() + 1).padStart(2, "0"),
+            d = String(dt.getDate()).padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        },
+        today = () => dateKeyLocal(),
+        fmt = new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          maximumFractionDigits: 0,
+        }),
+        rp = (n) => fmt.format(Number(n || 0)).replace(/\s/g, "");
+      let serverUrl = KLAAR_API,
+        license = localStorage.getItem(LICENSE_KEY) || "",
+        nip = localStorage.getItem(NIP_KEY) || "",
+        pinHash = localStorage.getItem(PINHASH_KEY) || "",
+        state = null,
+        prefNip = "";
+      const DEVICE_KEY = "klaar_employee_device_id";
+      function getDeviceId() {
+        let id = localStorage.getItem(DEVICE_KEY);
+        if (!id) {
+          id = "dev_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+          localStorage.setItem(DEVICE_KEY, id);
+        }
+        return id;
+      }
+      function getDeviceName() {
+        return (
+          (navigator.platform || "Device") +
+          " • " +
+          (navigator.userAgent || "").slice(0, 70)
+        );
+      }
+      function normalizeServerUrl(v) {
+        return String(v || "").trim();
+      }
+      function looksLikeSheetUrl(v) {
+        return /docs\.google\.com\/spreadsheets/i.test(String(v || ""));
+      }
+      function validateServerUrl(v) {
+        v = normalizeServerUrl(v);
+        if (!v) return "License Server URL belum diisi.";
+        if (looksLikeSheetUrl(v))
+          return "Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.";
+        if (
+          !/^https:\/\/script\.google\.com\/macros\/s\//i.test(v) ||
+          !/\/exec(\?|$)/i.test(v)
+        )
+          return "License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.";
+        return "";
+      }
+      async function sha(text) {
+        const b = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(String(text) + SALT),
+        );
+        return Array.from(new Uint8Array(b))
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      function show(id) {
+        ["activationScreen", "loginScreen", "app"].forEach((x) =>
+          $(x).classList.add("hidden"),
+        );
+        $(id).classList.remove("hidden");
+        if (id === "loginScreen") {
+          let cn = $("connNote");
+          if (cn)
+            cn.textContent =
+              serverUrl && license
+                ? "✓ Sudah tersambung ke server sekolah. Tinggal login."
+                : "";
+          if (prefNip && $("nip") && !$("nip").value) {
+            $("nip").value = prefNip;
+            if ($("pin")) setTimeout(() => $("pin").focus(), 50);
+          }
+        }
+      }
+
+      function applyLinkToken() {
+        try {
+          let str = location.href;
+          let m = str.match(/[?#&]k=([A-Za-z0-9\-_]+)/);
+          if (!m) return;
+          let raw = m[1].replace(/-/g, "+").replace(/_/g, "/");
+          while (raw.length % 4) raw += "=";
+          let obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
+          if (obj && obj.l) {
+            let nl = String(obj.l);
+            if (nl !== license) {
+              nip = "";
+              pinHash = "";
+              localStorage.removeItem(NIP_KEY);
+              localStorage.removeItem(PINHASH_KEY);
+            }
+            serverUrl = KLAAR_API; // backend terpusat; abaikan URL lama di link.
+            license = nl;
+            localStorage.setItem(SERVER_KEY, serverUrl);
+            localStorage.setItem(LICENSE_KEY, license);
+            if (obj.n) prefNip = String(obj.n);
+          }
+        } catch (e) {
+          console.error("Token error:", e);
+          alert(
+            "Gagal membaca link otomatis (Token rusak/terpotong). Silakan login manual.",
+          );
+        } finally {
+          try {
+            history.replaceState(null, "", location.pathname);
+          } catch (e) {}
+        }
+      }
+      function boot() {
+        applyLinkToken();
+        if (!serverUrl || !license) show("activationScreen");
+        else if (!nip || !pinHash) show("loginScreen");
+        else
+          loadEmployee()
+            .then(() => show("app"))
+            .catch((e) => {
+              alert(e.message);
+              show("loginScreen");
+            });
+      }
+
+      // api() = pengganti JSONP: fetch JSON ke Edge Function Supabase (CORS, andal).
+      async function api(action, extra = {}) {
+        let ctrl = new AbortController(),
+          timer = setTimeout(() => ctrl.abort(), 20000);
+        try {
+          let body = Object.assign(
+            {
+              action,
+              licenseCode: license,
+              nip,
+              pinHash,
+              deviceId: getDeviceId(),
+              deviceName: getDeviceName(),
+            },
+            extra,
+          );
+          let res = await fetch(KLAAR_API, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+            signal: ctrl.signal,
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return await res.json();
+        } catch (e) {
+          throw new Error(
+            e && e.name === "AbortError"
+              ? "Timeout koneksi"
+              : e.message || "Gagal akses server Klaar. Cek koneksi internet.",
+          );
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      // Alias kompatibilitas: seluruh call-site lama pakai jsonp(...).
+      function jsonp(action, extra = {}) {
+        return api(action, extra);
+      }
+
+      async function loadEmployee() {
+        let res = await jsonp("loadEmployee");
+        if (!res.ok) throw new Error(res.error || "Login/load gagal");
+        state = res;
+        render();
+      }
+
+      function setBusy(on, msg) {
+        ["checkIn", "checkOut", "reload"].forEach((id) => {
+          let el = $(id);
+          if (el) {
+            el.disabled = on;
+            if (on) el.classList.add("opacity-50", "cursor-not-allowed");
+            else el.classList.remove("opacity-50", "cursor-not-allowed");
+          }
+        });
+        let gs = $("geoStatusContainer");
+        if (msg) {
+          gs.classList.remove("hidden");
+          $("geoStatus").textContent = msg;
         } else {
-          el.classList.remove('text-emerald-600');
-          el.classList.add('text-slate-400');
+          gs.classList.add("hidden");
         }
-      });
-      window.scrollTo(0,0);
-    }
-    // Initialize tab
-    switchTab('tab-beranda');
+      }
 
-    const SALT='|edupay-v4-final-rebuild', SERVER_KEY='edupay_emp_server', LICENSE_KEY='edupay_emp_license', SERVER_DRAFT_KEY='edupay_emp_server_draft', LICENSE_DRAFT_KEY='edupay_emp_license_draft', NIP_KEY='edupay_emp_nip', PINHASH_KEY='edupay_emp_pinhash';
-    // === Backend Supabase (multi-tenant). HARUS SAMA dgn KLAAR_API di admin.html. ===
-    const KLAAR_API='https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler';
-    const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])), dateKeyLocal=(dt=new Date())=>{let y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),d=String(dt.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}, today=()=>dateKeyLocal(), fmt=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}), rp=n=>fmt.format(Number(n||0)).replace(/\s/g,'');
-    let serverUrl=KLAAR_API, license=localStorage.getItem(LICENSE_KEY)||'', nip=localStorage.getItem(NIP_KEY)||'', pinHash=localStorage.getItem(PINHASH_KEY)||'', state=null, prefNip='';const DEVICE_KEY='klaar_employee_device_id';function getDeviceId(){let id=localStorage.getItem(DEVICE_KEY);if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).slice(2);localStorage.setItem(DEVICE_KEY,id)}return id}function getDeviceName(){return (navigator.platform||'Device')+' • '+(navigator.userAgent||'').slice(0,70)}
-    function normalizeServerUrl(v){return String(v||'').trim()}function looksLikeSheetUrl(v){return /docs\.google\.com\/spreadsheets/i.test(String(v||''))}function validateServerUrl(v){v=normalizeServerUrl(v);if(!v)return 'License Server URL belum diisi.';if(looksLikeSheetUrl(v))return 'Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.';if(!/^https:\/\/script\.google\.com\/macros\/s\//i.test(v)||!/\/exec(\?|$)/i.test(v))return 'License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.';return ''}async function sha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(text)+SALT));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
-    
-    function show(id){
-      ['activationScreen','loginScreen','app'].forEach(x=>$(x).classList.add('hidden'));
-      $(id).classList.remove('hidden');
-      if(id==='loginScreen'){
-        let cn=$('connNote');if(cn)cn.textContent=serverUrl&&license?'✓ Sudah tersambung ke server sekolah. Tinggal login.':'';
-        if(prefNip&&$('nip')&&!$('nip').value){$('nip').value=prefNip;if($('pin'))setTimeout(()=>$('pin').focus(),50)}
+      async function runAction(action, fields, msg) {
+        setBusy(true, msg || "Mengirim data...");
+        let res = await jsonp(action, fields || {});
+        if (!res.ok) throw new Error(res.error || "Gagal mengirim data");
+        setBusy(
+          true,
+          res.record?.message ||
+            res.record?.checkoutMessage ||
+            res.message ||
+            "Berhasil. Memperbarui status...",
+        );
+        await loadEmployee();
+        setTimeout(() => setBusy(false, ""), 3000);
+        return res;
       }
-    }
-    
-    function applyLinkToken(){
-  try {
-    let str = location.href;
-    let m = str.match(/[?#&]k=([A-Za-z0-9\-_]+)/);
-    if (!m) return;
-    let raw = m[1].replace(/-/g,'+').replace(/_/g,'/');
-    while(raw.length % 4) raw += '=';
-    let obj = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    if(obj && obj.l) {
-      let nl = String(obj.l);
-      if(nl !== license){
-        nip=''; pinHash='';
-        localStorage.removeItem(NIP_KEY); localStorage.removeItem(PINHASH_KEY);
+
+      function getGPS() {
+        return new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 18000,
+            maximumAge: 0,
+          }),
+        );
       }
-      serverUrl = KLAAR_API;   // backend terpusat; abaikan URL lama di link.
-      license = nl;
-      localStorage.setItem(SERVER_KEY, serverUrl);
-      localStorage.setItem(LICENSE_KEY, license);
-      if(obj.n) prefNip = String(obj.n);
-    }
-  } catch(e) {
-    console.error("Token error:", e);
-    alert("Gagal membaca link otomatis (Token rusak/terpotong). Silakan login manual.");
-  } finally {
-    try { history.replaceState(null, '', location.pathname) } catch(e) {}
-  }
-}
-    function boot(){applyLinkToken();if(!serverUrl||!license)show('activationScreen');else if(!nip||!pinHash)show('loginScreen');else loadEmployee().then(()=>show('app')).catch(e=>{alert(e.message);show('loginScreen')})}
-    
-    // api() = pengganti JSONP: fetch JSON ke Edge Function Supabase (CORS, andal).
-async function api(action,extra={}){let ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),20000);try{let body=Object.assign({action,licenseCode:license,nip,pinHash,deviceId:getDeviceId(),deviceName:getDeviceName()},extra);let res=await fetch(KLAAR_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:ctrl.signal});if(!res.ok)throw new Error('HTTP '+res.status);return await res.json()}catch(e){throw new Error(e&&e.name==='AbortError'?'Timeout koneksi':(e.message||'Gagal akses server Klaar. Cek koneksi internet.'))}finally{clearTimeout(timer)}}
-// Alias kompatibilitas: seluruh call-site lama pakai jsonp(...).
-function jsonp(action,extra={}){return api(action,extra)}
-    
-    async function loadEmployee(){let res=await jsonp('loadEmployee');if(!res.ok)throw new Error(res.error||'Login/load gagal');state=res;render()}
-    
-    function setBusy(on,msg){
-      ['checkIn','checkOut','reload'].forEach(id=>{
-        let el = $(id);
-        if(el){
-          el.disabled=on; 
-          if(on) el.classList.add('opacity-50','cursor-not-allowed');
-          else el.classList.remove('opacity-50','cursor-not-allowed');
+      function timeToMinLocal(v) {
+        let m = String(v || "").match(/^(\d{1,2}):(\d{2})/);
+        return m ? +m[1] * 60 + +m[2] : null;
+      }
+      function employeeRecLate(r) {
+        if (
+          !r ||
+          !r.checkInTime ||
+          ["izin", "sakit", "alpha", "pending"].includes(
+            String(r.status || "").toLowerCase(),
+          )
+        )
+          return false;
+        if (
+          r.lateApproved ||
+          r.lateOverride ||
+          r.lateStatus === "approved" ||
+          r.lateManuallyApproved
+        )
+          return false;
+        if (r.status === "telat" || r.isLate) return true;
+        let n = timeToMinLocal(r.checkInTime),
+          l = timeToMinLocal(r.lateAfter || "07:15");
+        return n != null && l != null && n > l;
+      }
+      function employeeLateMinutes(r) {
+        let n = timeToMinLocal(r?.checkInTime),
+          l = timeToMinLocal(r?.lateAfter || "07:15");
+        return n != null && l != null
+          ? Math.max(0, n - l)
+          : r?.lateMinutes || 0;
+      }
+      function normalizeEmployeeRec(r) {
+        if (
+          r &&
+          (r.lateApproved ||
+            r.lateOverride ||
+            r.lateStatus === "approved" ||
+            r.lateManuallyApproved)
+        ) {
+          r.status = "hadir";
+          r.isLate = false;
+          return r;
         }
-      });
-      let gs=$('geoStatusContainer');
-      if(msg) {
-        gs.classList.remove('hidden');
-        $('geoStatus').textContent=msg;
-      } else {
-        gs.classList.add('hidden');
+        if (employeeRecLate(r)) {
+          r.status = "telat";
+          r.isLate = true;
+          r.lateMinutes = r.lateMinutes || employeeLateMinutes(r);
+          r.lateAfter = r.lateAfter || "07:15";
+        }
+        return r;
       }
-    }
-    
-    async function runAction(action,fields,msg){
-      setBusy(true,msg||'Mengirim data...');
-      let res=await jsonp(action,fields||{});
-      if(!res.ok)throw new Error(res.error||'Gagal mengirim data');
-      setBusy(true, res.record?.message||res.record?.checkoutMessage||res.message||'Berhasil. Memperbarui status...');
-      await loadEmployee();
-      setTimeout(()=>setBusy(false,''), 3000);
-      return res;
-    }
-    
-    function getGPS(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:18000,maximumAge:0}))}
-    function timeToMinLocal(v){let m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1]*60+(+m[2])):null}
-    function employeeRecLate(r){if(!r||!r.checkInTime||['izin','sakit','alpha','pending'].includes(String(r.status||'').toLowerCase()))return false;if(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)return false;if(r.status==='telat'||r.isLate)return true;let n=timeToMinLocal(r.checkInTime),l=timeToMinLocal(r.lateAfter||'07:15');return n!=null&&l!=null&&n>l}
-    function employeeLateMinutes(r){let n=timeToMinLocal(r?.checkInTime),l=timeToMinLocal(r?.lateAfter||'07:15');return n!=null&&l!=null?Math.max(0,n-l):(r?.lateMinutes||0)}
-    function normalizeEmployeeRec(r){if(r&&(r.lateApproved||r.lateOverride||r.lateStatus==='approved'||r.lateManuallyApproved)){r.status='hadir';r.isLate=false;return r;}if(employeeRecLate(r)){r.status='telat';r.isLate=true;r.lateMinutes=r.lateMinutes||employeeLateMinutes(r);r.lateAfter=r.lateAfter||'07:15'}return r}
-    function statusLabel(r){normalizeEmployeeRec(r);return !r?'Belum absen':(r.status==='telat'||r.isLate?'Telat':r.status)}
-    function statusBadge(r){normalizeEmployeeRec(r);return !r?'badge warn':(r.status==='alpha'?'badge bad':(r.status==='telat'||r.isLate?'badge warn':'badge ok'))}
-    
-    function render(){
-      if(!state)return;
-      let e=state.employee,r=normalizeEmployeeRec(state.todayRecord);
-      
-      if($('empName')) $('empName').textContent=e.name;
-      if($('empNameShort')) $('empNameShort').textContent=e.name.split(' ')[0];
-      $('schoolName').textContent=state.school||'Klaar Hadir';
-      
-      let initial = (e.name||'K').charAt(0).toUpperCase();
-      $('avatarInitials').textContent = initial;
-      
-      $('reqDate').value=today();
-      
-      // Beranda Status
-      let st = statusLabel(r);
-      $('berandaStatus').textContent = st === 'Belum absen' ? 'Libur / Off' : st;
-      if (st.toLowerCase() === 'hadir') $('berandaStatus').textContent = 'Hadir ✓';
-      $('berandaBadge').textContent = r?.checkInTime ? `In: ${r.checkInTime}` : 'Shift';
-      
-      let locText = 'Belum ada data check-in hari ini';
-      if (r?.locationName) locText = `${r.locationName} (${Math.round(r.distanceMeters||0)}m)`;
-      $('berandaLocation').textContent = locText;
-      
-      // Update logic string templates to use new Tailwind/CSS classes
-      $('profileBox').innerHTML=`
+      function statusLabel(r) {
+        normalizeEmployeeRec(r);
+        return !r
+          ? "Belum absen"
+          : r.status === "telat" || r.isLate
+            ? "Telat"
+            : r.status;
+      }
+      function statusBadge(r) {
+        normalizeEmployeeRec(r);
+        return !r
+          ? "badge warn"
+          : r.status === "alpha"
+            ? "badge bad"
+            : r.status === "telat" || r.isLate
+              ? "badge warn"
+              : "badge ok";
+      }
+
+      function render() {
+        if (!state) return;
+        let e = state.employee,
+          r = normalizeEmployeeRec(state.todayRecord);
+
+        if ($("empName")) $("empName").textContent = e.name;
+        if ($("empNameShort"))
+          $("empNameShort").textContent = e.name.split(" ")[0];
+        $("schoolName").textContent = state.school || "Klaar Hadir";
+
+        let initial = (e.name || "K").charAt(0).toUpperCase();
+        $("avatarInitials").textContent = initial;
+
+        $("reqDate").value = today();
+
+        // Beranda Status
+        let st = statusLabel(r);
+        $("berandaStatus").textContent =
+          st === "Belum absen" ? "Libur / Off" : st;
+        if (st.toLowerCase() === "hadir")
+          $("berandaStatus").textContent = "Hadir ✓";
+        $("berandaBadge").textContent = r?.checkInTime
+          ? `In: ${r.checkInTime}`
+          : "Shift";
+
+        let locText = "Belum ada data check-in hari ini";
+        if (r?.locationName)
+          locText = `${r.locationName} (${Math.round(r.distanceMeters || 0)}m)`;
+        $("berandaLocation").textContent = locText;
+
+        // Update logic string templates to use new Tailwind/CSS classes
+        $("profileBox").innerHTML = `
         <div class="row-item"><span>Nama</span><strong>${esc(e.name)}</strong></div>
-        <div class="row-item"><span>Login</span><strong>${esc(e.loginName||e.name)}</strong></div>
+        <div class="row-item"><span>Login</span><strong>${esc(e.loginName || e.name)}</strong></div>
         <div class="row-item"><span>NIP/ID</span><strong>${esc(e.nip)}</strong></div>
-        <div class="row-item"><span>Jabatan</span><strong>${esc(e.positionName||'-')}</strong></div>
-        <div class="row-item"><span>Golongan</span><strong>${esc(e.gradeName||'-')}</strong></div>
-        <div class="row-item"><span>Status</span><strong>${esc(e.status||'-')}</strong></div>
-        <div class="row-item"><span>Masa kerja</span><strong>${esc(e.years||0)} tahun</strong></div>
-        <div class="row-item"><span>Rekening</span><strong>${esc(e.bank||'-')}</strong></div>
-        <div class="row-item"><span>No. HP</span><strong>${esc(e.phone||'-')}</strong></div>
-        <div class="row-item"><span>Device ini</span><strong>${esc(state.deviceStatus||'aktif')}</strong></div>
+        <div class="row-item"><span>Jabatan</span><strong>${esc(e.positionName || "-")}</strong></div>
+        <div class="row-item"><span>Golongan</span><strong>${esc(e.gradeName || "-")}</strong></div>
+        <div class="row-item"><span>Status</span><strong>${esc(e.status || "-")}</strong></div>
+        <div class="row-item"><span>Masa kerja</span><strong>${esc(e.years || 0)} tahun</strong></div>
+        <div class="row-item"><span>Rekening</span><strong>${esc(e.bank || "-")}</strong></div>
+        <div class="row-item"><span>No. HP</span><strong>${esc(e.phone || "-")}</strong></div>
+        <div class="row-item"><span>Device ini</span><strong>${esc(state.deviceStatus || "aktif")}</strong></div>
       `;
-      
-      let alreadyIn=!!(r&&r.checkInTime),blocked=!!(r&&['izin','sakit','alpha'].includes(r.status));
-      $('checkIn').disabled=alreadyIn||blocked;
-      $('checkOut').disabled=!alreadyIn||!!(r&&r.checkOutTime);
-      
-      if(alreadyIn||blocked) {
-        $('checkIn').classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        $('checkIn').classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-      
-      if(!alreadyIn||!!(r&&r.checkOutTime)) {
-        $('checkOut').classList.add('opacity-50', 'cursor-not-allowed');
-      } else {
-        $('checkOut').classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-      
-      let bioBtn = $('biometricBtn');
-      let bioText = $('biometricBtnText');
-      if (bioBtn) {
-         let alreadyOut=!!(r&&r.checkOutTime);
-         if (blocked) {
-            bioBtn.classList.add('opacity-50','cursor-not-allowed');
-            bioText.textContent = 'BLOK';
-         } else if (!alreadyIn) {
-            bioBtn.classList.remove('opacity-50','cursor-not-allowed');
-            bioText.textContent = 'MASUK';
-         } else if (!alreadyOut) {
-            bioBtn.classList.remove('opacity-50','cursor-not-allowed');
-            bioText.textContent = 'PULANG';
-         } else {
-            bioBtn.classList.add('opacity-50','cursor-not-allowed');
-            bioText.textContent = 'SELESAI';
-         }
-      }
-      
-      // History
-      $('historyBox').innerHTML=(state.history||[]).length?(state.history||[]).map(x=>`
+
+        let alreadyIn = !!(r && r.checkInTime),
+          blocked = !!(r && ["izin", "sakit", "alpha"].includes(r.status));
+        $("checkIn").disabled = alreadyIn || blocked;
+        $("checkOut").disabled = !alreadyIn || !!(r && r.checkOutTime);
+
+        if (alreadyIn || blocked) {
+          $("checkIn").classList.add("opacity-50", "cursor-not-allowed");
+        } else {
+          $("checkIn").classList.remove("opacity-50", "cursor-not-allowed");
+        }
+
+        if (!alreadyIn || !!(r && r.checkOutTime)) {
+          $("checkOut").classList.add("opacity-50", "cursor-not-allowed");
+        } else {
+          $("checkOut").classList.remove("opacity-50", "cursor-not-allowed");
+        }
+
+        let bioBtn = $("biometricBtn");
+        let bioText = $("biometricBtnText");
+        if (bioBtn) {
+          let alreadyOut = !!(r && r.checkOutTime);
+          if (blocked) {
+            bioBtn.classList.add("opacity-50", "cursor-not-allowed");
+            bioText.textContent = "BLOK";
+          } else if (!alreadyIn) {
+            bioBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            bioText.textContent = "MASUK";
+          } else if (!alreadyOut) {
+            bioBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            bioText.textContent = "PULANG";
+          } else {
+            bioBtn.classList.add("opacity-50", "cursor-not-allowed");
+            bioText.textContent = "SELESAI";
+          }
+        }
+
+        // History
+        $("historyBox").innerHTML = (state.history || []).length
+          ? (state.history || [])
+              .map(
+                (x) => `
         <div class="hist-card">
           <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-            ${(x.checkInSelfieUrl||x.checkOutSelfieUrl)?`<img class="selfie-thumb" src="${esc(x.checkInSelfieUrl||x.checkOutSelfieUrl)}" onclick="viewSelfie('${esc(x.checkInSelfieUrl||x.checkOutSelfieUrl)}','${esc(x.date)}')" title="Lihat foto absensi">`:'<div style="width:40px;height:40px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>'}
+            ${x.checkInSelfieUrl || x.checkOutSelfieUrl ? `<img class="selfie-thumb" src="${esc(x.checkInSelfieUrl || x.checkOutSelfieUrl)}" onclick="viewSelfie('${esc(x.checkInSelfieUrl || x.checkOutSelfieUrl)}','${esc(x.date)}')" title="Lihat foto absensi">` : '<div style="width:40px;height:40px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📷</div>'}
             <div style="min-width:0;">
               <div class="font-bold text-slate-800">${esc(x.date)}</div>
-              <div class="text-xs text-slate-500 mt-1 line-clamp-1">${esc(x.reason||x.message||'')}</div>
-              ${x.checkInTime?`<div class="text-xs text-emerald-600 font-semibold mt-0.5">In: ${esc(x.checkInTime)}${x.checkOutTime?' · Out: '+esc(x.checkOutTime):''}</div>`:''}
+              <div class="text-xs text-slate-500 mt-1 line-clamp-1">${esc(x.reason || x.message || "")}</div>
+              ${x.checkInTime ? `<div class="text-xs text-emerald-600 font-semibold mt-0.5">In: ${esc(x.checkInTime)}${x.checkOutTime ? " · Out: " + esc(x.checkOutTime) : ""}</div>` : ""}
             </div>
           </div>
           <div style="flex-shrink:0;text-align:right;">
-            <span class="badge ${x.status==='alpha'?'bad':(x.status==='telat'||x.isLate?'warn':'ok')}">${esc(x.status==='telat'||x.isLate?'telat':x.status)}</span>
-            ${x.isLate&&x.lateMinutes?`<div class="text-[10px] text-amber-400 font-bold text-right mt-1">+${esc(x.lateMinutes)}m</div>`:''}
+            <span class="badge ${x.status === "alpha" ? "bad" : x.status === "telat" || x.isLate ? "warn" : "ok"}">${esc(x.status === "telat" || x.isLate ? "telat" : x.status)}</span>
+            ${x.isLate && x.lateMinutes ? `<div class="text-[10px] text-amber-400 font-bold text-right mt-1">+${esc(x.lateMinutes)}m</div>` : ""}
           </div>
         </div>
-      `).join(''):'<div class="text-center text-slate-500 py-8 text-sm">Belum ada riwayat.</div>';
-      
-      // Slip
-      $('slipBox').innerHTML=state.slip?`
+      `,
+              )
+              .join("")
+          : '<div class="text-center text-slate-500 py-8 text-sm">Belum ada riwayat.</div>';
+
+        // Slip
+        $("slipBox").innerHTML = state.slip
+          ? `
         <div class="row-item"><span>Periode</span><strong class="text-slate-800 text-lg">${esc(state.slip.month)}</strong></div>
         <div class="row-item"><span>Hadir/Izin/Sakit</span><strong>${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}</strong></div>
         <div class="row-item"><span>Alpha/Telat</span><strong>${state.slip.summary.alpha}/${state.slip.summary.telat}</strong></div>
@@ -662,485 +1540,723 @@ function jsonp(action,extra={}){return api(action,extra)}
           <button class="flex-1 bg-blue-600 hover:bg-blue-500 text-slate-900 font-bold py-3 rounded-xl transition" id="printSlipBtn">Save PDF</button>
           <button class="flex-1 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl transition" id="copySlipBtn">Copy</button>
         </div>
-      `:'<div class="text-center text-slate-500 py-8 text-sm">Slip belum dikirim admin.</div>';
-    }
-    
-    $('serverUrl').addEventListener('input',()=>localStorage.setItem(SERVER_DRAFT_KEY,$('serverUrl').value.trim()));
-    $('licenseCode').addEventListener('input',()=>localStorage.setItem(LICENSE_DRAFT_KEY,$('licenseCode').value.trim()));
-    
-    $('activationForm').onsubmit=e=>{e.preventDefault();let rawLicense=$('licenseCode').value.trim();localStorage.setItem(LICENSE_DRAFT_KEY,rawLicense);if(!rawLicense){alert('Kode lisensi belum diisi.');return}serverUrl=KLAAR_API;license=rawLicense;localStorage.setItem(SERVER_KEY,serverUrl);localStorage.setItem(LICENSE_KEY,license);show('loginScreen')};
-    $('changeServerLogin').onclick=()=>{localStorage.removeItem(SERVER_KEY);localStorage.removeItem(LICENSE_KEY);localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);serverUrl='';license='';nip='';pinHash='';$('serverUrl').value=localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';show('activationScreen')};
-    $('serverUrl').value=serverUrl||localStorage.getItem(SERVER_DRAFT_KEY)||'';$('licenseCode').value=license||localStorage.getItem(LICENSE_DRAFT_KEY)||'EDUPAY-DEMO-0001';
-    
-    $('loginForm').onsubmit=async e=>{e.preventDefault();nip=$('nip').value.trim();pinHash=await sha($('pin').value);localStorage.setItem(NIP_KEY,nip);localStorage.setItem(PINHASH_KEY,pinHash);try{await loadEmployee();show('app')}catch(err){alert((err.message||'Login gagal')+'\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.')}};
-    
-    async function doBiometricAuth() {
-      if (!window.PublicKeyCredential) return true;
-      try {
-        const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        if (!isAvailable) return true;
-      } catch(e) { return true; }
-      
-      const credIdHex = localStorage.getItem('bio_cred_id_' + nip);
-      if (!credIdHex) {
+      `
+          : '<div class="text-center text-slate-500 py-8 text-sm">Slip belum dikirim admin.</div>';
+      }
+
+      $("serverUrl").addEventListener("input", () =>
+        localStorage.setItem(SERVER_DRAFT_KEY, $("serverUrl").value.trim()),
+      );
+      $("licenseCode").addEventListener("input", () =>
+        localStorage.setItem(LICENSE_DRAFT_KEY, $("licenseCode").value.trim()),
+      );
+
+      $("activationForm").onsubmit = (e) => {
+        e.preventDefault();
+        let rawLicense = $("licenseCode").value.trim();
+        localStorage.setItem(LICENSE_DRAFT_KEY, rawLicense);
+        if (!rawLicense) {
+          alert("Kode lisensi belum diisi.");
+          return;
+        }
+        serverUrl = KLAAR_API;
+        license = rawLicense;
+        localStorage.setItem(SERVER_KEY, serverUrl);
+        localStorage.setItem(LICENSE_KEY, license);
+        show("loginScreen");
+      };
+      $("changeServerLogin").onclick = () => {
+        localStorage.removeItem(SERVER_KEY);
+        localStorage.removeItem(LICENSE_KEY);
+        localStorage.removeItem(NIP_KEY);
+        localStorage.removeItem(PINHASH_KEY);
+        serverUrl = "";
+        license = "";
+        nip = "";
+        pinHash = "";
+        $("serverUrl").value = localStorage.getItem(SERVER_DRAFT_KEY) || "";
+        $("licenseCode").value =
+          localStorage.getItem(LICENSE_DRAFT_KEY) || "EDUPAY-DEMO-0001";
+        show("activationScreen");
+      };
+      $("serverUrl").value =
+        serverUrl || localStorage.getItem(SERVER_DRAFT_KEY) || "";
+      $("licenseCode").value =
+        license ||
+        localStorage.getItem(LICENSE_DRAFT_KEY) ||
+        "EDUPAY-DEMO-0001";
+
+      $("loginForm").onsubmit = async (e) => {
+        e.preventDefault();
+        nip = $("nip").value.trim();
+        pinHash = await sha($("pin").value);
+        localStorage.setItem(NIP_KEY, nip);
+        localStorage.setItem(PINHASH_KEY, pinHash);
         try {
-          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const userId = new Uint8Array(16); window.crypto.getRandomValues(userId);
-          const rp = { name: "Klaar Hadir" };
-          if(window.location.hostname) rp.id = window.location.hostname;
-          const credential = await navigator.credentials.create({
-            publicKey: {
-              challenge, rp,
-              user: { id: userId, name: nip||"karyawan", displayName: state?.employee?.name||"Karyawan" },
-              pubKeyCredParams: [{type: "public-key", alg: -7}, {type: "public-key", alg: -257}],
-              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-              timeout: 60000, attestation: "none"
-            }
-          });
-          const newCredId = Array.from(new Uint8Array(credential.rawId)).map(b=>b.toString(16).padStart(2,'0')).join('');
-          localStorage.setItem('bio_cred_id_' + nip, newCredId);
-          return true;
-        } catch(e) {
-          if(e.name==='NotAllowedError') throw new Error("Pendaftaran sidik jari dibatalkan. Anda harus mendaftar agar bisa absen.");
+          await loadEmployee();
+          show("app");
+        } catch (err) {
+          alert(
+            (err.message || "Login gagal") +
+              "\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.",
+          );
+        }
+      };
+
+      async function doBiometricAuth() {
+        if (!window.PublicKeyCredential) return true;
+        try {
+          const isAvailable =
+            await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          if (!isAvailable) return true;
+        } catch (e) {
           return true;
         }
-      } else {
-        try {
-          const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-          const credIdBytes = new Uint8Array(credIdHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-          await navigator.credentials.get({
-            publicKey: {
-              challenge,
-              allowCredentials: [{id: credIdBytes, type: "public-key", transports: ["internal"]}],
-              userVerification: "required",
-              timeout: 60000
-            }
-          });
-          return true;
-        } catch(e) {
-          if(e.name==='NotAllowedError') throw new Error("Verifikasi sidik jari dibatalkan atau gagal.");
-          return true;
+
+        const credIdHex = localStorage.getItem("bio_cred_id_" + nip);
+        if (!credIdHex) {
+          try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+            const userId = new Uint8Array(16);
+            window.crypto.getRandomValues(userId);
+            const rp = { name: "Klaar Hadir" };
+            if (window.location.hostname) rp.id = window.location.hostname;
+            const credential = await navigator.credentials.create({
+              publicKey: {
+                challenge,
+                rp,
+                user: {
+                  id: userId,
+                  name: nip || "karyawan",
+                  displayName: state?.employee?.name || "Karyawan",
+                },
+                pubKeyCredParams: [
+                  { type: "public-key", alg: -7 },
+                  { type: "public-key", alg: -257 },
+                ],
+                authenticatorSelection: {
+                  authenticatorAttachment: "platform",
+                  userVerification: "required",
+                },
+                timeout: 60000,
+                attestation: "none",
+              },
+            });
+            const newCredId = Array.from(new Uint8Array(credential.rawId))
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("");
+            localStorage.setItem("bio_cred_id_" + nip, newCredId);
+            return true;
+          } catch (e) {
+            if (e.name === "NotAllowedError")
+              throw new Error(
+                "Pendaftaran sidik jari dibatalkan. Anda harus mendaftar agar bisa absen.",
+              );
+            return true;
+          }
+        } else {
+          try {
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+            const credIdBytes = new Uint8Array(
+              credIdHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)),
+            );
+            await navigator.credentials.get({
+              publicKey: {
+                challenge,
+                allowCredentials: [
+                  {
+                    id: credIdBytes,
+                    type: "public-key",
+                    transports: ["internal"],
+                  },
+                ],
+                userVerification: "required",
+                timeout: 60000,
+              },
+            });
+            return true;
+          } catch (e) {
+            if (e.name === "NotAllowedError")
+              throw new Error("Verifikasi sidik jari dibatalkan atau gagal.");
+            return true;
+          }
         }
       }
-    }
 
-    // ===== SELFIE SYSTEM =====
-    let _selfieStream = null;
-    let _selfieBlob = null;
-    let _selfieB64 = null;
-    let _selfieGps = null;
-    let _selfieType = 'checkin'; // 'checkin' | 'checkout'
-    let _selfieResolve = null;
-    let _selfieReject = null;
-    let _selfieClockInterval = null;
+      // ===== SELFIE SYSTEM =====
+      let _selfieStream = null;
+      let _selfieBlob = null;
+      let _selfieB64 = null;
+      let _selfieGps = null;
+      let _selfieType = "checkin"; // 'checkin' | 'checkout'
+      let _selfieResolve = null;
+      let _selfieReject = null;
+      let _selfieClockInterval = null;
 
-    // Buka modal kamera selfie — return Promise<{selfieUrl, selfieB64}>
-    function openSelfieModal(gpsPos, selfieType) {
-      return new Promise((resolve, reject) => {
-        _selfieResolve = resolve;
-        _selfieReject = reject;
-        _selfieType = selfieType || 'checkin';
-        _selfieGps = gpsPos;
-        _selfieBlob = null;
-        _selfieB64 = null;
+      // Buka modal kamera selfie — return Promise<{selfieUrl, selfieB64}>
+      function openSelfieModal(gpsPos, selfieType) {
+        return new Promise((resolve, reject) => {
+          _selfieResolve = resolve;
+          _selfieReject = reject;
+          _selfieType = selfieType || "checkin";
+          _selfieGps = gpsPos;
+          _selfieBlob = null;
+          _selfieB64 = null;
 
-        // Reset UI
-        const modal = $('selfieModal');
-        const video = $('selfieVideo');
-        const captured = $('selfieCaptured');
-        const shutter = $('selfieShutterBtn');
-        const retake = $('selfieRetakeBtn');
-        const confirm = $('selfieConfirmBtn');
-        const progress = $('selfieProgress');
-        const errEl = $('selfieError');
-        modal.classList.remove('hidden');
-        captured.style.display = 'none';
-        video.style.display = 'block';
-        shutter.style.display = 'flex';
-        retake.style.display = 'none';
-        confirm.style.display = 'none';
-        confirm.disabled = false;
-        confirm.textContent = '✅ Kirim Absen';
-        progress.style.display = 'none';
-        errEl.style.display = 'none';
-        errEl.textContent = '';
+          // Reset UI
+          const modal = $("selfieModal");
+          const video = $("selfieVideo");
+          const captured = $("selfieCaptured");
+          const shutter = $("selfieShutterBtn");
+          const retake = $("selfieRetakeBtn");
+          const confirm = $("selfieConfirmBtn");
+          const progress = $("selfieProgress");
+          const errEl = $("selfieError");
+          modal.classList.remove("hidden");
+          captured.style.display = "none";
+          video.style.display = "block";
+          shutter.style.display = "flex";
+          retake.style.display = "none";
+          confirm.style.display = "none";
+          confirm.disabled = false;
+          confirm.textContent = "✅ Kirim Absen";
+          progress.style.display = "none";
+          errEl.style.display = "none";
+          errEl.textContent = "";
 
-        // Title
-        $('selfieModalTitle').textContent = selfieType === 'checkout' ? '📸 Foto Pulang' : '📸 Foto Masuk';
-        $('selfieModalSubtitle').textContent = 'Arahkan kamera ke wajah Anda';
+          // Title
+          $("selfieModalTitle").textContent =
+            selfieType === "checkout" ? "📸 Foto Pulang" : "📸 Foto Masuk";
+          $("selfieModalSubtitle").textContent = "Arahkan kamera ke wajah Anda";
 
-        // Watermark GPS info
+          // Watermark GPS info
+          const lat = gpsPos?.coords?.latitude;
+          const lng = gpsPos?.coords?.longitude;
+          const acc = gpsPos?.coords?.accuracy;
+          const todayRec = state?.todayRecord;
+          const locName =
+            todayRec?.locationName || gpsPos?._locationName || "GPS Aktif";
+          if ($("selfieLocName")) $("selfieLocName").textContent = locName;
+          if ($("selfieCoords") && lat)
+            $("selfieCoords").textContent =
+              `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          if ($("selfieAccLine") && acc)
+            $("selfieAccLine").textContent = `Akurasi ±${Math.round(acc)}m`;
+          if ($("selfieEmpLine")) {
+            const empName = state?.employee?.name || nip || "";
+            const schoolName = state?.school || "Klaar Hadir";
+            $("selfieEmpLine").textContent = `${empName} · ${schoolName}`;
+          }
+
+          // Live clock update
+          function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, "0");
+            const m = String(now.getMinutes()).padStart(2, "0");
+            const s = String(now.getSeconds()).padStart(2, "0");
+            const dd = String(now.getDate()).padStart(2, "0");
+            const mm = String(now.getMonth() + 1).padStart(2, "0");
+            const yy = now.getFullYear();
+            if ($("selfieClock"))
+              $("selfieClock").textContent =
+                `${h}:${m}:${s} · ${dd}/${mm}/${yy}`;
+          }
+          updateClock();
+          if (_selfieClockInterval) clearInterval(_selfieClockInterval);
+          _selfieClockInterval = setInterval(updateClock, 1000);
+
+          // Start camera
+          navigator.mediaDevices
+            .getUserMedia({
+              video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 960 },
+              },
+              audio: false,
+            })
+            .then((stream) => {
+              _selfieStream = stream;
+              video.srcObject = stream;
+              video.play();
+            })
+            .catch((err) => {
+              errEl.style.display = "block";
+              errEl.textContent =
+                "Kamera tidak bisa dibuka: " + (err.message || err);
+            });
+        });
+      }
+
+      function closeSelfieModal(cancelled) {
+        if (_selfieClockInterval) clearInterval(_selfieClockInterval);
+        if (_selfieStream) {
+          _selfieStream.getTracks().forEach((t) => t.stop());
+          _selfieStream = null;
+        }
+        const video = $("selfieVideo");
+        if (video) {
+          video.srcObject = null;
+        }
+        $("selfieModal").classList.add("hidden");
+        if (cancelled && _selfieReject) {
+          _selfieReject(new Error("Foto absensi dibatalkan."));
+          _selfieResolve = null;
+          _selfieReject = null;
+        }
+      }
+
+      // Gambar watermark CamGPS style ke canvas
+      function drawWatermark(canvas, gpsPos, selfieType) {
+        const ctx = canvas.getContext("2d");
+        const W = canvas.width,
+          H = canvas.height;
         const lat = gpsPos?.coords?.latitude;
         const lng = gpsPos?.coords?.longitude;
         const acc = gpsPos?.coords?.accuracy;
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        const dateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
         const todayRec = state?.todayRecord;
-        const locName = todayRec?.locationName || (gpsPos?._locationName) || 'GPS Aktif';
-        if ($('selfieLocName')) $('selfieLocName').textContent = locName;
-        if ($('selfieCoords') && lat) $('selfieCoords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        if ($('selfieAccLine') && acc) $('selfieAccLine').textContent = `Akurasi ±${Math.round(acc)}m`;
-        if ($('selfieEmpLine')) {
-          const empName = state?.employee?.name || nip || '';
-          const schoolName = state?.school || 'Klaar Hadir';
-          $('selfieEmpLine').textContent = `${empName} · ${schoolName}`;
+        const locName =
+          todayRec?.locationName || gpsPos?._locationName || "Klaar GPS";
+        const empName = state?.employee?.name || nip || "";
+        const school = state?.school || "Klaar Hadir";
+        const typeLabel =
+          selfieType === "checkout" ? "ABSEN PULANG" : "ABSEN MASUK";
+
+        // Semi-transparent black bar at bottom
+        const barH = Math.round(H * 0.22);
+        const grad = ctx.createLinearGradient(0, H - barH, 0, H);
+        grad.addColorStop(0, "rgba(0,0,0,0)");
+        grad.addColorStop(0.3, "rgba(0,0,0,0.75)");
+        grad.addColorStop(1, "rgba(0,0,0,0.92)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, H - barH, W, barH);
+
+        const pad2 = Math.round(W * 0.03);
+        let y = H - barH + Math.round(barH * 0.18);
+        const lineH = Math.round(barH * 0.2);
+
+        // TYPE label (top of watermark)
+        ctx.font = `bold ${Math.round(W * 0.038)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#4ade80";
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 6;
+        ctx.fillText(typeLabel, pad2, y + lineH * 0.8);
+        y += lineH;
+
+        // Time + Date
+        ctx.font = `bold ${Math.round(W * 0.06)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#fde68a";
+        ctx.fillText(`${timeStr}`, pad2, y + lineH);
+        y += lineH * 1.3;
+
+        ctx.font = `${Math.round(W * 0.032)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#e2e8f0";
+        ctx.fillText(dateStr, pad2, y + lineH * 0.7);
+        y += lineH;
+
+        // Location name
+        ctx.font = `bold ${Math.round(W * 0.036)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#86efac";
+        ctx.fillText("📍 " + locName, pad2, y + lineH * 0.75);
+        y += lineH;
+
+        // Coordinates
+        if (lat) {
+          ctx.font = `${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
+          ctx.fillStyle = "#bfdbfe";
+          ctx.fillText(
+            `${lat.toFixed(6)}, ${lng.toFixed(6)}  ±${Math.round(acc || 0)}m`,
+            pad2,
+            y + lineH * 0.7,
+          );
+          y += lineH * 0.9;
         }
 
-        // Live clock update
-        function updateClock() {
-          const now = new Date();
-          const h = String(now.getHours()).padStart(2,'0');
-          const m = String(now.getMinutes()).padStart(2,'0');
-          const s = String(now.getSeconds()).padStart(2,'0');
-          const dd = String(now.getDate()).padStart(2,'0');
-          const mm = String(now.getMonth()+1).padStart(2,'0');
-          const yy = now.getFullYear();
-          if ($('selfieClock')) $('selfieClock').textContent = `${h}:${m}:${s} · ${dd}/${mm}/${yy}`;
-        }
-        updateClock();
-        if (_selfieClockInterval) clearInterval(_selfieClockInterval);
-        _selfieClockInterval = setInterval(updateClock, 1000);
+        // Divider line
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad2, y + 4);
+        ctx.lineTo(W - pad2, y + 4);
+        ctx.stroke();
+        y += lineH * 0.5;
 
-        // Start camera
-        navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
-          audio: false
-        }).then(stream => {
-          _selfieStream = stream;
-          video.srcObject = stream;
-          video.play();
-        }).catch(err => {
-          errEl.style.display = 'block';
-          errEl.textContent = 'Kamera tidak bisa dibuka: ' + (err.message || err);
+        // Employee name + school (small)
+        ctx.font = `${Math.round(W * 0.028)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText(`${empName}  ·  ${school}`, pad2, y + lineH * 0.7);
+
+        // Top-right: GPS verified badge
+        const bW = Math.round(W * 0.28),
+          bH = Math.round(H * 0.045);
+        const bX = W - bW - pad2,
+          bY = Math.round(H * 0.025);
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.beginPath();
+        ctx.roundRect
+          ? ctx.roundRect(bX, bY, bW, bH, 6)
+          : ctx.rect(bX, bY, bW, bH);
+        ctx.fill();
+        ctx.font = `bold ${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
+        ctx.fillStyle = "#4ade80";
+        ctx.fillText("● GPS Verified", bX + 8, bY + bH * 0.72);
+
+        ctx.shadowBlur = 0;
+      }
+
+      // Kompres foto: resize max 800px, quality 0.55
+      async function compressSelfie(videoEl, gpsPos, selfieType) {
+        const canvas = $("selfieCanvas");
+        const vW = videoEl.videoWidth || 640;
+        const vH = videoEl.videoHeight || 480;
+        const maxDim = 800;
+        let cW = vW,
+          cH = vH;
+        if (cW > maxDim || cH > maxDim) {
+          const ratio = Math.min(maxDim / cW, maxDim / cH);
+          cW = Math.round(cW * ratio);
+          cH = Math.round(cH * ratio);
+        }
+        canvas.width = cW;
+        canvas.height = cH;
+        const ctx = canvas.getContext("2d");
+        // Mirror: flip horizontal like selfie camera
+        ctx.save();
+        ctx.translate(cW, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoEl, 0, 0, cW, cH);
+        ctx.restore();
+        // Draw watermark
+        drawWatermark(canvas, gpsPos, selfieType);
+        // Convert to blob (compressed)
+        return new Promise((resolve) => {
+          canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.55);
         });
-      });
-    }
-
-    function closeSelfieModal(cancelled) {
-      if (_selfieClockInterval) clearInterval(_selfieClockInterval);
-      if (_selfieStream) {
-        _selfieStream.getTracks().forEach(t => t.stop());
-        _selfieStream = null;
-      }
-      const video = $('selfieVideo');
-      if (video) { video.srcObject = null; }
-      $('selfieModal').classList.add('hidden');
-      if (cancelled && _selfieReject) {
-        _selfieReject(new Error('Foto absensi dibatalkan.'));
-        _selfieResolve = null; _selfieReject = null;
-      }
-    }
-
-    // Gambar watermark CamGPS style ke canvas
-    function drawWatermark(canvas, gpsPos, selfieType) {
-      const ctx = canvas.getContext('2d');
-      const W = canvas.width, H = canvas.height;
-      const lat = gpsPos?.coords?.latitude;
-      const lng = gpsPos?.coords?.longitude;
-      const acc = gpsPos?.coords?.accuracy;
-      const now = new Date();
-      const pad = n => String(n).padStart(2,'0');
-      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      const dateStr = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
-      const todayRec = state?.todayRecord;
-      const locName = todayRec?.locationName || (gpsPos?._locationName) || 'Klaar GPS';
-      const empName = state?.employee?.name || nip || '';
-      const school = state?.school || 'Klaar Hadir';
-      const typeLabel = selfieType === 'checkout' ? 'ABSEN PULANG' : 'ABSEN MASUK';
-
-      // Semi-transparent black bar at bottom
-      const barH = Math.round(H * 0.22);
-      const grad = ctx.createLinearGradient(0, H - barH, 0, H);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(0.3, 'rgba(0,0,0,0.75)');
-      grad.addColorStop(1, 'rgba(0,0,0,0.92)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, H - barH, W, barH);
-
-      const pad2 = Math.round(W * 0.03);
-      let y = H - barH + Math.round(barH * 0.18);
-      const lineH = Math.round(barH * 0.2);
-
-      // TYPE label (top of watermark)
-      ctx.font = `bold ${Math.round(W * 0.038)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#4ade80';
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(typeLabel, pad2, y + lineH * 0.8);
-      y += lineH;
-
-      // Time + Date
-      ctx.font = `bold ${Math.round(W * 0.06)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#fde68a';
-      ctx.fillText(`${timeStr}`, pad2, y + lineH);
-      y += lineH * 1.3;
-
-      ctx.font = `${Math.round(W * 0.032)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillText(dateStr, pad2, y + lineH * 0.7);
-      y += lineH;
-
-      // Location name
-      ctx.font = `bold ${Math.round(W * 0.036)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#86efac';
-      ctx.fillText('📍 ' + locName, pad2, y + lineH * 0.75);
-      y += lineH;
-
-      // Coordinates
-      if (lat) {
-        ctx.font = `${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
-        ctx.fillStyle = '#bfdbfe';
-        ctx.fillText(`${lat.toFixed(6)}, ${lng.toFixed(6)}  ±${Math.round(acc||0)}m`, pad2, y + lineH * 0.7);
-        y += lineH * 0.9;
       }
 
-      // Divider line
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(pad2, y + 4); ctx.lineTo(W - pad2, y + 4); ctx.stroke();
-      y += lineH * 0.5;
-
-      // Employee name + school (small)
-      ctx.font = `${Math.round(W * 0.028)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText(`${empName}  ·  ${school}`, pad2, y + lineH * 0.7);
-
-      // Top-right: GPS verified badge
-      const bW = Math.round(W * 0.28), bH = Math.round(H * 0.045);
-      const bX = W - bW - pad2, bY = Math.round(H * 0.025);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(bX, bY, bW, bH, 6) : ctx.rect(bX, bY, bW, bH);
-      ctx.fill();
-      ctx.font = `bold ${Math.round(W * 0.026)}px Inter, Arial, sans-serif`;
-      ctx.fillStyle = '#4ade80';
-      ctx.fillText('● GPS Verified', bX + 8, bY + bH * 0.72);
-
-      ctx.shadowBlur = 0;
-    }
-
-    // Kompres foto: resize max 800px, quality 0.55
-    async function compressSelfie(videoEl, gpsPos, selfieType) {
-      const canvas = $('selfieCanvas');
-      const vW = videoEl.videoWidth || 640;
-      const vH = videoEl.videoHeight || 480;
-      const maxDim = 800;
-      let cW = vW, cH = vH;
-      if (cW > maxDim || cH > maxDim) {
-        const ratio = Math.min(maxDim / cW, maxDim / cH);
-        cW = Math.round(cW * ratio);
-        cH = Math.round(cH * ratio);
+      // Baca blob sebagai base64
+      function blobToBase64(blob) {
+        return new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.onerror = rej;
+          reader.readAsDataURL(blob);
+        });
       }
-      canvas.width = cW;
-      canvas.height = cH;
-      const ctx = canvas.getContext('2d');
-      // Mirror: flip horizontal like selfie camera
-      ctx.save();
-      ctx.translate(cW, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(videoEl, 0, 0, cW, cH);
-      ctx.restore();
-      // Draw watermark
-      drawWatermark(canvas, gpsPos, selfieType);
-      // Convert to blob (compressed)
-      return new Promise(resolve => {
-        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.55);
-      });
-    }
 
-    // Baca blob sebagai base64
-    function blobToBase64(blob) {
-      return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = () => res(reader.result);
-        reader.onerror = rej;
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    // Upload selfie ke server
-    async function uploadSelfieToServer(b64, gpsPos, selfieType) {
-      const lat = gpsPos?.coords?.latitude || 0;
-      const lng = gpsPos?.coords?.longitude || 0;
-      const acc = gpsPos?.coords?.accuracy || 0;
-      const locName = state?.todayRecord?.locationName || '';
-      const now = new Date();
-      const pad = n => String(n).padStart(2,'0');
-      const watermarkText = [
-        (selfieType === 'checkout' ? 'ABSEN PULANG' : 'ABSEN MASUK'),
-        `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`,
-        `${lat.toFixed(6)}, ${lng.toFixed(6)} ±${Math.round(acc)}m`,
-        locName,
-        `${state?.employee?.name || nip} · ${state?.school || 'Klaar Hadir'}`
-      ].join(' | ');
-      const res = await api('uploadSelfie', {
-        photoBase64: b64,
-        selfieType,
-        lat: lat.toString(),
-        lng: lng.toString(),
-        accuracy: acc.toString(),
-        locationName: locName,
-        watermarkText,
-      });
-      return res;
-    }
-
-    // Selfie modal: shutter button
-    $('selfieShutterBtn').onclick = async () => {
-      const video = $('selfieVideo');
-      const captured = $('selfieCaptured');
-      try {
-        const blob = await compressSelfie(video, _selfieGps, _selfieType);
-        _selfieBlob = blob;
-        _selfieB64 = await blobToBase64(blob);
-        // Show captured image
-        captured.src = _selfieB64;
-        captured.style.display = 'block';
-        video.style.display = 'none';
-        // Show retake + confirm
-        $('selfieShutterBtn').style.display = 'none';
-        $('selfieRetakeBtn').style.display = 'flex';
-        $('selfieConfirmBtn').style.display = 'flex';
-        const sizeKB = Math.round((blob.size||0) / 1024);
-        $('selfieModalSubtitle').textContent = `Foto OK · ${sizeKB} KB — Kirim atau Ulangi`;
-      } catch(e) {
-        $('selfieError').style.display = 'block';
-        $('selfieError').textContent = 'Gagal ambil foto: ' + (e.message || e);
+      // Upload selfie ke server
+      async function uploadSelfieToServer(b64, gpsPos, selfieType) {
+        const lat = gpsPos?.coords?.latitude || 0;
+        const lng = gpsPos?.coords?.longitude || 0;
+        const acc = gpsPos?.coords?.accuracy || 0;
+        const locName = state?.todayRecord?.locationName || "";
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const watermarkText = [
+          selfieType === "checkout" ? "ABSEN PULANG" : "ABSEN MASUK",
+          `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+          `${lat.toFixed(6)}, ${lng.toFixed(6)} ±${Math.round(acc)}m`,
+          locName,
+          `${state?.employee?.name || nip} · ${state?.school || "Klaar Hadir"}`,
+        ].join(" | ");
+        const res = await api("uploadSelfie", {
+          photoBase64: b64,
+          selfieType,
+          lat: lat.toString(),
+          lng: lng.toString(),
+          accuracy: acc.toString(),
+          locationName: locName,
+          watermarkText,
+        });
+        return res;
       }
-    };
 
-    // Retake
-    $('selfieRetakeBtn').onclick = () => {
-      const video = $('selfieVideo');
-      const captured = $('selfieCaptured');
-      captured.style.display = 'none';
-      video.style.display = 'block';
-      $('selfieShutterBtn').style.display = 'flex';
-      $('selfieRetakeBtn').style.display = 'none';
-      $('selfieConfirmBtn').style.display = 'none';
-      $('selfieModalSubtitle').textContent = 'Arahkan kamera ke wajah Anda';
-      $('selfieError').style.display = 'none';
-      _selfieBlob = null; _selfieB64 = null;
-    };
-
-    // Confirm — upload then resolve
-    $('selfieConfirmBtn').onclick = async () => {
-      if (!_selfieB64) { $('selfieError').style.display='block'; $('selfieError').textContent='Ambil foto dulu.'; return; }
-      $('selfieConfirmBtn').disabled = true;
-      $('selfieConfirmBtn').textContent = '⏳ Mengunggah...';
-      $('selfieProgress').style.display = 'block';
-      $('selfieProgress').textContent = 'Mengupload foto absensi...';
-      $('selfieError').style.display = 'none';
-      try {
-        const uploadRes = await uploadSelfieToServer(_selfieB64, _selfieGps, _selfieType);
-        if (!uploadRes.ok) throw new Error(uploadRes.error || 'Upload gagal');
-        $('selfieProgress').textContent = `✅ Foto tersimpan (${uploadRes.sizeKB}KB)`;
-        const selfieUrl = uploadRes.selfieUrl || '';
-        closeSelfieModal(false);
-        if (_selfieResolve) { _selfieResolve({ selfieUrl, selfieB64: _selfieB64 }); _selfieResolve = null; _selfieReject = null; }
-      } catch(e) {
-        $('selfieConfirmBtn').disabled = false;
-        $('selfieConfirmBtn').textContent = '✅ Kirim Absen';
-        $('selfieProgress').style.display = 'none';
-        $('selfieError').style.display = 'block';
-        $('selfieError').textContent = e.message || 'Upload gagal. Cek koneksi.';
-      }
-    };
-
-    // Close / cancel selfie modal
-    $('selfieCloseBtn').onclick = () => closeSelfieModal(true);
-
-    // Selfie viewer for history
-    function viewSelfie(url, dateStr) {
-      $('selfieViewImg').src = url;
-      $('selfieViewMeta').textContent = dateStr ? 'Tanggal: ' + dateStr : '';
-      $('selfieViewModal').classList.remove('hidden');
-    }
-    $('selfieViewClose').onclick = () => $('selfieViewModal').classList.add('hidden');
-    $('selfieViewModal').onclick = (e) => { if (e.target === $('selfieViewModal')) $('selfieViewModal').classList.add('hidden'); };
-
-    // ===== CHECK-IN with selfie =====
-    async function processCheckIn() {
-      try{
-        if(state?.todayRecord?.checkInTime){alert('Anda sudah check-in hari ini.');return}
-        if(state?.todayRecord&&['izin','sakit','alpha'].includes(state.todayRecord.status)){alert('Status hari ini sudah '+state.todayRecord.status+'.');return}
-        
-        await doBiometricAuth();
-        
-        setBusy(true, 'Mengambil lokasi GPS...');
-        let pos = await getGPS();
-        setBusy(false, '');
-
-        // Buka modal kamera selfie
-        let selfieResult = null;
+      // Selfie modal: shutter button
+      $("selfieShutterBtn").onclick = async () => {
+        const video = $("selfieVideo");
+        const captured = $("selfieCaptured");
         try {
-          selfieResult = await openSelfieModal(pos, 'checkin');
-        } catch(selfieErr) {
-          // Jika kamera tidak ada / dibatalkan, lanjut tanpa selfie
-          if (selfieErr.message && selfieErr.message.includes('dibatalkan')) throw selfieErr;
-          console.warn('Selfie error (skip):', selfieErr);
+          const blob = await compressSelfie(video, _selfieGps, _selfieType);
+          _selfieBlob = blob;
+          _selfieB64 = await blobToBase64(blob);
+          // Show captured image
+          captured.src = _selfieB64;
+          captured.style.display = "block";
+          video.style.display = "none";
+          // Show retake + confirm
+          $("selfieShutterBtn").style.display = "none";
+          $("selfieRetakeBtn").style.display = "flex";
+          $("selfieConfirmBtn").style.display = "flex";
+          const sizeKB = Math.round((blob.size || 0) / 1024);
+          $("selfieModalSubtitle").textContent =
+            `Foto OK · ${sizeKB} KB — Kirim atau Ulangi`;
+        } catch (e) {
+          $("selfieError").style.display = "block";
+          $("selfieError").textContent =
+            "Gagal ambil foto: " + (e.message || e);
         }
-
-        setBusy(true, 'Mengirim check-in...');
-        await runAction('employeeCheckIn',{
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          selfieUrl: selfieResult?.selfieUrl || '',
-        }, 'Memproses...')
-      }catch(e){setBusy(false,'');alert('Check-in gagal: '+e.message)}
-    }
-    
-    // ===== CHECK-OUT with selfie =====
-    async function processCheckOut() {
-      try{
-        if(!state?.todayRecord?.checkInTime){alert('Belum check-in.');return}
-        if(state?.todayRecord?.checkOutTime){alert('Sudah check-out hari ini.');return}
-        
-        await doBiometricAuth();
-        
-        setBusy(true, 'Mengambil lokasi GPS...');
-        let pos = await getGPS();
-        setBusy(false, '');
-
-        // Buka modal kamera selfie
-        let selfieResult = null;
-        try {
-          selfieResult = await openSelfieModal(pos, 'checkout');
-        } catch(selfieErr) {
-          if (selfieErr.message && selfieErr.message.includes('dibatalkan')) throw selfieErr;
-          console.warn('Selfie error (skip):', selfieErr);
-        }
-
-        setBusy(true, 'Mengirim check-out...');
-        await runAction('employeeCheckOut',{
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          selfieUrl: selfieResult?.selfieUrl || '',
-        }, 'Memproses...')
-      }catch(e){setBusy(false,'');alert('Check-out gagal: '+e.message)}
-    }
-
-    $('checkIn').onclick=processCheckIn;
-    $('checkOut').onclick=processCheckOut;
-    if($('biometricBtn')) {
-      $('biometricBtn').onclick = () => {
-         let r = normalizeEmployeeRec(state?.todayRecord);
-         let blocked = !!(r&&['izin','sakit','alpha'].includes(r.status));
-         if (blocked || (r && r.checkInTime && r.checkOutTime)) return;
-         if (!r || !r.checkInTime) processCheckIn();
-         else if (!r.checkOutTime) processCheckOut();
       };
-    }
-    
-    $('requestForm').onsubmit=async e=>{e.preventDefault();try{await runAction('employeeRequest',{date:$('reqDate').value,type:$('reqType').value,reason:$('reqReason').value,proof:$('reqProof').value},'Mengirim pengajuan...');$('reqReason').value='';$('reqProof').value=''; alert('Pengajuan berhasil dikirim.'); switchTab('tab-beranda'); }catch(err){setBusy(false,'');alert('Pengajuan gagal: '+err.message)}};
-    $('reload').onclick=async()=>{try{setBusy(true,'Memuat ulang data...');await loadEmployee();setBusy(false,'');}catch(e){setBusy(false,'');alert(e.message)}};
-    
-    document.addEventListener('click',e=>{if(e.target&&e.target.id==='printSlipBtn')window.print();if(e.target&&e.target.id==='copySlipBtn'&&state?.slip){let t=`Slip Gaji ${state.employee.name}\nPeriode: ${state.slip.month}\nHadir/Izin/Sakit: ${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}\nAlpha/Telat: ${state.slip.summary.alpha}/${state.slip.summary.telat}\nGaji Bersih: ${rp(state.slip.net)}`;navigator.clipboard?.writeText(t);alert('Ringkasan disalin.')}});
-    
-    $('passForm').onsubmit=async e=>{e.preventDefault();let a=$('newPass').value,b=$('newPass2').value;if(a!==b){alert('Password baru tidak sama.');return}try{setBusy(true,'Mengganti password...');let newHash=await sha(a);let res=await jsonp('employeeChangePassword',{newHash});if(!res.ok)throw new Error(res.error||'Gagal');pinHash=newHash;localStorage.setItem(PINHASH_KEY,newHash);$('newPass').value='';$('newPass2').value='';setBusy(false,'');alert('Password berhasil diganti.')}catch(err){setBusy(false,'');alert(err.message)}};
-    $('logout').onclick=()=>{localStorage.removeItem(NIP_KEY);localStorage.removeItem(PINHASH_KEY);nip='';pinHash='';show('loginScreen')};
-    
-    boot();
-  </script>
-<script src="https://unpkg.com/lucide@latest"></script><script>lucide.createIcons();</script></body>
+
+      // Retake
+      $("selfieRetakeBtn").onclick = () => {
+        const video = $("selfieVideo");
+        const captured = $("selfieCaptured");
+        captured.style.display = "none";
+        video.style.display = "block";
+        $("selfieShutterBtn").style.display = "flex";
+        $("selfieRetakeBtn").style.display = "none";
+        $("selfieConfirmBtn").style.display = "none";
+        $("selfieModalSubtitle").textContent = "Arahkan kamera ke wajah Anda";
+        $("selfieError").style.display = "none";
+        _selfieBlob = null;
+        _selfieB64 = null;
+      };
+
+      // Confirm — upload then resolve
+      $("selfieConfirmBtn").onclick = async () => {
+        if (!_selfieB64) {
+          $("selfieError").style.display = "block";
+          $("selfieError").textContent = "Ambil foto dulu.";
+          return;
+        }
+        $("selfieConfirmBtn").disabled = true;
+        $("selfieConfirmBtn").textContent = "⏳ Mengunggah...";
+        $("selfieProgress").style.display = "block";
+        $("selfieProgress").textContent = "Mengupload foto absensi...";
+        $("selfieError").style.display = "none";
+        try {
+          const uploadRes = await uploadSelfieToServer(
+            _selfieB64,
+            _selfieGps,
+            _selfieType,
+          );
+          if (!uploadRes.ok) throw new Error(uploadRes.error || "Upload gagal");
+          $("selfieProgress").textContent =
+            `✅ Foto tersimpan (${uploadRes.sizeKB}KB)`;
+          const selfieUrl = uploadRes.selfieUrl || "";
+          closeSelfieModal(false);
+          if (_selfieResolve) {
+            _selfieResolve({ selfieUrl, selfieB64: _selfieB64 });
+            _selfieResolve = null;
+            _selfieReject = null;
+          }
+        } catch (e) {
+          $("selfieConfirmBtn").disabled = false;
+          $("selfieConfirmBtn").textContent = "✅ Kirim Absen";
+          $("selfieProgress").style.display = "none";
+          $("selfieError").style.display = "block";
+          $("selfieError").textContent =
+            e.message || "Upload gagal. Cek koneksi.";
+        }
+      };
+
+      // Close / cancel selfie modal
+      $("selfieCloseBtn").onclick = () => closeSelfieModal(true);
+
+      // Selfie viewer for history
+      function viewSelfie(url, dateStr) {
+        $("selfieViewImg").src = url;
+        $("selfieViewMeta").textContent = dateStr ? "Tanggal: " + dateStr : "";
+        $("selfieViewModal").classList.remove("hidden");
+      }
+      $("selfieViewClose").onclick = () =>
+        $("selfieViewModal").classList.add("hidden");
+      $("selfieViewModal").onclick = (e) => {
+        if (e.target === $("selfieViewModal"))
+          $("selfieViewModal").classList.add("hidden");
+      };
+
+      // ===== CHECK-IN with selfie =====
+      async function processCheckIn() {
+        try {
+          if (state?.todayRecord?.checkInTime) {
+            alert("Anda sudah check-in hari ini.");
+            return;
+          }
+          if (
+            state?.todayRecord &&
+            ["izin", "sakit", "alpha"].includes(state.todayRecord.status)
+          ) {
+            alert("Status hari ini sudah " + state.todayRecord.status + ".");
+            return;
+          }
+
+          await doBiometricAuth();
+
+          setBusy(true, "Mengambil lokasi GPS...");
+          let pos = await getGPS();
+          setBusy(false, "");
+
+          // Buka modal kamera selfie
+          let selfieResult = null;
+          try {
+            selfieResult = await openSelfieModal(pos, "checkin");
+          } catch (selfieErr) {
+            // Jika kamera tidak ada / dibatalkan, lanjut tanpa selfie
+            if (selfieErr.message && selfieErr.message.includes("dibatalkan"))
+              throw selfieErr;
+            console.warn("Selfie error (skip):", selfieErr);
+          }
+
+          setBusy(true, "Mengirim check-in...");
+          await runAction(
+            "employeeCheckIn",
+            {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              selfieUrl: selfieResult?.selfieUrl || "",
+            },
+            "Memproses...",
+          );
+        } catch (e) {
+          setBusy(false, "");
+          alert("Check-in gagal: " + e.message);
+        }
+      }
+
+      // ===== CHECK-OUT with selfie =====
+      async function processCheckOut() {
+        try {
+          if (!state?.todayRecord?.checkInTime) {
+            alert("Belum check-in.");
+            return;
+          }
+          if (state?.todayRecord?.checkOutTime) {
+            alert("Sudah check-out hari ini.");
+            return;
+          }
+
+          await doBiometricAuth();
+
+          setBusy(true, "Mengambil lokasi GPS...");
+          let pos = await getGPS();
+          setBusy(false, "");
+
+          // Buka modal kamera selfie
+          let selfieResult = null;
+          try {
+            selfieResult = await openSelfieModal(pos, "checkout");
+          } catch (selfieErr) {
+            if (selfieErr.message && selfieErr.message.includes("dibatalkan"))
+              throw selfieErr;
+            console.warn("Selfie error (skip):", selfieErr);
+          }
+
+          setBusy(true, "Mengirim check-out...");
+          await runAction(
+            "employeeCheckOut",
+            {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              selfieUrl: selfieResult?.selfieUrl || "",
+            },
+            "Memproses...",
+          );
+        } catch (e) {
+          setBusy(false, "");
+          alert("Check-out gagal: " + e.message);
+        }
+      }
+
+      $("checkIn").onclick = processCheckIn;
+      $("checkOut").onclick = processCheckOut;
+      if ($("biometricBtn")) {
+        $("biometricBtn").onclick = () => {
+          let r = normalizeEmployeeRec(state?.todayRecord);
+          let blocked = !!(r && ["izin", "sakit", "alpha"].includes(r.status));
+          if (blocked || (r && r.checkInTime && r.checkOutTime)) return;
+          if (!r || !r.checkInTime) processCheckIn();
+          else if (!r.checkOutTime) processCheckOut();
+        };
+      }
+
+      $("requestForm").onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          await runAction(
+            "employeeRequest",
+            {
+              date: $("reqDate").value,
+              type: $("reqType").value,
+              reason: $("reqReason").value,
+              proof: $("reqProof").value,
+            },
+            "Mengirim pengajuan...",
+          );
+          $("reqReason").value = "";
+          $("reqProof").value = "";
+          alert("Pengajuan berhasil dikirim.");
+          switchTab("tab-beranda");
+        } catch (err) {
+          setBusy(false, "");
+          alert("Pengajuan gagal: " + err.message);
+        }
+      };
+      $("reload").onclick = async () => {
+        try {
+          setBusy(true, "Memuat ulang data...");
+          await loadEmployee();
+          setBusy(false, "");
+        } catch (e) {
+          setBusy(false, "");
+          alert(e.message);
+        }
+      };
+
+      document.addEventListener("click", (e) => {
+        if (e.target && e.target.id === "printSlipBtn") window.print();
+        if (e.target && e.target.id === "copySlipBtn" && state?.slip) {
+          let t = `Slip Gaji ${state.employee.name}\nPeriode: ${state.slip.month}\nHadir/Izin/Sakit: ${state.slip.summary.hadir}/${state.slip.summary.izin}/${state.slip.summary.sakit}\nAlpha/Telat: ${state.slip.summary.alpha}/${state.slip.summary.telat}\nGaji Bersih: ${rp(state.slip.net)}`;
+          navigator.clipboard?.writeText(t);
+          alert("Ringkasan disalin.");
+        }
+      });
+
+      $("passForm").onsubmit = async (e) => {
+        e.preventDefault();
+        let a = $("newPass").value,
+          b = $("newPass2").value;
+        if (a !== b) {
+          alert("Password baru tidak sama.");
+          return;
+        }
+        try {
+          setBusy(true, "Mengganti password...");
+          let newHash = await sha(a);
+          let res = await jsonp("employeeChangePassword", { newHash });
+          if (!res.ok) throw new Error(res.error || "Gagal");
+          pinHash = newHash;
+          localStorage.setItem(PINHASH_KEY, newHash);
+          $("newPass").value = "";
+          $("newPass2").value = "";
+          setBusy(false, "");
+          alert("Password berhasil diganti.");
+        } catch (err) {
+          setBusy(false, "");
+          alert(err.message);
+        }
+      };
+      $("logout").onclick = () => {
+        localStorage.removeItem(NIP_KEY);
+        localStorage.removeItem(PINHASH_KEY);
+        nip = "";
+        pinHash = "";
+        show("loginScreen");
+      };
+
+      boot();
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+  </body>
 </html>
