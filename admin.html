@@ -1165,12 +1165,6 @@
     </script>
   </head>
   <body>
-    <div class="screen" id="bootScreen">
-      <div class="screen-card" style="text-align: center">
-        <div class="logo" id="bootLogo">KL</div>
-        <p class="muted" style="margin: 14px 0 0">Memuat...</p>
-      </div>
-    </div>
     <div class="screen hidden" id="activationScreen">
       <div class="screen-card">
         <div class="logo" id="activationLogo">KL</div>
@@ -3000,16 +2994,8 @@
         );
         document.title = db.settings.app;
       }
-      function hideBootScreen() {
-        let b = $("bootScreen");
-        if (b) b.classList.add("hidden");
-      }
-      function showBooting() {
-        $("activationScreen").classList.add("hidden");
-        $("loginScreen").classList.add("hidden");
-        $("app").classList.add("hidden");
-        if ($("bootScreen")) $("bootScreen").classList.remove("hidden");
-      }
+      function hideBootScreen() {}
+      function showBooting() {}
       function clearLicenseSession() {
         localStorage.removeItem(SERVER_KEY);
         localStorage.removeItem(LICENSE_KEY);
