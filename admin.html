@@ -3034,6 +3034,7 @@
         if (adminAuth) {
            $("activationScreen").classList.add("hidden");
            $("loginScreen").classList.add("hidden");
+           $("app").classList.remove("hidden");
            render();
            section(localStorage.getItem("edupay_v4_admin_sec") || "dashboard");
            loadRemote(true).catch(e => {
@@ -3041,6 +3042,7 @@
                adminAuth = null;
                localStorage.removeItem("edupay_v4_admin_auth");
                $("loginScreen").classList.remove("hidden");
+               $("app").classList.add("hidden");
              }
            });
            return;
