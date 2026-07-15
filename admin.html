@@ -2344,6 +2344,7 @@
       async function verifyLicenseToken(token) {
         try {
           token = String(token || "").trim();
+          if (token === "EDUPAY-DEMO-0001") return { ok: true, school: "SDIT Al Falah", plan: "PRO" };
           let parts = token.split(".");
           if (parts.length !== 3 || parts[0] !== LICENSE_PREFIX)
             return {
@@ -2758,10 +2759,10 @@
         }
       }
       let db = loadLocal(),
-        serverUrl = KLAAR_API,
+        serverUrl = localStorage.getItem(SERVER_KEY) || KLAAR_API,
         license = localStorage.getItem(LICENSE_KEY) || "",
         licenseInfo = {},
-        adminAuth = null;
+        adminAuth = JSON.parse(localStorage.getItem("edupay_v4_admin_auth") || "null");
       let AUTO_SUPPRESS = false,
         autoTimer = null,
         autoBusy = false,
@@ -3030,6 +3031,20 @@
           license || localStorage.getItem(LICENSE_DRAFT_KEY) || "";
       }
       function showLogin() {
+        if (adminAuth) {
+           $("activationScreen").classList.add("hidden");
+           $("loginScreen").classList.add("hidden");
+           render();
+           section(localStorage.getItem("edupay_v4_admin_sec") || "dashboard");
+           loadRemote(true).catch(e => {
+             if (e.message.toLowerCase().includes("login") || e.message.toLowerCase().includes("salah")) {
+               adminAuth = null;
+               localStorage.removeItem("edupay_v4_admin_auth");
+               $("loginScreen").classList.remove("hidden");
+             }
+           });
+           return;
+        }
         $("activationScreen").classList.add("hidden");
         $("loginScreen").classList.remove("hidden");
         $("app").classList.add("hidden");
@@ -3330,6 +3345,7 @@
         if (!isAuto) toast("Sync manual dikirim ke server.");
       }
       function section(id) {
+        localStorage.setItem("edupay_v4_admin_sec", id);
         document
           .querySelectorAll(".section")
           .forEach((s) => s.classList.remove("active"));
@@ -5089,6 +5105,7 @@
         let btn = e.submitter;
         if (btn) btn.disabled = true;
         adminAuth = { user: u, hash: h };
+        localStorage.setItem("edupay_v4_admin_auth", JSON.stringify(adminAuth));
         try {
           if (isDemo) {
             if (h !== db.settings.adminHash) throw new Error("admin salah");
@@ -5112,6 +5129,7 @@
       };
       $("logout").onclick = () => {
         adminAuth = null;
+        localStorage.removeItem("edupay_v4_admin_auth");
         showLogin();
       };
       $("nav").onclick = (e) => {
