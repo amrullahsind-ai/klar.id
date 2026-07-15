@@ -5055,21 +5055,9 @@
         if (df) df.remove();
         serverUrl = KLAAR_API;
         license = rawLicense;
-        try {
-          let pong = await api("ping");
-          if (!pong || !pong.ok)
-            throw new Error("Server tidak merespons dengan benar.");
-          localStorage.setItem(SERVER_KEY, serverUrl);
-          localStorage.setItem(LICENSE_KEY, license);
-          showLogin();
-        } catch (err) {
-          license = "";
-          alert(
-            "Koneksi ke server Klaar gagal: " +
-              err.message +
-              "\n\nCek koneksi internet & pastikan KLAAR_API sudah diisi ref project Supabase. Kode lisensi tidak dihapus.",
-          );
-        }
+        localStorage.setItem(SERVER_KEY, serverUrl);
+        localStorage.setItem(LICENSE_KEY, license);
+        showLogin();
       };
       $("demoBtn").onclick = () => enterDemo();
       function warnDefaultPin(h) {
