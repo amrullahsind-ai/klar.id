@@ -1165,7 +1165,7 @@
     </script>
   </head>
   <body>
-    <div class="screen hidden" id="activationScreen">
+    <div class="screen" id="activationScreen">
       <div class="screen-card">
         <div class="logo" id="activationLogo">KL</div>
         <h2 style="margin: 14px 0 6px">Aktivasi Admin</h2>
@@ -1213,7 +1213,14 @@
             style="display: flex; flex-direction: column; gap: 8px"
           >
             <button class="btn primary wide">Masuk</button
-            ><button type="button" class="btn wide warn" id="resetLicenseLogin">
+            ><button
+              type="button"
+              class="btn wide warn"
+              onclick="
+                localStorage.clear();
+                location.reload();
+              "
+            >
               Reset / Ganti Lisensi
             </button>
           </div>
@@ -2753,8 +2760,7 @@
         serverUrl = KLAAR_API,
         license = localStorage.getItem(LICENSE_KEY) || "",
         licenseInfo = {},
-        _adminAuthStr = localStorage.getItem("klaar_admin_auth"),
-        adminAuth = _adminAuthStr ? JSON.parse(_adminAuthStr) : null;
+        adminAuth = null;
       let AUTO_SUPPRESS = false,
         autoTimer = null,
         autoBusy = false,
@@ -2987,54 +2993,33 @@
         let logo = db.settings.logo
           ? `<img src="${db.settings.logo}">`
           : initials(db.settings.app);
-        ["activationLogo", "loginLogo", "bootLogo", "brandLogo", "logoPreview"].forEach(
+        ["activationLogo", "loginLogo", "brandLogo", "logoPreview"].forEach(
           (id) => {
             if ($(id)) $(id).innerHTML = logo;
           },
         );
         document.title = db.settings.app;
       }
-      function hideBootScreen() {}
-      function showBooting() {}
-      function clearLicenseSession() {
-        localStorage.removeItem(SERVER_KEY);
-        localStorage.removeItem(LICENSE_KEY);
-        localStorage.removeItem("klaar_admin_auth");
-        serverUrl = KLAAR_API;
-        license = "";
-        adminAuth = null;
-      }
-      async function boot() {
+      function boot() {
         applyBrand();
-        showBooting();
         if (new URLSearchParams(location.search).get("demo") === "1") {
           return enterDemo();
         }
         if (license && serverUrl) {
-          let lic = await verifyLicenseToken(license);
-          if (lic.ok) {
-            if (adminAuth) {
-              showApp();
-              warnDefaultPin(adminAuth.hash);
-              loadRemote(true).catch((e) => {
-                console.error("Auto-load failed", e);
-              });
-              return;
+          verifyLicenseToken(license).then((lic) => {
+            if (lic.ok) showLogin();
+            else {
+              license = "";
+              localStorage.removeItem(LICENSE_KEY);
+              showActivation();
+              alert(
+                "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
+              );
             }
-            showLogin();
-            return;
-          }
-          clearLicenseSession();
-          showActivation();
-          alert(
-            "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
-          );
-          return;
-        }
-        showActivation();
+          });
+        } else showActivation();
       }
       function showActivation() {
-        hideBootScreen();
         $("activationScreen").classList.remove("hidden");
         $("loginScreen").classList.add("hidden");
         $("app").classList.add("hidden");
@@ -3044,14 +3029,12 @@
           license || localStorage.getItem(LICENSE_DRAFT_KEY) || "";
       }
       function showLogin() {
-        hideBootScreen();
         $("activationScreen").classList.add("hidden");
         $("loginScreen").classList.remove("hidden");
         $("app").classList.add("hidden");
         $("loginUser").value = db.settings.adminUser || "admin";
       }
       function showApp() {
-        hideBootScreen();
         $("activationScreen").classList.add("hidden");
         $("loginScreen").classList.add("hidden");
         $("app").classList.remove("hidden");
@@ -5060,9 +5043,21 @@
         if (df) df.remove();
         serverUrl = KLAAR_API;
         license = rawLicense;
-        localStorage.setItem(SERVER_KEY, serverUrl);
-        localStorage.setItem(LICENSE_KEY, license);
-        showLogin();
+        try {
+          let pong = await jsonp("ping");
+          if (!pong || !pong.ok)
+            throw new Error("Server tidak merespons dengan benar.");
+          localStorage.setItem(SERVER_KEY, serverUrl);
+          localStorage.setItem(LICENSE_KEY, license);
+          showLogin();
+        } catch (err) {
+          license = "";
+          alert(
+            "Koneksi ke server Klaar gagal: " +
+              err.message +
+              "\n\nCek koneksi internet & pastikan KLAAR_API sudah diisi ref project Supabase. Kode lisensi tidak dihapus.",
+          );
+        }
       };
       $("demoBtn").onclick = () => enterDemo();
       function warnDefaultPin(h) {
@@ -5091,13 +5086,8 @@
         let u = $("loginUser").value.trim(),
           h = await sha($("loginPass").value);
         let btn = e.submitter;
-        let oldText = btn ? btn.textContent : "Masuk";
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "Memuat...";
-        }
+        if (btn) btn.disabled = true;
         adminAuth = { user: u, hash: h };
-        localStorage.setItem("klaar_admin_auth", JSON.stringify(adminAuth));
         try {
           if (isDemo) {
             if (h !== db.settings.adminHash) throw new Error("admin salah");
@@ -5110,22 +5100,17 @@
           }
         } catch (err) {
           adminAuth = null;
-          localStorage.removeItem("klaar_admin_auth");
           alert(
             /admin salah/i.test(err.message || "")
               ? "Username/PIN admin salah."
               : err.message || "Login gagal",
           );
         } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = oldText;
-          }
+          if (btn) btn.disabled = false;
         }
       };
       $("logout").onclick = () => {
         adminAuth = null;
-        localStorage.removeItem("klaar_admin_auth");
         showLogin();
       };
       $("nav").onclick = (e) => {
@@ -5140,26 +5125,13 @@
           loadRemote().catch((err) => alert(err.message));
       if ($("saveRemote")) $("saveRemote").onclick = saveRemote;
       $("resetLicense").onclick = () => {
-        if (
-          !confirm(
-            "Reset lisensi? Anda harus aktivasi ulang dengan kode lisensi resmi.",
-          )
-        )
-          return;
-        clearLicenseSession();
+        localStorage.removeItem(SERVER_KEY);
+        localStorage.removeItem(LICENSE_KEY);
+        serverUrl = KLAAR_API;
+        license = "";
+        adminAuth = null;
         showActivation();
       };
-      if ($("resetLicenseLogin"))
-        $("resetLicenseLogin").onclick = () => {
-          if (
-            !confirm(
-              "Reset lisensi? Anda harus aktivasi ulang dengan kode lisensi resmi.",
-            )
-          )
-            return;
-          clearLicenseSession();
-          showActivation();
-        };
       if ($("backupBtn"))
         $("backupBtn").onclick = () => exportBackup("backup manual admin");
       function empLinkToken(nip) {
