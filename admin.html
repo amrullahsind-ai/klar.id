@@ -1165,7 +1165,13 @@
     </script>
   </head>
   <body>
-    <div class="screen" id="activationScreen">
+    <div class="screen" id="bootScreen">
+      <div class="screen-card" style="text-align: center">
+        <div class="logo" id="bootLogo">KL</div>
+        <p class="muted" style="margin: 14px 0 0">Memuat...</p>
+      </div>
+    </div>
+    <div class="screen hidden" id="activationScreen">
       <div class="screen-card">
         <div class="logo" id="activationLogo">KL</div>
         <h2 style="margin: 14px 0 6px">Aktivasi Admin</h2>
@@ -1213,14 +1219,7 @@
             style="display: flex; flex-direction: column; gap: 8px"
           >
             <button class="btn primary wide">Masuk</button
-            ><button
-              type="button"
-              class="btn wide warn"
-              onclick="
-                localStorage.clear();
-                location.reload();
-              "
-            >
+            ><button type="button" class="btn wide warn" id="resetLicenseLogin">
               Reset / Ganti Lisensi
             </button>
           </div>
@@ -2994,44 +2993,107 @@
         let logo = db.settings.logo
           ? `<img src="${db.settings.logo}">`
           : initials(db.settings.app);
-        ["activationLogo", "loginLogo", "brandLogo", "logoPreview"].forEach(
+        ["activationLogo", "loginLogo", "bootLogo", "brandLogo", "logoPreview"].forEach(
           (id) => {
             if ($(id)) $(id).innerHTML = logo;
           },
         );
         document.title = db.settings.app;
       }
-      function boot() {
+      function hideBootScreen() {
+        let b = $("bootScreen");
+        if (b) b.classList.add("hidden");
+      }
+      function showBooting() {
+        $("activationScreen").classList.add("hidden");
+        $("loginScreen").classList.add("hidden");
+        $("app").classList.add("hidden");
+        if ($("bootScreen")) $("bootScreen").classList.remove("hidden");
+      }
+      // #region agent log
+      function _dbg(loc, msg, data, hyp) {
+        fetch('http://127.0.0.1:7593/ingest/095ab428-8bc4-4161-a66a-c22e9e8bb95c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b3b0b0'},body:JSON.stringify({sessionId:'b3b0b0',location:loc,message:msg,data:data||{},timestamp:Date.now(),hypothesisId:hyp||''})}).catch(()=>{});
+      }
+      // #endregion
+      function clearLicenseSession() {
+        localStorage.removeItem(SERVER_KEY);
+        localStorage.removeItem(LICENSE_KEY);
+        localStorage.removeItem("klaar_admin_auth");
+        serverUrl = KLAAR_API;
+        license = "";
+        adminAuth = null;
+      }
+      async function boot() {
+        // #region agent log
+        _dbg('admin.html:boot:start','boot() started',{hasLicense:!!license,hasServerUrl:!!serverUrl,hasAdminAuth:!!adminAuth,licenseLen:(license||'').length},'H1');
+        // #endregion
+        try {
         applyBrand();
+        showBooting();
         if (new URLSearchParams(location.search).get("demo") === "1") {
+          // #region agent log
+          _dbg('admin.html:boot:demo','entering demo mode',{},'H4');
+          // #endregion
           return enterDemo();
         }
         if (license && serverUrl) {
-          verifyLicenseToken(license).then(async (lic) => {
-            if (lic.ok) {
-              if (adminAuth) {
-                try {
-                  await loadRemote();
-                  showApp();
-                  warnDefaultPin(adminAuth.hash);
-                } catch (e) {
-                  showLogin();
-                }
-              } else {
+          let lic = await verifyLicenseToken(license);
+          // #region agent log
+          _dbg('admin.html:boot:verifyLicense',{licOk:!!lic.ok,licError:lic.error||null},'H3');
+          // #endregion
+          if (lic.ok) {
+            if (adminAuth) {
+              try {
+                // #region agent log
+                _dbg('admin.html:boot:loadRemote:before','calling loadRemote',{},'H2');
+                // #endregion
+                await loadRemote(true);
+                // #region agent log
+                _dbg('admin.html:boot:loadRemote:after','loadRemote succeeded',{},'H2');
+                // #endregion
+                showApp();
+                warnDefaultPin(adminAuth.hash);
+                // #region agent log
+                _dbg('admin.html:boot:done','showApp called',{},'H4');
+                // #endregion
+                return;
+              } catch (e) {
+                // #region agent log
+                _dbg('admin.html:boot:loadRemote:error',{err:String(e&&e.message||e)},'H2');
+                // #endregion
                 showLogin();
+                return;
               }
-            } else {
-              license = "";
-              localStorage.removeItem(LICENSE_KEY);
-              showActivation();
-              alert(
-                "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
-              );
             }
-          });
-        } else showActivation();
+            // #region agent log
+            _dbg('admin.html:boot:branch','showLogin (no adminAuth)',{},'H4');
+            // #endregion
+            showLogin();
+            return;
+          }
+          clearLicenseSession();
+          showActivation();
+          alert(
+            "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
+          );
+          return;
+        }
+        // #region agent log
+        _dbg('admin.html:boot:branch','showActivation (no license)',{},'H3');
+        // #endregion
+        showActivation();
+        } catch (bootErr) {
+          // #region agent log
+          _dbg('admin.html:boot:uncaught',{err:String(bootErr&&bootErr.message||bootErr)},'H1');
+          // #endregion
+          throw bootErr;
+        }
       }
       function showActivation() {
+        // #region agent log
+        _dbg('admin.html:showActivation','called',{bootHidden:!!($('bootScreen')&&$('bootScreen').classList.contains('hidden'))},'H3');
+        // #endregion
+        hideBootScreen();
         $("activationScreen").classList.remove("hidden");
         $("loginScreen").classList.add("hidden");
         $("app").classList.add("hidden");
@@ -3041,12 +3103,20 @@
           license || localStorage.getItem(LICENSE_DRAFT_KEY) || "";
       }
       function showLogin() {
+        // #region agent log
+        _dbg('admin.html:showLogin','called',{},'H4');
+        // #endregion
+        hideBootScreen();
         $("activationScreen").classList.add("hidden");
         $("loginScreen").classList.remove("hidden");
         $("app").classList.add("hidden");
         $("loginUser").value = db.settings.adminUser || "admin";
       }
       function showApp() {
+        // #region agent log
+        _dbg('admin.html:showApp','called',{},'H4');
+        // #endregion
+        hideBootScreen();
         $("activationScreen").classList.add("hidden");
         $("loginScreen").classList.add("hidden");
         $("app").classList.remove("hidden");
@@ -5128,14 +5198,26 @@
           loadRemote().catch((err) => alert(err.message));
       if ($("saveRemote")) $("saveRemote").onclick = saveRemote;
       $("resetLicense").onclick = () => {
-        localStorage.removeItem(SERVER_KEY);
-        localStorage.removeItem(LICENSE_KEY);
-        serverUrl = KLAAR_API;
-        license = "";
-        adminAuth = null;
-        localStorage.removeItem("klaar_admin_auth");
+        if (
+          !confirm(
+            "Reset lisensi? Anda harus aktivasi ulang dengan kode lisensi resmi.",
+          )
+        )
+          return;
+        clearLicenseSession();
         showActivation();
       };
+      if ($("resetLicenseLogin"))
+        $("resetLicenseLogin").onclick = () => {
+          if (
+            !confirm(
+              "Reset lisensi? Anda harus aktivasi ulang dengan kode lisensi resmi.",
+            )
+          )
+            return;
+          clearLicenseSession();
+          showActivation();
+        };
       if ($("backupBtn"))
         $("backupBtn").onclick = () => exportBackup("backup manual admin");
       function empLinkToken(nip) {
@@ -5691,7 +5773,11 @@
           );
         }
       });
-      boot();
+      boot().catch((e) => {
+        // #region agent log
+        _dbg('admin.html:boot:promiseReject',{err:String(e&&e.message||e)},'H1');
+        // #endregion
+      });
     </script>
     <script>
       (function () {
