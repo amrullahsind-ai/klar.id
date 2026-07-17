@@ -3054,7 +3054,12 @@
       }
       async function deleteEmployeeRemote(empId) {
         if (!serverUrl || !license) throw new Error("Server belum aktif");
-        let res = await jsonp("deleteEmployee", { employeeId: empId });
+        if (!adminAuth) throw new Error("Login admin dulu.");
+        let res = await jsonp("deleteEmployee", {
+          employeeId: empId,
+          adminUser: adminAuth.user,
+          adminHash: adminAuth.hash,
+        });
         if (!res || !res.ok)
           throw new Error((res && res.error) || "Delete server gagal");
         return res;

@@ -1552,8 +1552,8 @@
         serverUrl = KLAAR_API;
         license = rawLicense;
         try {
-          const pong = await api("ping");
-          if (!pong || !pong.ok) throw new Error((pong && pong.error) || "Lisensi tidak valid.");
+          const validation = await api("validateLicense");
+          if (!validation || !validation.ok) throw new Error((validation && validation.error) || "Lisensi tidak valid.");
           localStorage.setItem(SERVER_KEY, serverUrl);
           localStorage.setItem(LICENSE_KEY, license);
           show("loginScreen");
