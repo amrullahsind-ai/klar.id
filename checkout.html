@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Checkout — Klaar Store</title>
-  <link rel="icon" href="/klaar-logo.png" />
+  <link rel="icon" href="klaar-logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet" />
@@ -51,7 +51,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="brand"><img src="/klaar-logo.png" alt="Klaar"/> Klaar Store</div>
+    <div class="brand"><img src="klaar-logo.png" alt="Klaar"/> Klaar Store</div>
 
     <!-- FORM -->
     <div class="card" id="formCard">
@@ -115,9 +115,6 @@
     </div>
   </div>
 
-  <!-- MIDTRANS SNAP JS (Ubah ke https://app.midtrans.com/snap/snap.js jika Production) -->
-  <script src="https://app.sandbox.midtrans.com/snap/snap.js"></script>
-
   <script>
     // ====== ISI URL WEB APP KLAAR STORE DI SINI ======
     const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
@@ -127,6 +124,26 @@
     const $ = id => document.getElementById(id);
     // Satu paket saja.
     const plan = 'starter';
+
+    // Apps Script Store boleh mengembalikan snapToken, midtransClientKey, dan
+    // midtransEnvironment ('production' atau 'sandbox'). Tanpa konfigurasi lengkap,
+    // checkout otomatis memakai alur QRIS/manual agar tidak salah masuk sandbox.
+    function ensureMidtrans(payment){
+      if(window.snap) return Promise.resolve(true);
+      const clientKey=String(payment.midtransClientKey||'').trim();
+      if(!clientKey) return Promise.resolve(false);
+      const env=payment.midtransEnvironment==='sandbox'?'sandbox':'production';
+      return new Promise(resolve=>{
+        const script=document.createElement('script');
+        script.src=env==='sandbox'
+          ? 'https://app.sandbox.midtrans.com/snap/snap.js'
+          : 'https://app.midtrans.com/snap/snap.js';
+        script.dataset.clientKey=clientKey;
+        script.onload=()=>resolve(!!window.snap);
+        script.onerror=()=>resolve(false);
+        document.head.appendChild(script);
+      });
+    }
 
     // JSONP helper (Apps Script web app, sama pola dengan aplikasi Klaar).
     function jsonp(params){
@@ -171,7 +188,7 @@
           $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
           $('waBtn').style.display='';
         }
-        if(res.snapToken) {
+        if(res.snapToken && await ensureMidtrans(res)) {
           // Midtrans flow
           $('qrisBox').style.display = 'none'; // Sembunyikan QRIS manual
           $('outPayInfo').innerHTML = 'Silakan selesaikan pembayaran melalui popup Midtrans. Jika tertutup, <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">klik di sini untuk bayar</a>.';

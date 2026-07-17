@@ -1,13 +1,14 @@
 {
   "name": "Klaar Hadir",
   "short_name": "Klaar Hadir",
-  "start_url": "/employee.html",
+  "start_url": "./employee.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#F5FBF8",
   "theme_color": "#085842",
   "icons": [
     {
-      "src": "/klaar-logo.png",
+      "src": "./klaar-logo.png",
       "sizes": "192x192",
       "type": "image/png"
     }

@@ -17,6 +17,9 @@
         color: #0f172a;
         -webkit-tap-highlight-color: transparent;
       }
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+      .auth-card { width: min(100%, 24rem); }
       .bottom-nav-pb {
         padding-bottom: 110px;
       }
@@ -369,7 +372,7 @@
       class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50"
     >
       <div
-        class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
+        class="auth-card bg-white rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
       >
         <div
           class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20"
@@ -390,7 +393,7 @@
             >
             <input
               id="licenseCode"
-              value="EDUPAY-DEMO-0001"
+              placeholder="KLAAR.xxxxx.xxxxx"
               required
               class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
             />
@@ -410,7 +413,7 @@
       class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-50 hidden"
     >
       <div
-        class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
+        class="auth-card bg-white rounded-[32px] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100"
       >
         <div
           class="w-16 h-16 bg-emerald-600 rounded-[20px] flex items-center justify-center text-white font-black text-2xl mb-6 shadow-lg shadow-emerald-600/20"
@@ -1169,24 +1172,6 @@
           (navigator.userAgent || "").slice(0, 70)
         );
       }
-      function normalizeServerUrl(v) {
-        return String(v || "").trim();
-      }
-      function looksLikeSheetUrl(v) {
-        return /docs\.google\.com\/spreadsheets/i.test(String(v || ""));
-      }
-      function validateServerUrl(v) {
-        v = normalizeServerUrl(v);
-        if (!v) return "License Server URL belum diisi.";
-        if (looksLikeSheetUrl(v))
-          return "Yang kamu masukkan masih link Google Sheet. Yang benar adalah URL Apps Script Web App yang berakhiran /exec.";
-        if (
-          !/^https:\/\/script\.google\.com\/macros\/s\//i.test(v) ||
-          !/\/exec(\?|$)/i.test(v)
-        )
-          return "License Server URL harus dari Apps Script Web App dan biasanya berakhiran /exec.";
-        return "";
-      }
       async function sha(text) {
         const b = await crypto.subtle.digest(
           "SHA-256",
@@ -1551,7 +1536,7 @@
         localStorage.setItem(LICENSE_DRAFT_KEY, $("licenseCode").value.trim()),
       );
 
-      $("activationForm").onsubmit = (e) => {
+      $("activationForm").onsubmit = async (e) => {
         e.preventDefault();
         let rawLicense = $("licenseCode").value.trim();
         localStorage.setItem(LICENSE_DRAFT_KEY, rawLicense);
@@ -1559,11 +1544,29 @@
           alert("Kode lisensi belum diisi.");
           return;
         }
+        const btn = e.submitter;
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "Memvalidasi...";
+        }
         serverUrl = KLAAR_API;
         license = rawLicense;
-        localStorage.setItem(SERVER_KEY, serverUrl);
-        localStorage.setItem(LICENSE_KEY, license);
-        show("loginScreen");
+        try {
+          const pong = await api("ping");
+          if (!pong || !pong.ok) throw new Error((pong && pong.error) || "Lisensi tidak valid.");
+          localStorage.setItem(SERVER_KEY, serverUrl);
+          localStorage.setItem(LICENSE_KEY, license);
+          show("loginScreen");
+        } catch (err) {
+          license = "";
+          localStorage.removeItem(LICENSE_KEY);
+          alert((err && err.message) || "Kode lisensi tidak dapat divalidasi.");
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Lanjut Login";
+          }
+        }
       };
       $("changeServerLogin").onclick = () => {
         localStorage.removeItem(SERVER_KEY);
@@ -1576,7 +1579,7 @@
         pinHash = "";
         $("serverUrl").value = localStorage.getItem(SERVER_DRAFT_KEY) || "";
         $("licenseCode").value =
-          localStorage.getItem(LICENSE_DRAFT_KEY) || "EDUPAY-DEMO-0001";
+          localStorage.getItem(LICENSE_DRAFT_KEY) || "";
         show("activationScreen");
       };
       $("serverUrl").value =
@@ -1584,21 +1587,24 @@
       $("licenseCode").value =
         license ||
         localStorage.getItem(LICENSE_DRAFT_KEY) ||
-        "EDUPAY-DEMO-0001";
+        "";
 
       $("loginForm").onsubmit = async (e) => {
         e.preventDefault();
         nip = $("nip").value.trim();
         pinHash = await sha($("pin").value);
-        localStorage.setItem(NIP_KEY, nip);
-        localStorage.setItem(PINHASH_KEY, pinHash);
         try {
           await loadEmployee();
+          localStorage.setItem(NIP_KEY, nip);
+          localStorage.setItem(PINHASH_KEY, pinHash);
           show("app");
         } catch (err) {
+          pinHash = "";
+          localStorage.removeItem(NIP_KEY);
+          localStorage.removeItem(PINHASH_KEY);
           alert(
             (err.message || "Login gagal") +
-              "\n\nCek: 1) NIP/Login, 2) Password, 3) Deploy Apps Script.",
+              "\n\nCek NIP/Login, password, kode lisensi, dan koneksi internet.",
           );
         }
       };
@@ -2254,7 +2260,14 @@
 
       boot();
     </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.protocol !== "file:") {
+        window.addEventListener("load", () =>
+          navigator.serviceWorker.register("./service-worker.js").catch(() => {}),
+        );
+      }
+    </script>
+    <script src="https://unpkg.com/lucide@0.468.0"></script>
     <script>
       lucide.createIcons();
     </script>
