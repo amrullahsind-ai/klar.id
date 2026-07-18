@@ -5339,11 +5339,12 @@
         render();
         toast("Karyawan tersimpan");
       };
-      $("resetEmp").onclick = () => {
-        $("empForm").reset();
-        $("empId").value = "";
-        renderEmpComps([], []);
-      };
+      if ($("resetEmp"))
+        $("resetEmp").onclick = () => {
+          $("empForm").reset();
+          $("empId").value = "";
+          renderEmpComps([], []);
+        };
       $("addEmpAllow").onclick = () =>
         $("empComps").insertAdjacentHTML(
           "beforeend",
