@@ -49,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (savedInstanceState == null) {
             Uri incoming = getIntent().getData();
-            webView.loadUrl(isKlaarUrl(incoming) ? incoming.toString() : APP_URL);
+            webView.loadUrl(resolveInitialUrl(incoming));
         } else {
             webView.restoreState(savedInstanceState);
         }
@@ -131,6 +131,19 @@ public class MainActivity extends AppCompatActivity {
     private boolean isKlaarUrl(Uri uri) {
         return uri != null && "https".equalsIgnoreCase(uri.getScheme())
                 && APP_HOST.equalsIgnoreCase(uri.getHost());
+    }
+
+    private String resolveInitialUrl(Uri uri) {
+        if (isKlaarUrl(uri)) return uri.toString();
+        if (uri != null
+                && "klaarhadir".equalsIgnoreCase(uri.getScheme())
+                && "login".equalsIgnoreCase(uri.getHost())) {
+            String token = uri.getQueryParameter("k");
+            if (token != null && token.matches("[A-Za-z0-9_-]+")) {
+                return APP_URL + "#k=" + token;
+            }
+        }
+        return APP_URL;
     }
 
     private void openExternal(Uri uri) {

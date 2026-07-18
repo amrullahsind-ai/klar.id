@@ -5233,18 +5233,18 @@
             ? location.origin
             : location.href.split("/").slice(0, -1).join("/");
         return (
-          base.replace(/\/$/, "") + "/employee.html#k=" + empLinkToken(nip)
+          base.replace(/\/$/, "") + "/open-employee.html?k=" + empLinkToken(nip)
         );
       }
       function linkShareModal(title, desc, url) {
         let waText = encodeURIComponent(
           "Absen di " +
             (db.settings.school || "sekolah") +
-            " pakai Klaar Hadir.\nBuka link ini (sudah otomatis tersambung ke server), lalu login pakai NIP & PIN kamu:\n" +
+            " pakai Klaar Hadir.\nBuka link ini, pilih Buka di Aplikasi, lalu login pakai NIP & PIN kamu:\n" +
             url,
         );
         modal(
-          `<div class="modal-head"><div><h3>${esc(title)}</h3><p>${esc(desc)}</p></div><button class="btn danger" data-close>Tutup</button></div><div class="card"><div class="field wide"><label>Link Karyawan</label><input id="empLinkInput" value="${esc(url)}" readonly onclick="this.select()"></div><div class="actions" style="margin-top:12px"><button class="btn primary" id="copyEmpLink">Salin Link</button><a class="btn success" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener">Bagikan via WhatsApp</a></div><div style="margin-top:14px;text-align:center"><img alt="QR Klaar Hadir" width="200" height="200" style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:8px" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(url)}"><p class="muted" style="margin-top:6px">Scan QR untuk membuka Klaar Hadir. Karyawan tetap wajib login dengan NIP dan PIN.</p></div><p class="muted" style="margin-top:8px">Link ini membawa kode koneksi sekolah secara terenkode. Jika kode lisensi berubah, buat ulang link.</p></div>`,
+          `<div class="modal-head"><div><h3>${esc(title)}</h3><p>${esc(desc)}</p></div><button class="btn danger" data-close>Tutup</button></div><div class="card"><div class="field wide"><label>Link Karyawan</label><input id="empLinkInput" value="${esc(url)}" readonly onclick="this.select()"></div><div class="actions" style="margin-top:12px"><button class="btn primary" id="copyEmpLink">Salin Link</button><a class="btn success" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener">Bagikan via WhatsApp</a></div><div style="margin-top:14px;text-align:center"><img alt="QR Klaar Hadir" width="200" height="200" style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:8px" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(url)}"><p class="muted" style="margin-top:6px">Scan QR, lalu tekan <b>Buka di Aplikasi Klaar Hadir</b>. Karyawan tetap login dengan NIP dan PIN.</p></div><p class="muted" style="margin-top:8px">Link ini membawa kode koneksi sekolah secara terenkode. Jika kode lisensi berubah, buat ulang link.</p></div>`,
         );
         let cp = $("copyEmpLink");
         if (cp)

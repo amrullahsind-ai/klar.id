@@ -1,9 +1,10 @@
-const CACHE = 'klaar-shell-20260718-v5';
+const CACHE = 'klaar-shell-20260718-v6';
 const SHELL = [
   './',
   './index.html',
   './admin.html',
   './employee.html',
+  './open-employee.html',
   './klaar-logo-192.png',
   './klaar-logo.png',
   './admin-manifest.json',
