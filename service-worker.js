@@ -1,4 +1,4 @@
-const CACHE = 'klaar-shell-20260718-v3';
+const CACHE = 'klaar-shell-20260718-v4';
 const SHELL = [
   './',
   './index.html',

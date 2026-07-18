@@ -2123,6 +2123,24 @@
               </form>
             </div>
             <div class="card">
+              <h3>Keamanan Admin</h3>
+              <p class="muted">
+                Ubah username dan password admin secara berkala untuk menjaga
+                akses dashboard.
+              </p>
+              <a
+                class="btn primary wide"
+                href="./credential-center.html"
+                style="text-decoration: none; justify-content: center"
+              >
+                <i
+                  data-lucide="key-round"
+                  class="w-[1em] h-[1em] inline-block align-middle"
+                ></i>
+                Ganti Username / Password
+              </a>
+            </div>
+            <div class="card">
               <h3>Preview</h3>
               <div class="preview-logo" id="logoPreview">KL</div>
               <div class="divider"></div>
@@ -3764,6 +3782,14 @@
         });
         db.auditLogs = db.auditLogs.slice(0, 300);
       }
+      function isSyncAudit(entry) {
+        const action = String(entry?.action || "").toLowerCase();
+        const message = String(entry?.message || "").toLowerCase();
+        return (
+          /(^|_)(sync|autosync|saveadmin|loadadmin)(_|$)/.test(action) ||
+          /\b(auto)?sync\b/.test(message)
+        );
+      }
       function makeBackup(reason = "backup manual") {
         db.backupLogs = Array.isArray(db.backupLogs) ? db.backupLogs : [];
         let snap = JSON.stringify(db);
@@ -4637,6 +4663,7 @@
               .join("") || '<p class="muted">Belum ada backup.</p>'
           }<div class="divider"></div><b>Audit log</b>${
             (db.auditLogs || [])
+              .filter((entry) => !isSyncAudit(entry))
               .slice(0, 8)
               .map(
                 (a) =>
