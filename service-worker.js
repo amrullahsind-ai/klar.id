@@ -1,9 +1,10 @@
-const CACHE = 'klaar-shell-20260718-v4';
+const CACHE = 'klaar-shell-20260718-v5';
 const SHELL = [
   './',
   './index.html',
   './admin.html',
   './employee.html',
+  './klaar-logo-192.png',
   './klaar-logo.png',
   './admin-manifest.json',
   './employee-manifest.json'
@@ -35,7 +36,12 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE).then(cache => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then(hit => hit || caches.match('./index.html')))
+        .catch(() => caches.match(request).then(hit => {
+          if (hit) return hit;
+          return url.pathname.includes('employee')
+            ? caches.match('./employee.html')
+            : caches.match('./index.html');
+        }))
     );
     return;
   }

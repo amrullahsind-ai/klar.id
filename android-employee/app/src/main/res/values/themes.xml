@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.KlaarHadir" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/klaar_green</item>
+        <item name="android:navigationBarColor">@color/klaar_background</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

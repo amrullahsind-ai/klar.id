@@ -1,16 +1,29 @@
 {
+  "id": "./employee.html",
   "name": "Klaar Hadir",
   "short_name": "Klaar Hadir",
+  "description": "Aplikasi presensi dan layanan mandiri guru serta karyawan.",
+  "lang": "id-ID",
   "start_url": "./employee.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#F5FBF8",
   "theme_color": "#085842",
+  "categories": ["business", "education", "productivity"],
   "icons": [
     {
-      "src": "./klaar-logo.png",
+      "src": "./klaar-logo-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./klaar-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
