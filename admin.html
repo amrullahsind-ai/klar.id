@@ -1499,14 +1499,15 @@
           >
             <h3 style="margin-bottom: 4px">Metode Penggajian</h3>
             <p class="muted" style="margin: 0 0 14px">
-              Pilih cara sistem menghitung gaji karyawan. Setiap metode tetap
-              bisa ditambah komponen custom.
+              Pilih cara sistem menghitung gaji. Import Excel adalah sumber
+              data; Klaar akan mendeteksi metode hitungnya secara terpisah.
             </p>
+            <div id="payrollProfileSummary" style="margin-bottom: 14px"></div>
             <div
               id="methodCards"
               style="
                 display: grid;
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
                 gap: 10px;
               "
             ></div>
@@ -1632,7 +1633,7 @@
               </div>
             </div>
             <div class="card wide" id="customMethodCard">
-              <h3>✏️ Komponen Gaji Bebas</h3>
+              <h3>Komponen Individual / Hybrid</h3>
               <p class="muted" style="margin: 0 0 12px; font-size: 13px">
                 Susun sendiri komponen gaji tanpa terikat golongan/jabatan.
                 Semua komponen di bawah berlaku sebagai dasar perhitungan.
@@ -1645,10 +1646,10 @@
               </div>
             </div>
             <div class="card wide" id="excelMethodCard">
-              <h3>📊 Mode Import Excel</h3>
+              <h3>Sumber Data Import Excel</h3>
               <p class="muted" style="margin: 0 0 12px; font-size: 13px">
-                Nominal gaji mengikuti file Excel yang diimport. Sistem tidak
-                menghitung ulang.
+                Bulan yang diimport disimpan sebagai snapshot. Bulan berikutnya
+                dihitung dari profil aturan yang terdeteksi.
               </p>
               <div id="excelCompSummary">
                 <div class="empty">
@@ -2651,6 +2652,19 @@
         auditLogs: [],
         backupLogs: [],
         importHistory: [],
+        payrollProfile: {
+          id: "profile_default",
+          name: "Berbasis Golongan",
+          method: "grade",
+          baseSource: "grade",
+          panels: ["grade", "attendance", "components"],
+          confidence: 100,
+          source: "default",
+          reasons: [],
+          updatedAt: "",
+        },
+        salaryRuleVersions: [],
+        monthlyAdjustments: {},
       };
       function clone(x) {
         return JSON.parse(JSON.stringify(x));
@@ -2744,6 +2758,62 @@
         x.auditLogs = Array.isArray(x.auditLogs) ? x.auditLogs : [];
         x.backupLogs = Array.isArray(x.backupLogs) ? x.backupLogs : [];
         x.importHistory = Array.isArray(x.importHistory) ? x.importHistory : [];
+        x.salaryRuleVersions = Array.isArray(x.salaryRuleVersions)
+          ? x.salaryRuleVersions
+          : [];
+        x.monthlyAdjustments = x.monthlyAdjustments || {};
+        x.payrollProfile =
+          x.payrollProfile && typeof x.payrollProfile === "object"
+            ? x.payrollProfile
+            : {
+                id: "profile_legacy",
+                name: "Profil lama",
+                method:
+                  x.settings.payrollMethod === "excel" ||
+                  x.settings.payrollMethod === "custom"
+                    ? "individual"
+                    : x.settings.payrollMethod || "grade",
+                baseSource:
+                  x.settings.payrollMethod === "position_tenure"
+                    ? "position"
+                    : x.settings.payrollMethod === "grade"
+                      ? "grade"
+                      : "employee",
+                panels: [],
+                confidence: 100,
+                source: "legacy",
+                reasons: [],
+                updatedAt: "",
+              };
+        if (["excel", "custom"].includes(x.settings.payrollMethod))
+          x.settings.payrollMethod = "individual";
+        // Sinkronkan profil bawaan/legacy dengan metode yang benar-benar tersimpan.
+        // Tanpa ini, database lama non-golongan dapat tampil seolah memakai golongan.
+        if (
+          ["default", "legacy"].includes(x.payrollProfile.source) &&
+          x.payrollProfile.method !== x.settings.payrollMethod
+        ) {
+          let method = x.settings.payrollMethod || "grade";
+          x.payrollProfile = {
+            ...x.payrollProfile,
+            name:
+              {
+                grade: "Berbasis Golongan",
+                position_tenure: "Jabatan + Masa Kerja",
+                individual: "Individual",
+                hybrid: "Hybrid / Campuran",
+              }[method] || method,
+            method,
+            baseSource:
+              method === "grade"
+                ? "grade"
+                : method === "position_tenure"
+                  ? "position"
+                  : method === "hybrid"
+                    ? x.payrollProfile.baseSource || "grade"
+                    : "employee",
+          };
+        }
         return x;
       }
       function loadLocal() {
@@ -3574,6 +3644,9 @@
         let snap = importedPayrollItem(e, m);
         if (snap) return snap;
         let meth = db.settings.payrollMethod || "grade";
+        if (meth === "excel" || meth === "custom") meth = "individual";
+        let profile = db.payrollProfile || {},
+          hybridBase = profile.baseSource || "grade";
         let p = getPos(e.position),
           g = getGrade(e.grade),
           sum = monthSummary(e.id, m),
@@ -3582,11 +3655,16 @@
           base = 0,
           allow = [],
           ded = [];
-        let hasEmpBase =
+        let allowsEmpBase =
+            meth === "individual" ||
+            (meth === "hybrid" && hybridBase === "employee") ||
+            e.baseSalaryOverride === true,
+          hasEmpBase =
+            allowsEmpBase &&
           e.baseSalary !== undefined &&
           e.baseSalary !== null &&
           e.baseSalary !== "";
-        if (meth === "grade") {
+        if (meth === "grade" || (meth === "hybrid" && hybridBase === "grade")) {
           base = hasEmpBase ? +e.baseSalary || 0 : moneyOfGrade(g);
           if (+g.amount)
             allow.push({
@@ -3597,7 +3675,10 @@
             if (c.deduction) ded.push({ name: c.name, amount: +c.amount });
             else allow.push({ name: c.name, amount: +c.amount });
           });
-        } else if (meth === "position_tenure") {
+        } else if (
+          meth === "position_tenure" ||
+          (meth === "hybrid" && hybridBase === "position")
+        ) {
           base = hasEmpBase ? +e.baseSalary || 0 : +p.salary || 0;
           let tenureRate = +db.settings.tenureAllowancePerYear || 0,
             f = +p.functionalAllowance || 0,
@@ -3614,8 +3695,20 @@
               amount: yrs * tenureRate,
             });
         } else {
-          // excel / custom: gaji pokok & tunjangan diambil dari data per-karyawan (hasil import atau input manual)
+          // Individual: gaji pokok berasal dari data per-karyawan.
           base = hasEmpBase ? +e.baseSalary || 0 : 0;
+        }
+
+        // Hybrid dapat menggabungkan dasar golongan dengan tunjangan jabatan.
+        if (meth === "hybrid" && hybridBase !== "position") {
+          let f = +p.functionalAllowance || 0,
+            h = +p.houseAllowance || 0;
+          if (f)
+            allow.push({
+              name: "Tunjangan Fungsional " + (p.name || ""),
+              amount: f,
+            });
+          if (h) allow.push({ name: "Tunjangan Rumah", amount: h });
         }
 
         // Tunjangan Kehadiran dari Golongan sekarang ditarik keluar agar berlaku di SEMUA mode (termasuk Mode Excel)
@@ -3661,6 +3754,19 @@
           if (cnt > 0)
             ded.push({ name: d.name + " (" + cnt + "x)", amount: amt });
         });
+        // Penyesuaian khusus periode tidak boleh terbawa ke bulan berikutnya.
+        let monthAdj =
+          db.monthlyAdjustments &&
+          db.monthlyAdjustments[m] &&
+          db.monthlyAdjustments[m][e.id];
+        if (monthAdj) {
+          (monthAdj.allow || []).forEach((x) =>
+            allow.push({ name: x.name, amount: +x.amount || 0 }),
+          );
+          (monthAdj.ded || []).forEach((x) =>
+            ded.push({ name: x.name, amount: +x.amount || 0 }),
+          );
+        }
         let allowances = allow.reduce((s, x) => s + x.amount, 0),
           deductions = ded.reduce((s, x) => s + x.amount, 0);
         return {
@@ -3832,13 +3938,17 @@
       }
       function schoolUsesGrades() {
         return (
-          (db.settings.payrollMethod || "grade") === "grade" ||
+          ["grade", "hybrid"].includes(
+            db.settings.payrollMethod || "grade",
+          ) ||
           activeEmployees().some((e) => e.grade && String(e.grade).trim())
         );
       }
       function schoolUsesPositions() {
         return (
-          db.settings.payrollMethod === "position_tenure" ||
+          ["position_tenure", "hybrid"].includes(
+            db.settings.payrollMethod,
+          ) ||
           activeEmployees().some((e) => e.position && String(e.position).trim())
         );
       }
@@ -4095,7 +4205,44 @@
         return `<tr><td>${esc(d.name)}</td><td><span class="badge">${d.code}</span></td><td class="money">${rp(d.amount)}</td><td class="action-cell"><div class="row-actions"><button class="btn small" data-edit-ded="${d.id}">Edit</button><button class="btn small danger" data-del-ded="${d.id}">Hapus</button></div></td></tr>`;
       }
       function saveMethod(m) {
+        if (m === "excel" || m === "custom") m = "individual";
         db.settings.payrollMethod = m;
+        let labels = {
+          grade: "Berbasis Golongan",
+          position_tenure: "Jabatan + Masa Kerja",
+          individual: "Individual",
+          hybrid: "Hybrid / Campuran",
+        };
+        db.payrollProfile = {
+          ...(db.payrollProfile || {}),
+          id: db.payrollProfile?.id || "profile_manual",
+          name: labels[m] || m,
+          method: m,
+          baseSource:
+            m === "grade"
+              ? "grade"
+              : m === "position_tenure"
+                ? "position"
+                : m === "individual"
+                  ? "employee"
+                  : db.payrollProfile?.baseSource || "grade",
+          panels:
+            m === "grade"
+              ? ["grade", "attendance", "components"]
+              : m === "position_tenure"
+                ? ["position", "tenure", "components"]
+                : m === "individual"
+                  ? ["individual", "components"]
+                  : db.payrollProfile?.panels || [
+                      "grade",
+                      "position",
+                      "components",
+                    ],
+          confidence: 100,
+          source: "manual",
+          reasons: [],
+          updatedAt: new Date().toISOString(),
+        };
         // sync hidden field in settings
         let hf = $("setPayrollMethod");
         if (hf) hf.value = m;
@@ -4103,12 +4250,7 @@
         renderSalaryRules();
         toast(
           "Metode penggajian diubah ke: " +
-            ({
-              grade: "Berbasis Golongan",
-              position_tenure: "Jabatan + Masa Kerja",
-              excel: "Import Excel",
-              custom: "Custom/Bebas",
-            }[m] || m),
+            (labels[m] || m),
           "ok",
         );
       }
@@ -4127,6 +4269,41 @@
           db.deductions.slice(0, 5).map(dedRow).join("") +
           rowMore("deductions", db.deductions.length, 4);
         let m = db.settings.payrollMethod || "grade";
+        if (m === "excel" || m === "custom") m = "individual";
+        let profile = db.payrollProfile || {};
+        let profileBox = $("payrollProfileSummary");
+        if (profileBox) {
+          let reasons = (profile.reasons || []).slice(0, 4),
+            baseLabel = {
+              grade: "Golongan",
+              position: "Jabatan",
+              employee: "Per pegawai",
+            }[profile.baseSource] || profile.baseSource || "-";
+          profileBox.innerHTML = `<div class="note"><b>Profil aktif: ${esc(profile.name || ({ grade: "Golongan", position_tenure: "Jabatan + Masa Kerja", individual: "Individual", hybrid: "Hybrid" }[m] || m))}</b>${profile.source === "import" ? ` <span class="badge ok">Deteksi Excel ${+profile.confidence || 0}%</span>` : ""}<br><span class="muted">Sumber gaji pokok: ${esc(baseLabel)}${reasons.length ? " • " + reasons.map(esc).join(" • ") : ""}</span></div>`;
+          let panelLabels = {
+              grade: "Golongan",
+              position: "Jabatan",
+              tenure: "Masa kerja",
+              attendance: "Kehadiran",
+              teaching_hours: "Jam mengajar",
+              components: "Komponen",
+              monthly: "Bulanan",
+              individual: "Per pegawai",
+            },
+            panelBadges = (profile.panels || [])
+              .map(
+                (panel) =>
+                  `<span class="badge">${esc(panelLabels[panel] || panel)}</span>`,
+              )
+              .join(" ");
+          if (panelBadges)
+            profileBox
+              .querySelector(".note")
+              ?.insertAdjacentHTML(
+                "beforeend",
+                `<div class="actions" style="margin-top:8px;gap:6px">${panelBadges}</div>`,
+              );
+        }
         // Render method selector cards
         const METHODS = [
           {
@@ -4144,18 +4321,18 @@
             badge: "",
           },
           {
-            id: "excel",
+            id: "individual",
             icon: '<svg class="w-7 h-7 mx-auto mb-1 inline-block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect width="4" height="7" x="7" y="10" rx="1"/><rect width="4" height="12" x="15" y="5" rx="1"/></svg>',
-            title: "Import Excel",
-            desc: "Nominal langsung dari file Excel per bulan",
-            badge: "Fleksibel",
+            title: "Individual",
+            desc: "Gaji dan komponen tetap berbeda per pegawai",
+            badge: "Per Pegawai",
           },
           {
-            id: "custom",
+            id: "hybrid",
             icon: '<svg class="w-7 h-7 mx-auto mb-1 inline-block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
-            title: "Custom / Bebas",
-            desc: "Susun sendiri semua komponen gaji tanpa batasan",
-            badge: "Baru",
+            title: "Hybrid / Campuran",
+            desc: "Gabungkan golongan, jabatan, kehadiran, jam, dan komponen",
+            badge: "Dinamis",
           },
         ];
         $("methodCards").innerHTML = METHODS.map(
@@ -4163,17 +4340,18 @@
             `<div class="method-card${m === mt.id ? " active" : ""}" onclick="saveMethod('${mt.id}')">${mt.badge ? `<span class="method-badge">${mt.badge}</span>` : ""}<span class="method-icon">${mt.icon}</span><div class="method-title">${mt.title}</div><p class="method-desc">${mt.desc}</p></div>`,
         ).join("");
         // Show/hide method-specific cards
-        let showPos = m === "position_tenure",
+        let showPos = m === "position_tenure" || m === "hybrid",
           $gradeCard = $("gradeCard"),
           $posCard = $("posCard"),
           $customCard = $("customMethodCard"),
           $excelCard = $("excelMethodCard");
-        $gradeCard.style.display = m === "grade" ? "" : "none";
-        $posCard.style.display = m === "position_tenure" ? "" : "none";
-        $customCard.style.display = m === "custom" ? "" : "none";
-        $excelCard.style.display = m === "excel" ? "" : "none";
+        $gradeCard.style.display = m === "grade" || m === "hybrid" ? "" : "none";
+        $posCard.style.display = showPos ? "" : "none";
+        $customCard.style.display =
+          m === "individual" || m === "hybrid" ? "" : "none";
+        $excelCard.style.display = profile.source === "import" ? "" : "none";
         // Excel: show imported components summary
-        if (m === "excel") {
+        if (profile.source === "import") {
           let excelComps = (db.components || []).filter(
             (c) => c.note && c.note.includes("import Excel"),
           );
@@ -6101,6 +6279,7 @@
           importSheet = "",
           importAnalysis = [],
           importContext = null,
+          detectedPayrollProfile = null,
           masterIndex = {
             items: [],
             byName: {},
@@ -6403,6 +6582,269 @@
             document.head.appendChild(s);
           });
         }
+        function templateCatalog() {
+          let employees = [
+            {
+              NIP: "PGW-001",
+              Nama: "Contoh Pegawai",
+              Unit: "SD",
+              Jabatan: "Guru",
+              Golongan: "A1",
+              "Tanggal Masuk": "2024-01-01",
+              Status: "Aktif",
+              Rekening: "BRI 0000000000",
+            },
+          ];
+          return {
+            grade: {
+              name: "Template Klaar - Golongan",
+              sheets: {
+                Karyawan: employees,
+                Golongan: [
+                  {
+                    Golongan: "A1",
+                    "Gaji Pokok": 2500000,
+                    "Tj Hadir / Hari": 30000,
+                    "Tj Hadir Full / Bulan": 720000,
+                    "Tunjangan Tambahan": 0,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    Golongan: "A1",
+                    "Gaji Pokok": 2500000,
+                    "Tunjangan Kehadiran": 720000,
+                    "Gaji Bersih": 3220000,
+                  },
+                ],
+              },
+            },
+            position: {
+              name: "Template Klaar - Jabatan Masa Kerja",
+              sheets: {
+                Karyawan: employees,
+                Jabatan: [
+                  {
+                    "Kode Jabatan": "GURU",
+                    Jabatan: "Guru",
+                    "Gaji Dasar": 2500000,
+                    "Tunjangan Fungsional": 500000,
+                    "Tunjangan Rumah": 200000,
+                    "Tunjangan Masa Kerja / Tahun": 50000,
+                  },
+                ],
+              },
+            },
+            individual: {
+              name: "Template Klaar - Individual",
+              sheets: {
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    "Gaji Pokok": 2500000,
+                    "Tunjangan Tetap": 500000,
+                    "Potongan Tetap": 100000,
+                    "Gaji Bersih": 2900000,
+                  },
+                ],
+              },
+            },
+            teaching: {
+              name: "Template Klaar - Jam Mengajar",
+              sheets: {
+                Karyawan: employees,
+                "Tarif Mengajar": [
+                  {
+                    "Kode Tarif": "JTM-GURU",
+                    "Nama Tarif": "Jam Mengajar Guru",
+                    "Tarif Per Jam": 50000,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    "Jumlah Jam Mengajar": 40,
+                    "Tarif Per Jam": 50000,
+                    "Honor Jam Mengajar": 2000000,
+                    "Gaji Bersih": 2000000,
+                  },
+                ],
+              },
+            },
+            attendance: {
+              name: "Template Klaar - Kehadiran",
+              sheets: {
+                Karyawan: employees,
+                Golongan: [
+                  {
+                    Golongan: "A1",
+                    "Gaji Pokok": 2500000,
+                    "Tunjangan Hadir / Hari": 30000,
+                    "Tunjangan Hadir Full": 720000,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    Golongan: "A1",
+                    "Hari Kerja": 24,
+                    Hadir: 24,
+                    "Gaji Pokok": 2500000,
+                    "Tunjangan Kehadiran": 720000,
+                    "Gaji Bersih": 3220000,
+                  },
+                ],
+              },
+            },
+            hybrid: {
+              name: "Template Klaar - Hybrid",
+              sheets: {
+                Karyawan: employees,
+                Golongan: [
+                  {
+                    Golongan: "A1",
+                    "Gaji Pokok": 2500000,
+                    "Tj Hadir / Hari": 30000,
+                    "Tj Hadir Full / Bulan": 720000,
+                  },
+                ],
+                Jabatan: [
+                  {
+                    "Kode Jabatan": "GURU",
+                    Jabatan: "Guru",
+                    "Tunjangan Fungsional": 500000,
+                    "Tunjangan Rumah": 200000,
+                  },
+                ],
+                "Komponen Bulanan": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Komponen: "Lembur",
+                    Jenis: "Tunjangan",
+                    Nominal: 150000,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    Golongan: "A1",
+                    Jabatan: "Guru",
+                    "Gaji Pokok": 2500000,
+                    "Tunjangan Fungsional": 500000,
+                    "Tunjangan Kehadiran": 720000,
+                    Lembur: 150000,
+                    "Gaji Bersih": 3870000,
+                  },
+                ],
+              },
+            },
+            snapshot: {
+              name: "Template Klaar - Payroll Snapshot",
+              sheets: {
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    "Gaji Pokok": 2500000,
+                    "Total Tunjangan": 750000,
+                    "Total Potongan": 100000,
+                    "Gaji Bersih": 3150000,
+                  },
+                ],
+              },
+            },
+            long: {
+              name: "Template Klaar - Komponen Memanjang",
+              sheets: {
+                Karyawan: employees,
+                Komponen: [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    Komponen: "Gaji Pokok",
+                    Jenis: "Tunjangan",
+                    Sifat: "Tetap",
+                    Nominal: 2500000,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    "Gaji Pokok": 2500000,
+                    "Total Tunjangan": 500000,
+                    "Total Potongan": 100000,
+                    "Gaji Bersih": 2900000,
+                  },
+                ],
+              },
+            },
+            multiunit: {
+              name: "Template Klaar - Multi Unit",
+              sheets: {
+                Karyawan: employees,
+                Penempatan: [
+                  {
+                    NIP: "PGW-001",
+                    Unit: "SD",
+                    Peran: "Guru",
+                    "Bobot / Jam": 24,
+                    "Tarif / Nominal": 1500000,
+                  },
+                  {
+                    NIP: "PGW-001",
+                    Unit: "SMP",
+                    Peran: "Guru",
+                    "Bobot / Jam": 12,
+                    "Tarif / Nominal": 750000,
+                  },
+                ],
+                "Payroll Awal": [
+                  {
+                    Bulan: monthNowSafe(),
+                    NIP: "PGW-001",
+                    Nama: "Contoh Pegawai",
+                    Unit: "SD + SMP",
+                    "Gaji Pokok": 2250000,
+                    "Gaji Bersih": 2250000,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        async function downloadPayrollTemplate(type) {
+          await ensureXLSX();
+          let def = templateCatalog()[type];
+          if (!def) throw new Error("Template tidak ditemukan.");
+          let wb = XLSX.utils.book_new();
+          Object.entries(def.sheets).forEach(([sheetName, rows]) => {
+            let ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map((h) => ({
+              wch: Math.max(14, Math.min(30, h.length + 4)),
+            }));
+            XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+          });
+          XLSX.writeFile(
+            wb,
+            def.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".xlsx",
+          );
+        }
         function rawSheet(name) {
           return XLSX.utils.sheet_to_json(importedWB.Sheets[name], {
             header: 1,
@@ -6606,7 +7048,127 @@
             };
           });
           buildMasterIndex();
+          detectedPayrollProfile = detectPayrollProfile();
           return importAnalysis;
+        }
+        function detectPayrollProfile() {
+          let selected = (importAnalysis || []).filter(
+              (x) => x.selected && x.mode !== "ignore",
+            ),
+            payrollSheets = selected.filter((x) => x.mode === "payroll"),
+            allHeaders = selected
+              .flatMap((x) => x.headers || [])
+              .map(norm)
+              .join(" "),
+            hasGrades = selected.some((x) => x.mode === "grades"),
+            hasPositions = selected.some((x) => x.mode === "positions"),
+            payrollHasGrade = payrollSheets.some(
+              (x) =>
+                findHeader(x.headers, "grade") >= 0 ||
+                findHeader(x.headers, "gradeCode") >= 0,
+            ),
+            payrollHasPosition = payrollSheets.some(
+              (x) =>
+                findHeader(x.headers, "position") >= 0 ||
+                findHeader(x.headers, "positionCode") >= 0,
+            ),
+            hasAttendance =
+              /hadir|kehadiran|on time|telat|alpha|alpa/.test(allHeaders),
+            hasTeachingHours =
+              /jtm|jam mengajar|jumlah jam|jml jam|tarif per jam|honor jam/.test(
+                allHeaders,
+              ),
+            hasTenure = /masa kerja|lama kerja|tunjangan masa kerja/.test(
+              allHeaders,
+            ),
+            gradeSignal = hasGrades || payrollHasGrade,
+            positionSignal = hasPositions || payrollHasPosition,
+            method = "individual",
+            baseSource = "employee",
+            confidence = 68,
+            reasons = [],
+            panels = ["individual", "components"];
+          if (gradeSignal && (positionSignal || hasTeachingHours)) {
+            method = "hybrid";
+            baseSource = "grade";
+            confidence = hasGrades ? 92 : 82;
+            reasons.push("gaji pokok terhubung ke golongan");
+            if (positionSignal)
+              reasons.push("komponen jabatan juga ditemukan");
+            if (hasTeachingHours)
+              reasons.push("jam/honor mengajar ditemukan");
+            panels.splice(0, panels.length, "grade", "position");
+          } else if (gradeSignal) {
+            method = "grade";
+            baseSource = "grade";
+            confidence = hasGrades ? 94 : 82;
+            reasons.push("golongan dan nominal gaji ditemukan");
+            panels.splice(0, panels.length, "grade");
+          } else if (positionSignal) {
+            method = "position_tenure";
+            baseSource = "position";
+            confidence = hasPositions ? 92 : 80;
+            reasons.push("jabatan menentukan nominal");
+            panels.splice(0, panels.length, "position");
+          } else {
+            reasons.push("nominal berbeda per pegawai tanpa pola master kuat");
+          }
+          if (hasAttendance) {
+            panels.push("attendance");
+            reasons.push("komponen kehadiran ditemukan");
+          }
+          if (hasTeachingHours) panels.push("teaching_hours");
+          if (hasTenure) panels.push("tenure");
+          panels.push("components", "monthly");
+          return {
+            id: "profile_import_" + Date.now(),
+            name:
+              {
+                grade: "Berbasis Golongan",
+                position_tenure: "Jabatan + Masa Kerja",
+                individual: "Individual",
+                hybrid: "Hybrid / Campuran",
+              }[method] || method,
+            method,
+            baseSource,
+            panels: [...new Set(panels)],
+            confidence: Math.min(98, confidence),
+            source: "import",
+            reasons,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        function classifyImportedComponent(name, kind) {
+          let n = norm(name);
+          if (/koreksi|selisih|penyesuaian/.test(n)) return "monthly";
+          if (
+            /thr|bonus|rapel|lembur|overtime|insentif|honor kegiatan|honor.*jam|jam mengajar|\bjtm\b/.test(
+              n,
+            )
+          )
+            return "monthly";
+          if (/pinjaman|cicilan|angsuran|kasbon/.test(n)) return "installment";
+          if (/bpjs|jht|jkk|jkm|jaminan pensiun|pph|pajak/.test(n))
+            return "statutory";
+          if (/hadir|kehadiran|absen|alpha|alpa|telat|terlambat/.test(n))
+            return "attendance";
+          if (
+            /gaji pokok|gapok|fungsional|tunjangan rumah|masa kerja/.test(n)
+          )
+            return "rule";
+          return "fixed";
+        }
+        function classifyMoneyItems(money) {
+          let classify = (items, kind) =>
+            (items || []).map((x) => ({
+              name: x.name,
+              amount: +x.amount || 0,
+              persistence: classifyImportedComponent(x.name, kind),
+            }));
+          return {
+            allow: classify(money.allow, "allowance"),
+            ded: classify(money.ded, "deduction"),
+          };
         }
         function context(x, mode = x.mode) {
           return {
@@ -7350,6 +7912,8 @@
             month = "",
             batch = "IMPORT-" + Date.now(),
             agg = { grades: {}, positions: {}, comps: {} };
+          let activeProfile =
+            detectedPayrollProfile || detectPayrollProfile();
           let autocreate = $id("autoCreatePayrollEmployees")?.checked !== false;
           for (const row of rows) {
             if (!rowLooksData(row, ctx, "payroll")) continue;
@@ -7363,7 +7927,10 @@
             let hit = resolveMaster(row, ctx) || {};
             let slip = clean(val(row, "slipCode", ctx) || hit.slipCode),
               nip = clean(val(row, "nip", ctx) || hit.nip);
-            month = toMonth(val(row, "month", ctx) || month);
+            let rowMonth = toMonth(
+              val(row, "month", ctx) || month || monthNowSafe(),
+            );
+            if (rowMonth) month = rowMonth;
             let emp = db.employees.find(
               (e) =>
                 (slip && norm(e.slipCode) === norm(slip)) ||
@@ -7395,14 +7962,32 @@
             emp.updatedAt = new Date().toISOString();
             emp.importBatchId = batch;
             let money = moneyFromRow(row, ctx);
-            emp.baseSalary = money.base || 0;
-            emp.allowances = (money.allow || []).map((a) => ({
+            let classified = classifyMoneyItems(money),
+              persistentAllow = classified.allow.filter(
+                (x) => x.persistence === "fixed",
+              ),
+              persistentDed = classified.ded.filter(
+                (x) => x.persistence === "fixed",
+              );
+            // Hanya profil Individual yang menyimpan gaji pokok per pegawai.
+            // Golongan/Jabatan/Hybrid memakai aturan master agar perubahan aturan
+            // berlaku konsisten dan tidak dikalahkan override hasil import.
+            if (activeProfile.method === "individual") {
+              emp.baseSalary = money.base || 0;
+              emp.baseSalarySource = "import";
+            } else if (emp.baseSalarySource === "import") {
+              delete emp.baseSalary;
+              delete emp.baseSalarySource;
+            }
+            emp.allowances = persistentAllow.map((a) => ({
               name: a.name,
-              amount: +a.amount || 0,
+              amount: a.amount,
+              source: "import_fixed",
             }));
-            emp.deductions = (money.ded || []).map((d) => ({
+            emp.deductions = persistentDed.map((d) => ({
               name: d.name,
-              amount: +d.amount || 0,
+              amount: d.amount,
+              source: "import_fixed",
             }));
             // Apply per‑grade component overrides
             if (money.perGrade) {
@@ -7472,20 +8057,24 @@
               pd.houses.push(toNum(val(row, "houseAllowance", ctx)));
               if (!pd.name) pd.name = clean(posName);
             }
-            (money.allow || []).forEach((a) => {
+            classified.allow
+              .filter((a) => a.persistence === "fixed")
+              .forEach((a) => {
               let k = "A:" + norm(a.name);
               (
                 agg.comps[k] ||
                 (agg.comps[k] = { name: a.name, kind: "allowance", amts: [] })
               ).amts.push(a.amount);
-            });
-            (money.ded || []).forEach((dx) => {
+              });
+            classified.ded
+              .filter((dx) => dx.persistence === "fixed")
+              .forEach((dx) => {
               let k = "D:" + norm(dx.name);
               (
                 agg.comps[k] ||
                 (agg.comps[k] = { name: dx.name, kind: "deduction", amts: [] })
               ).amts.push(dx.amount);
-            });
+              });
             let pos = getPos(emp.position),
               gr = getGrade(emp.grade),
               yrs =
@@ -7513,6 +8102,8 @@
               deductions: money.deductions,
               net: money.net,
               source: "import_excel",
+              importClassifications: classified,
+              period: rowMonth || monthNowSafe(),
               sheet: ctx.sheet,
               slipCode: slip,
               unit: clean(val(row, "unit", ctx) || hit.unit),
@@ -7524,11 +8115,16 @@
           let importMonth = month || monthNowSafe();
           if (items.length) {
             db.importedPayrollSnapshots = db.importedPayrollSnapshots || {};
-            db.importedPayrollSnapshots[importMonth] =
-              db.importedPayrollSnapshots[importMonth] || {};
-            items.forEach(
-              (it) => (db.importedPayrollSnapshots[importMonth][it.id] = it),
-            );
+            items.forEach((it) => {
+              let period = it.period || importMonth;
+              db.importedPayrollSnapshots[period] =
+                db.importedPayrollSnapshots[period] || {};
+              db.importedPayrollSnapshots[period][it.id] = it;
+            });
+            importMonth = [...new Set(items.map((it) => it.period))]
+              .filter(Boolean)
+              .sort()
+              .slice(-1)[0] || importMonth;
             if ($id("payMonth")) $id("payMonth").value = importMonth;
           }
           let der = items.length
@@ -7540,11 +8136,17 @@
               : "";
           let head = [
             items.length
-              ? `Payroll ${importMonth} masuk: ${items.length} baris. Buka menu Payroll bulan ${importMonth}; nominal mengikuti Excel sebagai draft. Klik Finalisasi jika sudah benar.`
+              ? `Payroll masuk: ${items.length} baris untuk ${new Set(items.map((it) => it.period)).size} periode. Periode terbaru ${importMonth}; nominal mengikuti Excel sebagai snapshot. Klik Finalisasi jika sudah benar.`
               : "Tidak ada payroll valid.",
             ...(derMsg ? [derMsg] : []),
           ];
-          return { add, upd: 0, w: [...head, ...w] };
+          return {
+            add,
+            upd: 0,
+            w: [...head, ...w],
+            period: importMonth,
+            payrollProfile: activeProfile,
+          };
         }
         async function importMode(mode, rows, ctx) {
           if (mode === "employees") return await importEmployees(rows, ctx);
@@ -7561,11 +8163,13 @@
             .sort(
               (a, b) => (MODE_ORDER[a.mode] || 99) - (MODE_ORDER[b.mode] || 99),
             );
-          let reports = [];
+          let reports = [],
+            detectedPeriod = "";
           for (const x of selected) {
             let ctx = context(x);
             try {
               let res = await importMode(x.mode, x.rows, ctx);
+              if (res.period) detectedPeriod = res.period;
               reports.push(
                 `${x.sheet} → ${labelMode(x.mode)}: tambah ${res.add || 0}, update ${res.upd || 0}${res.w?.length ? " — " + res.w.slice(0, 3).join("; ") : ""}`,
               );
@@ -7574,7 +8178,51 @@
             }
             await new Promise((r) => setTimeout(r, 0));
           }
-          return { reports };
+          return {
+            reports,
+            period: detectedPeriod,
+            payrollProfile:
+              detectedPayrollProfile || detectPayrollProfile(),
+          };
+        }
+        function activateDetectedProfile(profile, period) {
+          if (!profile) return null;
+          let activated = {
+            ...profile,
+            id: profile.id || "profile_import_" + Date.now(),
+            source: "import",
+            effectiveFrom: period || monthNowSafe(),
+            updatedAt: new Date().toISOString(),
+          };
+          db.payrollProfile = activated;
+          db.settings.payrollMethod = activated.method;
+          let hf = $id("setPayrollMethod");
+          if (hf) hf.value = activated.method;
+          db.salaryRuleVersions = Array.isArray(db.salaryRuleVersions)
+            ? db.salaryRuleVersions
+            : [];
+          db.salaryRuleVersions.unshift({
+            id: uid("srv"),
+            effectiveFrom: activated.effectiveFrom,
+            createdAt: new Date().toISOString(),
+            source: "import_excel",
+            profile: clone(activated),
+            grades: clone(db.grades || []),
+            positions: clone(db.positions || []),
+            components: clone(db.components || []),
+            deductions: clone(db.deductions || []),
+          });
+          db.salaryRuleVersions = db.salaryRuleVersions.slice(0, 24);
+          audit(
+            "payroll_profile_detected",
+            "Profil penggajian diterapkan: " + activated.name,
+            {
+              method: activated.method,
+              confidence: activated.confidence,
+              effectiveFrom: activated.effectiveFrom,
+            },
+          );
+          return activated;
         }
         function labelMode(m) {
           return (
@@ -7699,7 +8347,10 @@
               '<div class="empty">Belum ada analisis sheet.</div>';
             return;
           }
-          box.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Import</th><th>Sheet</th><th>Mode</th><th>Header</th><th>Baris valid</th><th>Ubah mode</th></tr></thead><tbody>${importAnalysis
+          detectedPayrollProfile = detectPayrollProfile();
+          let dp = detectedPayrollProfile,
+            detectedCard = `<div class="note" style="margin-bottom:12px"><b>Metode penggajian terdeteksi: ${escSafe(dp.name)}</b> <span class="badge ok">${dp.confidence}%</span><br><span class="muted">${(dp.reasons || []).map(escSafe).join(" • ")}. Setelah dikonfirmasi, UI Aturan Gaji akan menyesuaikan dan terbuka otomatis.</span></div>`;
+          box.innerHTML = detectedCard + `<div class="table-wrap"><table><thead><tr><th>Import</th><th>Sheet</th><th>Mode</th><th>Header</th><th>Baris valid</th><th>Ubah mode</th></tr></thead><tbody>${importAnalysis
             .map((x, i) => {
               let c = context(x),
                 valid =
@@ -7808,7 +8459,7 @@
             .querySelector("main.main")
             ?.insertAdjacentHTML(
               "beforeend",
-              `<section id="importExcel" class="section"><div class="grid"><div class="card"><h3>Import Excel Sekolah</h3><p class="muted">Mode Aturan Gaji: pakai template Klaar untuk import karyawan, jabatan, golongan, komponen, lembur, dan Payroll Awal. Nominal Gaji Bersih dari Excel dijaga sebagai snapshot, sehingga gaji mengikuti logika Excel.</p><div class="actions" style="margin:14px 0"><a class="btn" href="template-import-klaar.xlsx" download>Download Template Klaar + Aturan Gaji</a><button class="btn" type="button" id="clearImportBtn">Reset Import</button><button class="btn success" type="button" id="commitLocalBtn">Paksa Simpan Import ke Server</button></div><div class="form"><div class="field wide"><label>File Excel/CSV</label><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"></div><div class="field"><label>Mode Import</label><select id="importMode"><option value="auto">Fleksibel Stabil / Scan Sheet Inti</option><option value="employees">Sheet Aktif: Data Karyawan</option><option value="positions">Sheet Aktif: Jabatan</option><option value="grades">Sheet Aktif: Golongan</option><option value="payroll">Sheet Aktif: Payroll Awal</option></select></div><div class="field"><label>Sheet Aktif</label><select id="importSheet"></select></div><div class="field wide"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="autoCreatePayrollEmployees" checked style="width:auto"> Buat karyawan dari payroll memakai kode/nama yang ada di Excel</label></div></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="button" id="readExcelBtn">Baca & Analisis</button><button class="btn success" type="button" id="applyImportBtn">Terapkan Import</button></div><div id="importResult" style="margin-top:12px"></div></div><div class="card"><h3>Mapping Kolom</h3><div id="mappingBox"><div class="empty">Upload Excel dulu.</div></div></div><div class="card wide"><h3>Analisis Semua Sheet</h3><div id="sheetAnalysis"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Preview Hasil Baca</h3><div id="importPreview"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Catatan</h3><div class="note">Untuk template Klaar, isi sheet <b>Karyawan</b>, <b>Jabatan</b>, <b>Golongan</b>, <b>Komponen</b>, <b>Jadwal</b>, <b>Kalender Libur</b>, <b>Lembur</b>, lalu import sheet <b>Payroll Awal</b>. Gaji mengikuti rumus Excel dan bisa masuk ke Klaar sebagai snapshot payroll awal. Untuk Excel kode-nama lama, PER UNIT tetap bisa dipakai sebagai payroll awal.</div></div></div></section>`,
+              `<section id="importExcel" class="section"><div class="grid"><div class="card"><h3>Import Excel Sekolah</h3><p class="muted">Import adalah sumber data. Klaar membaca struktur Excel, menyimpan bulan yang diimpor sebagai snapshot, lalu mengaktifkan profil aturan gaji yang terdeteksi untuk bulan berikutnya.</p><div class="actions" style="margin:14px 0"><button class="btn" type="button" data-payroll-template="hybrid">Download Template Utama</button><button class="btn" type="button" id="clearImportBtn">Reset Import</button><button class="btn success" type="button" id="commitLocalBtn">Paksa Simpan Import ke Server</button></div><div class="form"><div class="field wide"><label>File Excel/CSV</label><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"></div><div class="field"><label>Mode Import</label><select id="importMode"><option value="auto">Fleksibel Stabil / Scan Sheet Inti</option><option value="employees">Sheet Aktif: Data Karyawan</option><option value="positions">Sheet Aktif: Jabatan</option><option value="grades">Sheet Aktif: Golongan</option><option value="payroll">Sheet Aktif: Payroll Awal</option></select></div><div class="field"><label>Sheet Aktif</label><select id="importSheet"></select></div><div class="field wide"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="autoCreatePayrollEmployees" checked style="width:auto"> Buat karyawan dari payroll memakai kode/nama yang ada di Excel</label></div></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="button" id="readExcelBtn">Baca & Analisis</button><button class="btn success" type="button" id="applyImportBtn">Terapkan Import</button></div><div id="importResult" style="margin-top:12px"></div></div><div class="card"><h3>Mapping Kolom</h3><div id="mappingBox"><div class="empty">Upload Excel dulu.</div></div></div><div class="card wide"><h3>Template Penggajian</h3><p class="muted">Pilih struktur yang paling dekat dengan aturan sekolah. Semua template dibuat langsung sebagai file XLSX.</p><div class="actions" style="gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-payroll-template="grade">Golongan</button><button class="btn" type="button" data-payroll-template="position">Jabatan + Masa Kerja</button><button class="btn" type="button" data-payroll-template="individual">Individual</button><button class="btn" type="button" data-payroll-template="attendance">Kehadiran</button><button class="btn" type="button" data-payroll-template="teaching">Jam Mengajar</button><button class="btn primary" type="button" data-payroll-template="hybrid">Hybrid / Campuran</button><button class="btn" type="button" data-payroll-template="snapshot">Snapshot Payroll</button><button class="btn" type="button" data-payroll-template="long">Komponen Memanjang</button><button class="btn" type="button" data-payroll-template="multiunit">Multi Unit</button></div></div><div class="card wide"><h3>Analisis Semua Sheet</h3><div id="sheetAnalysis"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Preview Hasil Baca</h3><div id="importPreview"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Cara Kerja Import</h3><div class="note"><b>Gaji bulan di Excel</b> disimpan persis sebagai snapshot. <b>Gaji bulan berikutnya</b> dihitung dari profil aturan yang terdeteksi. Bonus, THR, rapel, lembur, honor jam, dan koreksi dianggap komponen bulanan sehingga tidak otomatis berulang. Klaar akan membuka halaman Aturan Gaji setelah import agar hasil deteksi dapat diperiksa.</div></div></div></section>`,
             );
         }
         function renderExcelMapper() {
@@ -7857,7 +8508,11 @@
             let c = e.target?.closest?.("[data-sheet-check]");
             if (c) {
               let x = importAnalysis[+c.dataset.sheetCheck];
-              if (x) x.selected = c.checked;
+              if (x) {
+                x.selected = c.checked;
+                detectedPayrollProfile = detectPayrollProfile();
+                renderAnalysis();
+              }
             }
             let m = e.target?.closest?.("[data-sheet-mode]");
             if (m) {
@@ -7870,6 +8525,7 @@
                   x.headers,
                 );
                 buildMasterIndex();
+                detectedPayrollProfile = detectPayrollProfile();
                 renderAnalysis();
                 renderPreview();
               }
@@ -7880,12 +8536,28 @@
             });
           });
           document.addEventListener("click", async (e) => {
+            let templateBtn = e.target?.closest?.("[data-payroll-template]");
+            if (templateBtn) {
+              try {
+                templateBtn.disabled = true;
+                await downloadPayrollTemplate(
+                  templateBtn.dataset.payrollTemplate,
+                );
+                toast("Template Excel berhasil dibuat.", "ok");
+              } catch (err) {
+                toast(err.message || "Template gagal dibuat.", "bad");
+              } finally {
+                templateBtn.disabled = false;
+              }
+              return;
+            }
             if (e.target?.id === "clearImportBtn") {
               importedWB = null;
               importRows = [];
               importHeaders = [];
               importAnalysis = [];
               importContext = null;
+              detectedPayrollProfile = null;
               masterIndex = {
                 items: [],
                 byName: {},
@@ -7994,13 +8666,21 @@
             if (e.target?.id === "applyImportBtn") {
               try {
                 if (!importedWB) throw new Error("Baca file dulu.");
-                let mode = $id("importMode").value;
+                let mode = $id("importMode").value,
+                  predicted =
+                    detectedPayrollProfile || detectPayrollProfile(),
+                  predictionText =
+                    mode === "auto" || mode === "payroll"
+                      ? `\n\nMetode terdeteksi: ${predicted.name}\nKeyakinan: ${predicted.confidence}%\n${(predicted.reasons || []).join("; ")}\n\nJika dilanjutkan, Klaar akan mengaktifkan profil ini dan membuka Aturan Gaji.`
+                      : "";
                 let ok = confirm(
                   mode === "auto"
-                    ? "Import sheet tercentang dengan filter stabil? Backup otomatis akan dibuat dulu."
+                    ? "Import sheet tercentang dengan filter stabil? Backup otomatis akan dibuat dulu." +
+                        predictionText
                     : "Import sheet aktif sebagai " +
                         labelMode(mode) +
-                        "? Backup otomatis akan dibuat dulu.",
+                        "? Backup otomatis akan dibuat dulu." +
+                        predictionText,
                 );
                 if (!ok) return;
                 makeBackup("Sebelum import Excel");
@@ -8008,6 +8688,13 @@
                   mode === "auto"
                     ? await importFlexibleWorkbook()
                     : await importMode(mode, importRows, importContext);
+                let activated = activateDetectedProfile(
+                  res.payrollProfile ||
+                    (mode === "payroll" || mode === "auto"
+                      ? predicted
+                      : null),
+                  res.period,
+                );
                 db.importHistory = Array.isArray(db.importHistory)
                   ? db.importHistory
                   : [];
@@ -8026,14 +8713,18 @@
                 forceImportSync();
                 fillSelects();
                 render();
-                section("importExcel");
                 showMsg(
                   (res.reports
                     ? resultList("Hasil import", res.reports)
                     : `Tambah: <b>${res.add || 0}</b>, Update: <b>${res.upd || 0}</b>${res.w?.length ? resultList("Catatan", res.w) : ""}`) +
                     '<div class="note" style="margin-top:10px">Backup otomatis sudah dibuat sebelum import. Data hasil import dikunci lokal ±12 menit dan dikirim ulang beberapa kali agar tidak tertimpa server lama.</div>',
                 );
-                toast("Import Excel selesai. Backup + autosync berjalan.");
+                section(activated ? "salaryRules" : "importExcel");
+                toast(
+                  activated
+                    ? `Import selesai. Profil ${activated.name} aktif; Aturan Gaji dibuka.`
+                    : "Import Excel selesai. Backup + autosync berjalan.",
+                );
               } catch (err) {
                 showMsg(err.message, "bad");
                 toast(err.message, "bad");
