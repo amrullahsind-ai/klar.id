@@ -1216,10 +1216,7 @@
             ><button
               type="button"
               class="btn wide warn"
-              onclick="
-                localStorage.clear();
-                location.reload();
-              "
+              onclick="resetLicense()"
             >
               Reset / Ganti Lisensi
             </button>
@@ -2255,7 +2252,9 @@
         LICENSE_KEY = "edupay_v4_license",
         SERVER_KEY = "edupay_v4_server",
         SERVER_DRAFT_KEY = "edupay_v4_server_draft",
-        LICENSE_DRAFT_KEY = "edupay_v4_license_draft";
+        LICENSE_DRAFT_KEY = "edupay_v4_license_draft",
+        ADMIN_SESSION_KEY = "klaar_admin_session_v1",
+        SECTION_SESSION_KEY = "klaar_admin_section_v1";
       // === Backend Supabase (multi-tenant). Ganti <ref> dgn ref project Supabase-mu. ===
       const KLAAR_API =
         "https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler";
@@ -2743,6 +2742,24 @@
         license = localStorage.getItem(LICENSE_KEY) || "",
         licenseInfo = {},
         adminAuth = null;
+      try {
+        const savedSession = JSON.parse(
+          sessionStorage.getItem(ADMIN_SESSION_KEY) || "null",
+        );
+        if (
+          savedSession &&
+          savedSession.license === license &&
+          savedSession.user &&
+          savedSession.hash &&
+          Number(savedSession.expiresAt || 0) > Date.now()
+        ) {
+          adminAuth = { user: savedSession.user, hash: savedSession.hash };
+        } else {
+          sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        }
+      } catch (e) {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      }
       let AUTO_SUPPRESS = false,
         autoTimer = null,
         autoBusy = false,
@@ -2982,24 +2999,70 @@
         );
         document.title = db.settings.app;
       }
-      function boot() {
+      async function boot() {
         applyBrand();
         if (new URLSearchParams(location.search).get("demo") === "1") {
           return enterDemo();
         }
         if (license && serverUrl) {
-          verifyLicenseToken(license).then((lic) => {
-            if (lic.ok) showLogin();
-            else {
-              license = "";
-              localStorage.removeItem(LICENSE_KEY);
-              showActivation();
-              alert(
-                "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
-              );
+          const lic = await verifyLicenseToken(license);
+          if (!lic.ok) {
+            license = "";
+            adminAuth = null;
+            localStorage.removeItem(LICENSE_KEY);
+            sessionStorage.removeItem(ADMIN_SESSION_KEY);
+            showActivation();
+            alert(
+              "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
+            );
+            return;
+          }
+          let validation;
+          try {
+            validation = await api("validateLicense");
+          } catch (err) {
+            showLogin();
+            alert(
+              "Koneksi ke server Klaar sedang bermasalah. Lisensi tetap tersimpan; coba lagi saat koneksi tersedia.",
+            );
+            return;
+          }
+          if (!validation || !validation.ok) {
+            license = "";
+            adminAuth = null;
+            localStorage.removeItem(LICENSE_KEY);
+            sessionStorage.removeItem(ADMIN_SESSION_KEY);
+            showActivation();
+            alert(
+              "Kode lisensi tersimpan tidak lagi valid. Silakan aktivasi ulang dengan kode lisensi resmi.",
+            );
+            return;
+          }
+          if (adminAuth) {
+            try {
+              await loadRemote(true);
+              showApp();
+              const lastSection =
+                sessionStorage.getItem(SECTION_SESSION_KEY) || "dashboard";
+              section($(lastSection) ? lastSection : "dashboard");
+              return;
+            } catch (err) {
+              adminAuth = null;
+              sessionStorage.removeItem(ADMIN_SESSION_KEY);
             }
-          });
+          }
+          showLogin();
         } else showActivation();
+      }
+      function resetLicense() {
+        adminAuth = null;
+        license = "";
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        sessionStorage.removeItem(SECTION_SESSION_KEY);
+        localStorage.removeItem(LICENSE_KEY);
+        localStorage.removeItem(SERVER_KEY);
+        localStorage.removeItem(LICENSE_DRAFT_KEY);
+        location.reload();
       }
       function showActivation() {
         $("activationScreen").classList.remove("hidden");
@@ -3316,6 +3379,7 @@
         if (!isAuto) toast("Sync manual dikirim ke server.");
       }
       function section(id) {
+        if (!$(id)) id = "dashboard";
         document
           .querySelectorAll(".section")
           .forEach((s) => s.classList.remove("active"));
@@ -3337,9 +3401,11 @@
           reports: ["Laporan", "Rekap payroll."],
           sync: ["Sync", "Lisensi, backup, dan sinkronisasi."],
           settings: ["Profil", "Logo dan nama sekolah."],
+          importExcel: ["Import Excel", "Impor dan validasi data administrasi."],
         };
         $("pageTitle").textContent = map[id][0];
         $("pageDesc").textContent = map[id][1];
+        sessionStorage.setItem(SECTION_SESSION_KEY, id);
         render();
         if (["monitor", "payroll", "reports", "dashboard"].includes(id))
           refreshLiveData("Mengambil data terbaru...");
@@ -5031,9 +5097,11 @@
         serverUrl = KLAAR_API;
         license = rawLicense;
         try {
-          let pong = await jsonp("ping");
-          if (!pong || !pong.ok)
-            throw new Error("Server tidak merespons dengan benar.");
+          let validation = await jsonp("validateLicense");
+          if (!validation || !validation.ok)
+            throw new Error(
+              (validation && validation.error) || "Lisensi tidak valid.",
+            );
           localStorage.setItem(SERVER_KEY, serverUrl);
           localStorage.setItem(LICENSE_KEY, license);
           showLogin();
@@ -5082,6 +5150,15 @@
             warnDefaultPin(h);
           } else {
             await loadRemote();
+            sessionStorage.setItem(
+              ADMIN_SESSION_KEY,
+              JSON.stringify({
+                license,
+                user: adminAuth.user,
+                hash: adminAuth.hash,
+                expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+              }),
+            );
             showApp();
             warnDefaultPin(h);
           }
@@ -5098,6 +5175,7 @@
       };
       $("logout").onclick = () => {
         adminAuth = null;
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
         showLogin();
       };
       $("nav").onclick = (e) => {
@@ -5111,14 +5189,7 @@
         $("loadRemote").onclick = () =>
           loadRemote().catch((err) => alert(err.message));
       if ($("saveRemote")) $("saveRemote").onclick = saveRemote;
-      $("resetLicense").onclick = () => {
-        localStorage.removeItem(SERVER_KEY);
-        localStorage.removeItem(LICENSE_KEY);
-        serverUrl = KLAAR_API;
-        license = "";
-        adminAuth = null;
-        showActivation();
-      };
+      $("resetLicense").onclick = resetLicense;
       if ($("backupBtn"))
         $("backupBtn").onclick = () => exportBackup("backup manual admin");
       function empLinkToken(nip) {
