@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!-- Isi content dengan Google Maps Browser API key yang dibatasi ke domain klaar.my.id. -->
+    <meta name="google-maps-api-key" content="" />
     <title>Klaar Admin</title>
     <link rel="manifest" href="admin-manifest.json" />
     <link
@@ -785,7 +787,7 @@
           display: none !important;
         }
         .app {
-          display: block;
+          display: none !important;
           box-shadow: none;
           border-radius: 0;
         }
@@ -808,12 +810,20 @@
         }
         .slip {
           border: 0;
-          max-width: 100%;
+          max-width: 190mm;
+          margin: 0 auto;
           color: #111;
           padding: 0;
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
         .slip-row {
           border-color: #ddd;
+          break-inside: avoid;
+        }
+        @page {
+          size: A4;
+          margin: 12mm;
         }
       }
       @media (max-width: 1150px) {
@@ -1801,6 +1811,11 @@
                     placeholder="Sekolah 1 / TK / Kantor Yayasan"
                   />
                 </div>
+                <div class="field wide">
+                  <label>Google Maps Browser API key</label>
+                  <input id="googleMapsApiKey" type="password" autocomplete="off" placeholder="Opsional; batasi key ke domain klaar.my.id" />
+                  <small class="muted">Browser API key memang dipakai di frontend. Amankan dengan HTTP referrer restriction untuk https://*.klaar.my.id/*.</small>
+                </div>
                 <div class="field">
                   <label>Latitude</label
                   ><input id="ruleLat" type="number" step="any" />
@@ -1837,6 +1852,47 @@
                 <div class="field">
                   <label>Batas butuh approval</label
                   ><input id="ruleLateApprovalAfter" type="time" />
+                </div>
+                <div class="field">
+                  <label>Alpha otomatis</label
+                  ><select id="ruleAutoAlphaEnabled">
+                    <option value="false">Nonaktif</option>
+                    <option value="true">Aktif</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Waktu ditandai alpha</label
+                  ><input id="ruleAutoAlphaAt" type="time" />
+                </div>
+                <div class="field">
+                  <label>Toleransi alpha (menit)</label
+                  ><input id="ruleAutoAlphaGrace" type="number" min="0" max="240" />
+                </div>
+                <div class="field">
+                  <label>Zona waktu sekolah</label
+                  ><select id="ruleTimezone">
+                    <option value="Asia/Jakarta">WIB — Asia/Jakarta</option>
+                    <option value="Asia/Makassar">WITA — Asia/Makassar</option>
+                    <option value="Asia/Jayapura">WIT — Asia/Jayapura</option>
+                    <option value="Asia/Bangkok">UTC+7 — Asia/Bangkok</option>
+                  </select>
+                </div>
+                <div class="field wide">
+                  <label>Hari kerja untuk alpha otomatis</label>
+                  <div class="actions" id="ruleAutoAlphaDays" style="gap:12px;flex-wrap:wrap">
+                    <label><input type="checkbox" data-auto-alpha-day="1" /> Sen</label>
+                    <label><input type="checkbox" data-auto-alpha-day="2" /> Sel</label>
+                    <label><input type="checkbox" data-auto-alpha-day="3" /> Rab</label>
+                    <label><input type="checkbox" data-auto-alpha-day="4" /> Kam</label>
+                    <label><input type="checkbox" data-auto-alpha-day="5" /> Jum</label>
+                    <label><input type="checkbox" data-auto-alpha-day="6" /> Sab</label>
+                    <label><input type="checkbox" data-auto-alpha-day="0" /> Min</label>
+                  </div>
+                </div>
+                <div class="field wide">
+                  <label>Tanggal libur / pengecualian alpha</label>
+                  <textarea id="ruleAutoAlphaExcludedDates" rows="2" placeholder="2026-08-17, 2026-12-25"></textarea>
+                  <small class="muted">Pisahkan tanggal dengan koma atau baris baru.</small>
                 </div>
                 <div class="field">
                   <label>Jam pulang mulai</label
@@ -2000,7 +2056,7 @@
             >
               <table>
                 <thead>
-                  <tr>
+                  <tr id="payTableHead">
                     <th>Karyawan</th>
                     <th>Hadir</th>
                     <th>Izin</th>
@@ -2447,6 +2503,12 @@
           checkinStart: "05:30",
           lateAfter: "07:15",
           lateApprovalAfter: "08:30",
+          autoAlphaEnabled: false,
+          autoAlphaAt: "09:30",
+          autoAlphaGraceMinutes: 30,
+          timezone: "Asia/Jakarta",
+          autoAlphaWorkDays: [1, 2, 3, 4, 5, 6],
+          autoAlphaExcludedDates: [],
           checkoutStart: "13:30",
           requireCheckout: true,
           leaveNeedsApproval: true,
@@ -2665,6 +2727,9 @@
         },
         salaryRuleVersions: [],
         monthlyAdjustments: {},
+        payrollInputDefinitions: [],
+        periodInputs: {},
+        importBatches: [],
       };
       function clone(x) {
         return JSON.parse(JSON.stringify(x));
@@ -2762,6 +2827,35 @@
           ? x.salaryRuleVersions
           : [];
         x.monthlyAdjustments = x.monthlyAdjustments || {};
+        x.payrollInputDefinitions = Array.isArray(x.payrollInputDefinitions)
+          ? x.payrollInputDefinitions
+          : [];
+        x.periodInputs = x.periodInputs || {};
+        x.importBatches = Array.isArray(x.importBatches)
+          ? x.importBatches
+          : [];
+        x.attendanceRules = x.attendanceRules || {};
+        if (x.attendanceRules.autoAlphaEnabled == null)
+          x.attendanceRules.autoAlphaEnabled = false;
+        x.attendanceRules.autoAlphaAt =
+          x.attendanceRules.autoAlphaAt || "09:30";
+        x.attendanceRules.autoAlphaGraceMinutes = Number.isFinite(
+          Number(x.attendanceRules.autoAlphaGraceMinutes),
+        )
+          ? Math.max(0, Number(x.attendanceRules.autoAlphaGraceMinutes))
+          : 30;
+        x.attendanceRules.timezone =
+          x.attendanceRules.timezone || "Asia/Jakarta";
+        x.attendanceRules.autoAlphaWorkDays = Array.isArray(
+          x.attendanceRules.autoAlphaWorkDays,
+        )
+          ? x.attendanceRules.autoAlphaWorkDays.map(Number)
+          : [1, 2, 3, 4, 5, 6];
+        x.attendanceRules.autoAlphaExcludedDates = Array.isArray(
+          x.attendanceRules.autoAlphaExcludedDates,
+        )
+          ? x.attendanceRules.autoAlphaExcludedDates
+          : [];
         x.payrollProfile =
           x.payrollProfile && typeof x.payrollProfile === "object"
             ? x.payrollProfile
@@ -3767,6 +3861,28 @@
             ded.push({ name: x.name, amount: +x.amount || 0 }),
           );
         }
+        // Komponen dinamis hasil import (mis. jumlah eskul/jam mengajar/day
+        // care) memakai input per periode dikali tarif aturan yang aktif.
+        let periodInput =
+          (db.periodInputs && db.periodInputs[m] && db.periodInputs[m][e.id]) ||
+          {};
+        (db.payrollInputDefinitions || []).forEach((definition) => {
+          if (definition.active === false) return;
+          if (definition.effectiveFrom && m < definition.effectiveFrom) return;
+          if (definition.effectiveTo && m > definition.effectiveTo) return;
+          let quantity = +periodInput[definition.id] || 0,
+            rate = +definition.rate || 0,
+            amount = quantity * rate;
+          if (!amount) return;
+          let entry = {
+            name: definition.name,
+            amount,
+            quantity,
+            rate,
+            calculationType: "quantity_rate",
+          };
+          (definition.kind === "deduction" ? ded : allow).push(entry);
+        });
         let allowances = allow.reduce((s, x) => s + x.amount, 0),
           deductions = ded.reduce((s, x) => s + x.amount, 0);
         return {
@@ -4431,6 +4547,7 @@
           loc = selectedLocation();
         $("ruleLocationId").value = loc.id || "";
         $("ruleName").value = loc.name || r.name || "";
+        $("googleMapsApiKey").value = db.settings.googleMapsApiKey || "";
         $("ruleLat").value = loc.lat || "";
         $("ruleLng").value = loc.lng || "";
         $("ruleRadius").value = loc.radiusMeters || r.radiusMeters || 80;
@@ -4439,6 +4556,20 @@
         $("ruleCheckinStart").value = r.checkinStart || "05:30";
         $("ruleLateAfter").value = r.lateAfter || "07:15";
         $("ruleLateApprovalAfter").value = r.lateApprovalAfter || "08:30";
+        $("ruleAutoAlphaEnabled").value = String(
+          r.autoAlphaEnabled === true,
+        );
+        $("ruleAutoAlphaAt").value = r.autoAlphaAt || "09:30";
+        $("ruleAutoAlphaGrace").value = r.autoAlphaGraceMinutes ?? 30;
+        $("ruleTimezone").value = r.timezone || "Asia/Jakarta";
+        document.querySelectorAll("[data-auto-alpha-day]").forEach((input) => {
+          input.checked = (r.autoAlphaWorkDays || [1, 2, 3, 4, 5, 6]).includes(
+            +input.dataset.autoAlphaDay,
+          );
+        });
+        $("ruleAutoAlphaExcludedDates").value = (
+          r.autoAlphaExcludedDates || []
+        ).join(", ");
         $("ruleCheckoutStart").value = r.checkoutStart || "13:30";
         $("ruleRequireCheckout").value = String(r.requireCheckout !== false);
         if ($("ruleGeofence"))
@@ -4458,16 +4589,132 @@
           radius = Number(loc.radiusMeters || r.radiusMeters || 100);
         let map = `<div style="margin-top:12px"><input type="text" id="mapSearchInput" placeholder="Cari lokasi... (misal: Jakarta)" style="margin-bottom:8px"><button class="btn small" type="button" id="mapSearchBtn">Cari di Peta</button><div id="leafletMap" style="height: 250px; border-radius:18px; margin-top:8px; z-index:1;"></div></div>`;
         $("rulePreview").innerHTML =
-          `<div class="slip-row"><span>Jumlah titik aktif</span><strong>${locs.filter((x) => x.active !== false).length}</strong></div><div class="slip-row"><span>Titik dipilih</span><strong>${esc(loc.name || "-")}</strong></div><div class="slip-row"><span>Radius titik ini</span><strong>${radius} meter</strong></div><div class="slip-row"><span>Maks akurasi GPS</span><strong>${loc.maxAccuracyMeters || r.maxAccuracyMeters || 120} meter</strong></div><div class="slip-row"><span>Batas approval telat</span><strong>${esc(r.lateApprovalAfter || "08:30")}</strong></div><div class="divider"></div><p class="muted"><b>Radius</b> = jarak maksimal dari titik absensi. Kalau radius 100m, karyawan boleh check-in dalam area sekitar 100 meter dari titik tersebut.</p>${map}`;
+          `<div class="slip-row"><span>Jumlah titik aktif</span><strong>${locs.filter((x) => x.active !== false).length}</strong></div><div class="slip-row"><span>Titik dipilih</span><strong>${esc(loc.name || "-")}</strong></div><div class="slip-row"><span>Radius titik ini</span><strong>${radius} meter</strong></div><div class="slip-row"><span>Maks akurasi GPS</span><strong>${loc.maxAccuracyMeters || r.maxAccuracyMeters || 120} meter</strong></div><div class="slip-row"><span>Batas approval telat</span><strong>${esc(r.lateApprovalAfter || "08:30")}</strong></div><div class="slip-row"><span>Alpha otomatis</span><strong>${r.autoAlphaEnabled ? `Aktif pukul ${esc(r.autoAlphaAt || "09:30")}` : "Nonaktif"}</strong></div><div class="divider"></div><p class="muted"><b>Radius</b> = jarak maksimal dari titik absensi. Akurasi tetap mengikuti sensor GPS perangkat. <b>Alpha otomatis</b> dijalankan server sesuai zona waktu sekolah.</p>${map}`;
         setTimeout(initMap, 100);
       }
       let leafMap, leafMarker, leafCircle;
-      function initMap() {
+      let googleMap, googleMarker, googleCircle, googleGeocoder;
+      let googleMapsPromise;
+      function googleMapsKey() {
+        return (
+          db?.settings?.googleMapsApiKey ||
+          document.querySelector('meta[name="google-maps-api-key"]')?.content ||
+          ""
+        ).trim();
+      }
+      function loadGoogleMaps() {
+        if (window.google?.maps) return Promise.resolve(window.google.maps);
+        if (googleMapsPromise) return googleMapsPromise;
+        const key = googleMapsKey();
+        if (!key) return Promise.reject(new Error("Google Maps API key belum diisi"));
+        googleMapsPromise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&v=weekly`;
+          script.async = true;
+          script.onload = () => resolve(window.google.maps);
+          script.onerror = () => reject(new Error("Google Maps gagal dimuat"));
+          document.head.appendChild(script);
+        });
+        return googleMapsPromise;
+      }
+      function writeMapPoint(lat, lng, reverseName = false) {
+        lat = Number(lat);
+        lng = Number(lng);
+        $("ruleLat").value = lat.toFixed(6);
+        $("ruleLng").value = lng.toFixed(6);
+        if (googleMap) {
+          const point = { lat, lng };
+          googleMarker.setPosition(point);
+          googleCircle.setCenter(point);
+          googleMap.panTo(point);
+        } else if (leafMap) {
+          const point = [lat, lng];
+          leafMarker.setLatLng(point);
+          leafCircle.setLatLng(point);
+          leafMap.panTo(point);
+        }
+        if (reverseName && googleGeocoder) {
+          googleGeocoder.geocode({ location: { lat, lng } }).then(({ results }) => {
+            if (results?.[0] && !$("ruleName").value.trim())
+              $("ruleName").value = results[0].formatted_address;
+          }).catch(() => {});
+        }
+      }
+      async function initMap() {
         let lat = Number($("ruleLat").value) || -6.2,
           lng = Number($("ruleLng").value) || 106.816666,
           r = Number($("ruleRadius").value) || 80;
         let container = document.getElementById("leafletMap");
         if (!container) return;
+        if (googleMapsKey()) {
+          try {
+            await loadGoogleMaps();
+            if (leafMap) { leafMap.remove(); leafMap = null; }
+            const point = { lat, lng };
+            googleMap = new google.maps.Map(container, {
+              center: point,
+              zoom: 17,
+              mapTypeControl: true,
+              streetViewControl: true,
+              fullscreenControl: true,
+              gestureHandling: "greedy",
+            });
+            googleMarker = new google.maps.Marker({
+              map: googleMap,
+              position: point,
+              draggable: true,
+              title: "Titik absensi",
+            });
+            googleCircle = new google.maps.Circle({
+              map: googleMap,
+              center: point,
+              radius: r,
+              strokeColor: "#059669",
+              fillColor: "#10b981",
+              fillOpacity: 0.18,
+            });
+            googleGeocoder = new google.maps.Geocoder();
+            googleMap.addListener("click", (event) =>
+              writeMapPoint(event.latLng.lat(), event.latLng.lng(), true),
+            );
+            googleMarker.addListener("dragend", (event) =>
+              writeMapPoint(event.latLng.lat(), event.latLng.lng(), true),
+            );
+            const input = $("mapSearchInput");
+            const autocomplete = new google.maps.places.Autocomplete(input, {
+              componentRestrictions: { country: "id" },
+              fields: ["formatted_address", "geometry", "name"],
+            });
+            autocomplete.bindTo("bounds", googleMap);
+            autocomplete.addListener("place_changed", () => {
+              const place = autocomplete.getPlace();
+              if (!place.geometry?.location) return toast("Lokasi tidak ditemukan", "warn");
+              writeMapPoint(place.geometry.location.lat(), place.geometry.location.lng());
+              googleMap.setZoom(18);
+              if (!$("ruleName").value.trim())
+                $("ruleName").value = place.name || place.formatted_address || "";
+            });
+            $("mapSearchBtn").onclick = () => {
+              const address = input.value.trim();
+              if (!address) return;
+              googleGeocoder.geocode({ address, region: "id" }).then(({ results }) => {
+                if (!results?.[0]) return toast("Lokasi tidak ditemukan", "warn");
+                const pos = results[0].geometry.location;
+                writeMapPoint(pos.lat(), pos.lng());
+                googleMap.setZoom(18);
+                toast("Lokasi ditemukan di Google Maps");
+              }).catch(() => toast("Pencarian Google Maps gagal", "bad"));
+            };
+            $("ruleRadius").oninput = () =>
+              googleCircle.setRadius(Number($("ruleRadius").value) || 80);
+            return;
+          } catch (error) {
+            console.warn(error);
+            googleMapsPromise = null;
+            toast("Google Maps belum aktif; memakai peta cadangan.", "warn");
+          }
+        }
+        googleMap = googleMarker = googleCircle = googleGeocoder = null;
         if (leafMap) {
           leafMap.remove();
           leafMap = null;
@@ -4486,15 +4733,10 @@
           }).addTo(leafMap);
           leafMarker.on("dragend", function (e) {
             let pos = leafMarker.getLatLng();
-            $("ruleLat").value = pos.lat.toFixed(6);
-            $("ruleLng").value = pos.lng.toFixed(6);
-            leafCircle.setLatLng(pos);
+            writeMapPoint(pos.lat, pos.lng);
           });
           leafMap.on("click", function (e) {
-            leafMarker.setLatLng(e.latlng);
-            $("ruleLat").value = e.latlng.lat.toFixed(6);
-            $("ruleLng").value = e.latlng.lng.toFixed(6);
-            leafCircle.setLatLng(e.latlng);
+            writeMapPoint(e.latlng.lat, e.latlng.lng);
           });
         } else {
           leafMap.invalidateSize();
@@ -4520,11 +4762,8 @@
               if (data && data[0]) {
                 let lat = parseFloat(data[0].lat),
                   lng = parseFloat(data[0].lon);
-                $("ruleLat").value = lat.toFixed(6);
-                $("ruleLng").value = lng.toFixed(6);
+                writeMapPoint(lat, lng);
                 leafMap.setView([lat, lng], 16);
-                leafMarker.setLatLng([lat, lng]);
-                leafCircle.setLatLng([lat, lng]);
                 toast("Lokasi ditemukan");
               } else toast("Lokasi tidak ditemukan", "warn");
             } catch (e) {
@@ -4735,7 +4974,23 @@
         $("payMonth").value = m;
         let rows = payroll(m),
           v = payrollValidation(m),
-          hasExcel = !!(db.importedPayrollSnapshots || {})[m];
+          hasExcel = !!(db.importedPayrollSnapshots || {})[m],
+          inputDefs = (db.payrollInputDefinitions || []).filter(
+            (d) =>
+              d.active !== false &&
+              (!d.effectiveFrom || m >= d.effectiveFrom) &&
+              (!d.effectiveTo || m <= d.effectiveTo),
+          );
+        if ($("payTableHead"))
+          $("payTableHead").innerHTML =
+            `<th>Karyawan</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpha</th><th>Telat</th>` +
+            inputDefs
+              .map(
+                (d) =>
+                  `<th>${esc(d.name)}<br><span class="muted">× ${rp(d.rate)}</span></th>`,
+              )
+              .join("") +
+            `<th>Pokok</th><th>Tunjangan</th><th>Potongan</th><th>Bersih</th><th>Aksi</th>`;
         $("payStatus").innerHTML =
           (db.locks[m]
             ? `Status: <b>Final/Terkunci</b> pada ${esc(db.locks[m].at)}`
@@ -4748,8 +5003,20 @@
           validationHtml(v);
         $("payTable").innerHTML = rows
           .map(
-            (p) =>
-              `<tr><td><div class="person"><div class="avatar">${initials(p.name)}</div><div class="pmeta"><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.position)} • ${labelMonth(m)}${p.source && String(p.source).includes("import_excel") ? " • Excel" : ""}</div></div></div></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="hadir" value="${p.summary.hadir}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="izin" value="${p.summary.izin}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="sakit" value="${p.summary.sakit}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="alpha" value="${p.summary.alpha}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="telat" value="${p.summary.telat}" ${db.locks[m] ? "disabled" : ""}></td><td class="money">${rp(p.base)}</td><td class="money">${rp(p.allowances)}</td><td class="money">${rp(p.deductions)}</td><td class="money click-value" data-full="${rp(p.net)}" data-title="Gaji bersih ${esc(p.name)}">${rp(p.net)}</td><td class="action-cell pay-action"><div class="row-actions"><button class="btn small primary" data-slip="${p.id}">Slip</button><button class="btn small success" data-send-slip="${p.id}">${db.sentSlips && db.sentSlips[m] && db.sentSlips[m][p.id] ? "Terkirim" : "Kirim"}</button></div></td></tr>`,
+            (p) => {
+              let dynamicCells = inputDefs
+                .map((d) => {
+                  let q =
+                    (db.periodInputs &&
+                      db.periodInputs[m] &&
+                      db.periodInputs[m][p.id] &&
+                      db.periodInputs[m][p.id][d.id]) ||
+                    0;
+                  return `<td><input type="number" min="0" step="1" class="att-input pay-dyn-input" data-emp="${p.id}" data-def="${d.id}" value="${q}" ${db.locks[m] || hasExcel ? "disabled" : ""}><br><span class="muted">${rp(q * (+d.rate || 0))}</span></td>`;
+                })
+                .join("");
+              return `<tr><td><div class="person"><div class="avatar">${initials(p.name)}</div><div class="pmeta"><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.position)} • ${labelMonth(m)}${p.source && String(p.source).includes("import_excel") ? " • Excel" : ""}</div></div></div></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="hadir" value="${p.summary.hadir}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="izin" value="${p.summary.izin}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="sakit" value="${p.summary.sakit}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="alpha" value="${p.summary.alpha}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="telat" value="${p.summary.telat}" ${db.locks[m] ? "disabled" : ""}></td>${dynamicCells}<td class="money">${rp(p.base)}</td><td class="money">${rp(p.allowances)}</td><td class="money">${rp(p.deductions)}</td><td class="money click-value" data-full="${rp(p.net)}" data-title="Gaji bersih ${esc(p.name)}">${rp(p.net)}</td><td class="action-cell pay-action"><div class="row-actions"><button class="btn small primary" data-slip="${p.id}">Slip</button><button class="btn small success" data-send-slip="${p.id}">${db.sentSlips && db.sentSlips[m] && db.sentSlips[m][p.id] ? "Terkirim" : "Kirim"}</button></div></td></tr>`;
+            },
           )
           .join("");
       }
@@ -4757,7 +5024,9 @@
         let logo = db.settings.logo
           ? `<img src="${db.settings.logo}">`
           : initials(db.settings.app);
-        return `${buttons ? `<div class="modal-head no-print"><div><h3>Slip Gaji</h3><p>${esc(p.name)} • ${labelMonth(m)}</p></div><div class="actions"><button class="btn primary" data-print-current>Print / Save PDF</button><button class="btn danger" data-close>Tutup</button></div></div>` : ""}<div class="slip"><div class="slip-head"><div class="slip-brand"><div class="logo">${logo}</div><div><h4>${esc(db.settings.foundation)}</h4><p>${esc(db.settings.school)}</p></div></div><div style="text-align:right"><b>SLIP GAJI</b><br><span class="muted">${labelMonth(m)}</span><br>${db.locks[m] ? '<span class="badge ok">FINAL</span>' : '<span class="badge warn">DRAFT</span>'}</div></div><div class="slip-grid"><div><div class="slip-row"><span>Nama</span><strong>${esc(p.name)}</strong></div><div class="slip-row"><span>NIP</span><strong>${esc(p.nip || "-")}</strong></div><div class="slip-row"><span>Jabatan</span><strong>${esc(p.position)}</strong></div></div><div><div class="slip-row"><span>Golongan</span><strong>${esc(p.grade)}</strong></div><div class="slip-row"><span>Hadir/Izin/Sakit</span><strong>${p.summary.hadir}/${p.summary.izin}/${p.summary.sakit}</strong></div><div class="slip-row"><span>Alpha/Telat</span><strong>${p.summary.alpha}/${p.summary.telat}</strong></div></div></div><div class="divider"></div><h4>Penghasilan</h4><div class="slip-row"><span>Gaji Pokok</span><strong>${rp(p.base)}</strong></div>${p.allow.map((x) => `<div class="slip-row"><span>${esc(x.name)}</span><strong>${rp(x.amount)}</strong></div>`).join("")}<div class="divider"></div><h4>Potongan</h4>${p.ded.length ? p.ded.map((x) => `<div class="slip-row"><span>${esc(x.name)}</span><strong>${rp(x.amount)}</strong></div>`).join("") : '<div class="slip-row"><span>Tidak ada potongan</span><strong>Rp0</strong></div>'}<div class="total"><span>Gaji Bersih</span><span>${rp(p.net)}</span></div></div>`;
+        let componentRow = (x) =>
+          `<div class="slip-row"><span>${esc(x.name)}${x.calculationType === "quantity_rate" ? `<br><small>${x.quantity} × ${rp(x.rate)}</small>` : ""}</span><strong>${rp(x.amount)}</strong></div>`;
+        return `${buttons ? `<div class="modal-head no-print"><div><h3>Slip Gaji</h3><p>${esc(p.name)} • ${labelMonth(m)}</p></div><div class="actions"><button class="btn primary" data-print-current>Print / Save PDF</button><button class="btn danger" data-close>Tutup</button></div></div>` : ""}<div class="slip"><div class="slip-head"><div class="slip-brand"><div class="logo">${logo}</div><div><h4>${esc(db.settings.foundation)}</h4><p>${esc(db.settings.school)}</p></div></div><div style="text-align:right"><b>SLIP GAJI</b><br><span class="muted">${labelMonth(m)}</span><br>${db.locks[m] ? '<span class="badge ok">FINAL</span>' : '<span class="badge warn">DRAFT</span>'}</div></div><div class="slip-grid"><div><div class="slip-row"><span>Nama</span><strong>${esc(p.name)}</strong></div><div class="slip-row"><span>NIP</span><strong>${esc(p.nip || "-")}</strong></div><div class="slip-row"><span>Jabatan</span><strong>${esc(p.position)}</strong></div></div><div><div class="slip-row"><span>Golongan</span><strong>${esc(p.grade)}</strong></div><div class="slip-row"><span>Hadir/Izin/Sakit</span><strong>${p.summary.hadir}/${p.summary.izin}/${p.summary.sakit}</strong></div><div class="slip-row"><span>Alpha/Telat</span><strong>${p.summary.alpha}/${p.summary.telat}</strong></div></div></div><div class="divider"></div><h4>Penghasilan</h4><div class="slip-row"><span>Gaji Pokok</span><strong>${rp(p.base)}</strong></div>${p.allow.map(componentRow).join("")}<div class="divider"></div><h4>Potongan</h4>${p.ded.length ? p.ded.map(componentRow).join("") : '<div class="slip-row"><span>Tidak ada potongan</span><strong>Rp0</strong></div>'}<div class="total"><span>Gaji Bersih</span><span>${rp(p.net)}</span></div></div>`;
       }
       function showSlip(id, m = $("payMonth").value || monthNow()) {
         let p = payroll(m).find((x) => x.id == id);
@@ -5247,6 +5516,21 @@
       }
       bindCrudClick();
       document.addEventListener("change", (e) => {
+        if (e.target.classList.contains("pay-dyn-input")) {
+          let m = $("payMonth").value || monthNow(),
+            empId = e.target.dataset.emp,
+            defId = e.target.dataset.def;
+          db.periodInputs = db.periodInputs || {};
+          db.periodInputs[m] = db.periodInputs[m] || {};
+          db.periodInputs[m][empId] = db.periodInputs[m][empId] || {};
+          db.periodInputs[m][empId][defId] = Math.max(
+            0,
+            +e.target.value || 0,
+          );
+          saveLocal();
+          renderPayroll();
+          return;
+        }
         if (e.target.classList.contains("att-input")) {
           let empId = e.target.dataset.emp,
             type = e.target.dataset.type,
@@ -5669,6 +5953,7 @@
       };
       $("attRuleForm").onsubmit = (e) => {
         e.preventDefault();
+        db.settings.googleMapsApiKey = $("googleMapsApiKey").value.trim();
         let r = db.attendanceRules || {},
           locs = getLocations(),
           id = $("ruleLocationId").value || "loc_" + Date.now(),
@@ -5695,6 +5980,17 @@
           checkinStart: $("ruleCheckinStart").value,
           lateAfter: $("ruleLateAfter").value,
           lateApprovalAfter: $("ruleLateApprovalAfter").value,
+          autoAlphaEnabled: $("ruleAutoAlphaEnabled").value == "true",
+          autoAlphaAt: $("ruleAutoAlphaAt").value || "09:30",
+          autoAlphaGraceMinutes: +$("ruleAutoAlphaGrace").value || 0,
+          timezone: $("ruleTimezone").value || "Asia/Jakarta",
+          autoAlphaWorkDays: Array.from(
+            document.querySelectorAll("[data-auto-alpha-day]:checked"),
+          ).map((input) => +input.dataset.autoAlphaDay),
+          autoAlphaExcludedDates: $("ruleAutoAlphaExcludedDates")
+            .value.split(/[\s,;]+/)
+            .map((date) => date.trim())
+            .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)),
           checkoutStart: $("ruleCheckoutStart").value,
           requireCheckout: $("ruleRequireCheckout").value == "true",
           geofence: $("ruleGeofence")
@@ -5710,9 +6006,12 @@
       $("useMyLocation").onclick = () =>
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            $("ruleLat").value = pos.coords.latitude;
-            $("ruleLng").value = pos.coords.longitude;
-            toast("Lokasi diambil");
+            writeMapPoint(pos.coords.latitude, pos.coords.longitude, true);
+            if (googleMap) googleMap.setZoom(19);
+            else if (leafMap) leafMap.setZoom(19);
+            toast(
+              `Lokasi diambil (akurasi Â±${Math.round(pos.coords.accuracy || 0)} meter)`,
+            );
           },
           (err) => alert(err.message),
           { enableHighAccuracy: true, timeout: 12000 },
@@ -6280,6 +6579,7 @@
           importAnalysis = [],
           importContext = null,
           detectedPayrollProfile = null,
+          importPeriodOverride = "",
           masterIndex = {
             items: [],
             byName: {},
@@ -6440,6 +6740,8 @@
           };
           for (const k in months) {
             if (n.includes(k)) {
+              if (!/20\d{2}/.test(s) && importPeriodOverride)
+                return importPeriodOverride;
               let y = (s.match(/20\d{2}/) || [new Date().getFullYear()])[0];
               return `${y}-${String(months[k]).padStart(2, "0")}`;
             }
@@ -6904,6 +7206,26 @@
             return key;
           });
         }
+        function headerRateMeta(headers, rateRow) {
+          return (headers || []).map((header, i) => {
+            let rawRate = clean((rateRow || [])[i]),
+              rate = toNum(rawRate);
+            return {
+              index: i,
+              header,
+              rate: rate > 0 ? rate : 0,
+              rateRaw: rawRate,
+              role: rate > 0 ? "quantity" : "unknown",
+            };
+          });
+        }
+        function looksLikeRateRow(row) {
+          let non = (row || []).map(clean).filter(Boolean);
+          if (non.length < 2) return false;
+          let numeric = non.filter((x) => toNum(x) > 0).length,
+            text = non.filter((x) => /[A-Za-z]/.test(x)).length;
+          return numeric >= 2 && numeric >= non.length * 0.65 && text <= 1;
+        }
         function sheetToRows(name) {
           let raw = rawSheet(name);
           while (raw.length && isBlankRow(raw[0])) raw.shift();
@@ -6916,10 +7238,18 @@
               best = i;
             }
           }
-          let headers = normalizeHeaders(raw[best] || []);
-          let rows = raw.slice(best + 1).filter((r) => !isBlankRow(r));
+          let headers = normalizeHeaders(raw[best] || []),
+            rateRow = looksLikeRateRow(raw[best + 1])
+              ? raw[best + 1]
+              : null,
+            headerMeta = headerRateMeta(headers, rateRow),
+            rows = raw
+              .slice(best + 1 + (rateRow ? 1 : 0))
+              .filter((r) => !isBlankRow(r));
           return {
             headers,
+            headerMeta,
+            rateRow: rateRow ? best + 2 : 0,
             rows,
             headerRow: best + 1,
             rawRows: raw.length,
@@ -7173,6 +7503,8 @@
         function context(x, mode = x.mode) {
           return {
             headers: x.headers,
+            headerMeta: x.headerMeta || [],
+            rateRow: x.rateRow || 0,
             rows: x.rows,
             sheet: x.sheet,
             mode,
@@ -7338,6 +7670,35 @@
           let hit = resolveMaster(row, ctx);
           return hit?.name || employeeLabel(row, ctx) || "";
         }
+        function semanticComponentKey(name) {
+          return norm(name)
+            .replace(/\b(tunjangan|tunj|tj|potongan|pot|biaya|anak)\b/g, " ")
+            .replace(/\b(kesehatan|tenaga kerja|ketenagakerjaan)\b/g, " $1 ")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+        function quantityKindForHeader(header, headers) {
+          let key = semanticComponentKey(header),
+            words = key.split(" ").filter((x) => x.length > 2),
+            best = null;
+          (headers || []).forEach((candidate, index) => {
+            let n = norm(candidate);
+            if (!/tunj|pot|gaji|insentif|subsidi|beasiswa|bpjs/.test(n))
+              return;
+            let candidateKey = semanticComponentKey(candidate),
+              hits = words.filter((w) => candidateKey.includes(w)).length;
+            if (!hits) return;
+            let score = hits * 10 + (/pot|iuran/.test(n) ? 2 : 1);
+            if (!best || score > best.score)
+              best = {
+                index,
+                header: candidate,
+                kind: /pot|iuran/.test(n) ? "deduction" : "allowance",
+                score,
+              };
+          });
+          return best || { kind: /day care|daycare/.test(norm(header)) ? "deduction" : "allowance" };
+        }
         function moneyFromRow(row, ctx) {
           let base = toNum(
             val(row, "base", ctx) ||
@@ -7349,11 +7710,12 @@
           let correction = toNum(val(row, "correction", ctx));
           let allow = [],
             ded = [],
+            inputs = [],
             allowances = 0,
             deductions = 0,
             seen = {},
             perGrade = {};
-          const key = (s) => norm(s || "").replace(/\s+/g, " ");
+          const key = (s) => semanticComponentKey(s || "");
           const addAllow = (name, amount, src = "mapped") => {
             amount = toNum(amount);
             name = clean(name || "Tunjangan Excel");
@@ -7396,14 +7758,55 @@
             ["Pot. Ziswaf", val(row, "ziswafDeduction", ctx)],
             ["Pot. Pendidikan", val(row, "educationDeduction", ctx)],
           ].forEach((x) => addDed(x[0], x[1]));
+          let mappedIndices = new Set(
+            Object.values(ctx.map || {})
+              .map((header) => (ctx.headers || []).indexOf(header))
+              .filter((i) => i >= 0),
+          );
           (ctx.headers || []).forEach((h, i) => {
             let raw = clean(h),
               n = norm(raw),
               amount = toNum(row[i]);
             if (!amount || !raw) return;
-            let gradeMatch = raw.match(
-              /^(.+?)[\s\-\:\(\[]+([A-Za-z0-9]+)[\)\]]?$/,
-            );
+            let meta = (ctx.headerMeta || [])[i] || {};
+            // Tarif pada baris referensi tidak selalu berarti sel di bawahnya
+            // adalah jumlah. Nominal besar (mis. beasiswa atau BPJS) tetap
+            // dibaca sebagai uang; hanya angka operasional kecil yang menjadi
+            // kuantitas untuk rumus jumlah x tarif.
+            if (+meta.rate > 0 && Math.abs(amount) <= 1000) {
+              let linked = quantityKindForHeader(raw, ctx.headers || []);
+              inputs.push({
+                id: "qty_" + compact(raw),
+                name: raw,
+                quantity: amount,
+                rate: +meta.rate,
+                amount: amount * +meta.rate,
+                kind: linked.kind,
+                resultHeader: linked.header || "",
+                active: !!linked.header,
+                confidence: linked.score || 0,
+                sourceColumn: raw,
+                calculationType: "quantity_rate",
+              });
+              return;
+            }
+            // Kolom yang sudah dipetakan telah diproses di atas. Jangan dibaca
+            // lagi oleh fallback generik karena akan menggandakan komponen.
+            if (mappedIndices.has(i)) return;
+            // Akhiran kata biasa seperti "BEASISWA TK", "BEASISWA SD",
+            // "BPJS TK", atau "TUNJ. PEMKO" bukan kode golongan. Pecah per
+            // golongan hanya bila separatornya eksplisit atau token akhirnya
+            // benar-benar menyerupai kode golongan sekolah (IA, IIB, A1, dst.).
+            let explicitGradeSuffix = /[\-:\(\[]\s*[A-Za-z0-9]+\s*[\)\]]?$/.test(
+                raw,
+              ),
+              gradeCodeSuffix = /\s(?:I{1,3}[A-D]?|IV[A-D]?|V[A-D]?|[A-D][1-9]?|[1-4][A-D])$/i.test(
+                raw,
+              ),
+              gradeMatch =
+                explicitGradeSuffix || gradeCodeSuffix
+                  ? raw.match(/^(.+?)[\s\-\:\(\[]+([A-Za-z0-9]+)[\)\]]?$/)
+                  : null;
             if (gradeMatch) {
               let compPart = gradeMatch[1].trim();
               let gradeCode = gradeMatch[2].trim();
@@ -7476,10 +7879,47 @@
               return;
             }
           });
+          // Kolom dengan tarif di baris kedua adalah kuantitas, bukan rupiah.
+          // Masukkan hasil jumlah x tarif ke rincian snapshot hanya bila belum
+          // ada kolom hasil lain yang mewakili komponen yang sama.
+          (inputs || []).forEach((input) => {
+            let inputKey = semanticComponentKey(input.name || ""),
+              resultKey = semanticComponentKey(input.resultHeader || ""),
+              target = input.kind === "deduction" ? ded : allow,
+              alreadyDetailed = target.some((item) => {
+                let itemKey = semanticComponentKey(item.name || "");
+                if (!itemKey) return false;
+                return (
+                  (resultKey &&
+                    (resultKey.includes(itemKey) || itemKey.includes(resultKey))) ||
+                  (inputKey &&
+                    inputKey
+                      .split(" ")
+                      .filter((word) => word.length > 3)
+                      .some((word) => itemKey.includes(word)))
+                );
+              });
+            if (input.active && !alreadyDetailed) {
+              let label = `${input.name} (${input.quantity} x ${input.rate})`;
+              if (input.kind === "deduction")
+                addDed(label, input.amount, "quantity_rate");
+              else addAllow(label, input.amount, "quantity_rate");
+            }
+          });
           let totalDed =
             toNum(val(row, "deductions", ctx)) ||
             findMoneyByHeader(row, ctx, /total.*potongan|jumlah.*potongan/);
           if (totalDed > 0) {
+            let detailedDed = ded.reduce(
+              (sum, item) => sum + (+item.amount || 0),
+              0,
+            );
+            if (totalDed > detailedDed)
+              addDed(
+                "Potongan lain sesuai total Excel",
+                totalDed - detailedDed,
+                "excel_residual",
+              );
             deductions = totalDed;
             if (!ded.length)
               ded.push({
@@ -7488,7 +7928,12 @@
                 source: "excel_total",
               });
           }
-          if (!gross) gross = base + allowances;
+          let componentGross = base + allowances,
+            componentDeductions = ded.reduce(
+              (sum, item) => sum + (+item.amount || 0),
+              0,
+            );
+          if (!gross) gross = componentGross;
           // Jika Excel punya Gaji Bersih, jadikan itu sumber utama agar nominal akhir sama persis dengan Excel.
           if (!net) net = gross - deductions + correction;
           let expected = gross - deductions + correction;
@@ -7520,6 +7965,18 @@
             ded,
             correction,
             perGrade,
+            inputs,
+            reconciliation: {
+              excelGross: gross,
+              componentGross,
+              grossDelta: gross - componentGross,
+              excelDeductions: deductions,
+              componentDeductions,
+              deductionDelta: deductions - componentDeductions,
+              excelNet: net,
+              calculatedNet: expected,
+              netDelta: diff,
+            },
           };
         }
         function findMoneyByHeader(row, ctx, regex) {
@@ -7962,12 +8419,25 @@
             emp.updatedAt = new Date().toISOString();
             emp.importBatchId = batch;
             let money = moneyFromRow(row, ctx);
-            let classified = classifyMoneyItems(money),
+            let linkedDynamicKeys = new Set(
+                (money.inputs || []).flatMap((input) => [
+                  semanticComponentKey(input.resultHeader || ""),
+                  semanticComponentKey(input.name || ""),
+                ]),
+              ),
+              isLinkedDynamic = (item) => {
+                let itemKey = semanticComponentKey(item.name || "");
+                if (!itemKey) return false;
+                return [...linkedDynamicKeys].some(
+                  (key) => key && (key.includes(itemKey) || itemKey.includes(key)),
+                );
+              },
+              classified = classifyMoneyItems(money),
               persistentAllow = classified.allow.filter(
-                (x) => x.persistence === "fixed",
+                (x) => x.persistence === "fixed" && !isLinkedDynamic(x),
               ),
               persistentDed = classified.ded.filter(
-                (x) => x.persistence === "fixed",
+                (x) => x.persistence === "fixed" && !isLinkedDynamic(x),
               );
             // Hanya profil Individual yang menyimpan gaji pokok per pegawai.
             // Golongan/Jabatan/Hybrid memakai aturan master agar perubahan aturan
@@ -7979,16 +8449,58 @@
               delete emp.baseSalary;
               delete emp.baseSalarySource;
             }
-            emp.allowances = persistentAllow.map((a) => ({
-              name: a.name,
-              amount: a.amount,
-              source: "import_fixed",
-            }));
-            emp.deductions = persistentDed.map((d) => ({
-              name: d.name,
-              amount: d.amount,
-              source: "import_fixed",
-            }));
+            emp.allowances = [
+              ...(emp.allowances || []).filter(
+                (x) => !String(x.source || "").startsWith("import_"),
+              ),
+              ...persistentAllow.map((a) => ({
+                name: a.name,
+                amount: a.amount,
+                source: "import_fixed",
+                importBatchId: batch,
+              })),
+            ];
+            emp.deductions = [
+              ...(emp.deductions || []).filter(
+                (x) => !String(x.source || "").startsWith("import_"),
+              ),
+              ...persistentDed.map((d) => ({
+                name: d.name,
+                amount: d.amount,
+                source: "import_fixed",
+                importBatchId: batch,
+              })),
+            ];
+            db.payrollInputDefinitions = db.payrollInputDefinitions || [];
+            db.periodInputs = db.periodInputs || {};
+            db.periodInputs[rowMonth] = db.periodInputs[rowMonth] || {};
+            db.periodInputs[rowMonth][emp.id] =
+              db.periodInputs[rowMonth][emp.id] || {};
+            (money.inputs || []).forEach((input) => {
+              let defId = "input_" + compact(input.name),
+                existing = db.payrollInputDefinitions.find(
+                  (x) => x.id === defId,
+                ),
+                definition = {
+                  id: defId,
+                  name: input.name,
+                  kind: input.kind,
+                  calculationType: "quantity_rate",
+                  rate: +input.rate || 0,
+                  effectiveFrom: rowMonth,
+                  effectiveTo: "",
+                  scope: "employee_input",
+                  source: "import_excel",
+                  resultHeader: input.resultHeader || "",
+                  active: input.active !== false,
+                  confidence: +input.confidence || 0,
+                  importBatchId: batch,
+                };
+              if (existing) Object.assign(existing, definition);
+              else db.payrollInputDefinitions.push(definition);
+              db.periodInputs[rowMonth][emp.id][defId] = +input.quantity || 0;
+              input.definitionId = defId;
+            });
             // Apply per‑grade component overrides
             if (money.perGrade) {
               Object.entries(money.perGrade).forEach(([gradeCode, comps]) => {
@@ -8102,7 +8614,10 @@
               deductions: money.deductions,
               net: money.net,
               source: "import_excel",
+              importBatchId: batch,
               importClassifications: classified,
+              dynamicInputs: money.inputs || [],
+              reconciliation: money.reconciliation,
               period: rowMonth || monthNowSafe(),
               sheet: ctx.sheet,
               slipCode: slip,
@@ -8126,6 +8641,19 @@
               .sort()
               .slice(-1)[0] || importMonth;
             if ($id("payMonth")) $id("payMonth").value = importMonth;
+            db.importBatches = Array.isArray(db.importBatches)
+              ? db.importBatches
+              : [];
+            db.importBatches.unshift({
+              id: batch,
+              createdAt: new Date().toISOString(),
+              sheet: ctx.sheet,
+              periods: [...new Set(items.map((it) => it.period))],
+              employeeIds: [...new Set(items.map((it) => it.id))],
+              rows: items.length,
+              status: "active",
+            });
+            db.importBatches = db.importBatches.slice(0, 30);
           }
           let der = items.length
             ? deriveRulesFromPayroll(agg)
@@ -8256,14 +8784,35 @@
             ),
             totalNet = 0,
             totalBase = 0,
-            janggal = 0;
+            totalGross = 0,
+            totalDeductions = 0,
+            janggal = 0,
+            mismatch = 0,
+            dynamicNames = new Set();
           rows.forEach((r) => {
             let m = moneyFromRow(r, ctx);
             totalNet += m.net || 0;
             totalBase += m.base || 0;
+            totalGross += m.gross || 0;
+            totalDeductions += m.deductions || 0;
+            (m.inputs || []).forEach((input) => dynamicNames.add(input.name));
+            if (
+              Math.abs(m.reconciliation?.grossDelta || 0) >= 1 ||
+              Math.abs(m.reconciliation?.deductionDelta || 0) >= 1 ||
+              Math.abs(m.reconciliation?.netDelta || 0) >= 1
+            ) mismatch++;
             if (moneyJanggal(m.net) || moneyJanggal(m.base)) janggal++;
           });
-          return { count: rows.length, totalNet, totalBase, janggal };
+          return {
+            count: rows.length,
+            totalNet,
+            totalBase,
+            totalGross,
+            totalDeductions,
+            janggal,
+            mismatch,
+            dynamicNames: [...dynamicNames],
+          };
         }
         function table(items) {
           if (!items.length)
@@ -8294,7 +8843,25 @@
                 Tunjangan: rpSafe(m.allowances),
                 Potongan: rpSafe(m.deductions),
                 "Gaji Bersih": rpSafe(m.net),
-                _janggal: moneyJanggal(m.net) || moneyJanggal(m.base),
+                "Input Dinamis":
+                  (m.inputs || [])
+                    .map(
+                      (input) =>
+                        `${input.name}: ${input.quantity} x ${rpSafe(input.rate)} = ${rpSafe(input.amount)}`,
+                    )
+                    .join("; ") || "-",
+                "Selisih Rekonsiliasi": rpSafe(
+                  Math.max(
+                    Math.abs(m.reconciliation?.grossDelta || 0),
+                    Math.abs(m.reconciliation?.deductionDelta || 0),
+                    Math.abs(m.reconciliation?.netDelta || 0),
+                  ),
+                ),
+                _janggal:
+                  moneyJanggal(m.net) ||
+                  moneyJanggal(m.base) ||
+                  Math.abs(m.reconciliation?.grossDelta || 0) >= 1 ||
+                  Math.abs(m.reconciliation?.deductionDelta || 0) >= 1,
               };
             });
           if (ctx.mode === "employees")
@@ -8413,6 +8980,17 @@
                 ? `<div class="note bad" style="margin-top:8px"><b>${s.janggal} baris</b> punya nominal di bawah ${rpSafe(RP_MIN_WAJAR)} atau di atas ${rpSafe(RP_MAX_WAJAR)} (ditandai <span style="color:var(--danger)">merah</span> di bawah). Biasanya ini gejala format angka Excel salah terbaca — cek dulu sebelum <b>Terapkan Import</b>.</div>`
                 : "");
           }
+          if (ctx.mode === "payroll") {
+            const review = payrollPreviewStats(ctx);
+            summary =
+              `<div class="import-summary"><span>Baris payroll: <b>${review.count}</b></span><span>Total Gross: <b>${rpSafe(review.totalGross)}</b></span><span>Total Potongan: <b>${rpSafe(review.totalDeductions)}</b></span><span>Total Gaji Bersih: <b>${rpSafe(review.totalNet)}</b></span>${review.mismatch ? `<span class="janggal-flag">${review.mismatch} baris perlu rekonsiliasi</span>` : '<span class="ok-flag">Rekonsiliasi cocok</span>'}</div>` +
+              (review.dynamicNames.length
+                ? `<div class="note" style="margin-top:8px"><b>Input dinamis terdeteksi:</b> ${review.dynamicNames.map(escSafe).join(", ")}. Kolom jumlahnya akan muncul otomatis di Payroll.</div>`
+                : "") +
+              (review.janggal
+                ? `<div class="note bad" style="margin-top:8px"><b>${review.janggal} baris</b> memiliki nominal di luar rentang wajar. Periksa baris merah sebelum menerapkan import.</div>`
+                : "");
+          }
           box.innerHTML =
             summary +
             table(previewRows(ctx, 20)) +
@@ -8439,6 +9017,27 @@
           renderMapping();
           renderPreview();
         }
+        function importPreflightReview(mode) {
+          let contexts = [];
+          if (mode === "auto") {
+            contexts = importAnalysis
+              .filter((x) => x.selected && x.mode === "payroll")
+              .map(context);
+          } else if (mode === "payroll" && importContext) {
+            contexts = [importContext];
+          }
+          return contexts.reduce(
+            (out, ctx) => {
+              const stats = payrollPreviewStats(ctx);
+              out.rows += stats.count;
+              out.mismatch += stats.mismatch;
+              out.janggal += stats.janggal;
+              stats.dynamicNames.forEach((name) => out.dynamicNames.add(name));
+              return out;
+            },
+            { rows: 0, mismatch: 0, janggal: 0, dynamicNames: new Set() },
+          );
+        }
         function resultList(title, items) {
           return `<b>${escSafe(title)}</b><ul style="margin:8px 0 0;padding-left:18px">${items.map((x) => `<li>${escSafe(x)}</li>`).join("")}</ul>`;
         }
@@ -8446,6 +9045,54 @@
           let box = $id("importResult");
           if (box)
             box.innerHTML = `<div class="note ${type === "bad" ? "bad" : ""}">${html}</div>`;
+        }
+        function rollbackImportBatch(batchId) {
+          let batch = (db.importBatches || []).find((x) => x.id === batchId);
+          if (!batch || batch.status === "rolled_back")
+            throw new Error("Batch import tidak aktif atau sudah dibatalkan.");
+          Object.keys(db.importedPayrollSnapshots || {}).forEach((period) => {
+            let box = db.importedPayrollSnapshots[period] || {};
+            Object.keys(box).forEach((employeeId) => {
+              if (box[employeeId]?.importBatchId === batchId)
+                delete box[employeeId];
+            });
+            if (!Object.keys(box).length)
+              delete db.importedPayrollSnapshots[period];
+          });
+          db.payrollInputDefinitions = (db.payrollInputDefinitions || []).filter(
+            (x) => x.importBatchId !== batchId,
+          );
+          (db.employees || []).forEach((employee) => {
+            employee.allowances = (employee.allowances || []).filter(
+              (x) => x.importBatchId !== batchId,
+            );
+            employee.deductions = (employee.deductions || []).filter(
+              (x) => x.importBatchId !== batchId,
+            );
+          });
+          (batch.periods || []).forEach((period) => {
+            (batch.employeeIds || []).forEach((employeeId) => {
+              if (db.periodInputs?.[period])
+                delete db.periodInputs[period][employeeId];
+            });
+          });
+          batch.status = "rolled_back";
+          batch.rolledBackAt = new Date().toISOString();
+          audit("import_rollback", "Batch import dibatalkan", { batchId });
+          saveLocal();
+        }
+        function renderImportBatches() {
+          let box = $id("importBatchList");
+          if (!box) return;
+          let batches = (db.importBatches || []).slice(0, 8);
+          box.innerHTML = batches.length
+            ? `<div class="card wide"><h3>Riwayat Batch Import</h3>${batches
+                .map(
+                  (batch) =>
+                    `<div class="slip-row"><span><b>${escSafe((batch.periods || []).join(", ") || "Tanpa periode")}</b><br><small>${escSafe(batch.sheet || "")} • ${batch.rows || 0} baris • ${escSafe(batch.createdAt || "")}</small></span><span>${batch.status === "rolled_back" ? '<span class="badge">Dibatalkan</span>' : `<button class="btn small danger" data-rollback-batch="${batch.id}">Batalkan Import</button>`}</span></div>`,
+                )
+                .join("")}</div>`
+            : "";
         }
         function createImportSection() {
           if ($id("importExcel")) return;
@@ -8461,6 +9108,19 @@
               "beforeend",
               `<section id="importExcel" class="section"><div class="grid"><div class="card"><h3>Import Excel Sekolah</h3><p class="muted">Import adalah sumber data. Klaar membaca struktur Excel, menyimpan bulan yang diimpor sebagai snapshot, lalu mengaktifkan profil aturan gaji yang terdeteksi untuk bulan berikutnya.</p><div class="actions" style="margin:14px 0"><button class="btn" type="button" data-payroll-template="hybrid">Download Template Utama</button><button class="btn" type="button" id="clearImportBtn">Reset Import</button><button class="btn success" type="button" id="commitLocalBtn">Paksa Simpan Import ke Server</button></div><div class="form"><div class="field wide"><label>File Excel/CSV</label><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"></div><div class="field"><label>Mode Import</label><select id="importMode"><option value="auto">Fleksibel Stabil / Scan Sheet Inti</option><option value="employees">Sheet Aktif: Data Karyawan</option><option value="positions">Sheet Aktif: Jabatan</option><option value="grades">Sheet Aktif: Golongan</option><option value="payroll">Sheet Aktif: Payroll Awal</option></select></div><div class="field"><label>Sheet Aktif</label><select id="importSheet"></select></div><div class="field wide"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0"><input type="checkbox" id="autoCreatePayrollEmployees" checked style="width:auto"> Buat karyawan dari payroll memakai kode/nama yang ada di Excel</label></div></div><div class="actions" style="margin-top:12px"><button class="btn primary" type="button" id="readExcelBtn">Baca & Analisis</button><button class="btn success" type="button" id="applyImportBtn">Terapkan Import</button></div><div id="importResult" style="margin-top:12px"></div></div><div class="card"><h3>Mapping Kolom</h3><div id="mappingBox"><div class="empty">Upload Excel dulu.</div></div></div><div class="card wide"><h3>Template Penggajian</h3><p class="muted">Pilih struktur yang paling dekat dengan aturan sekolah. Semua template dibuat langsung sebagai file XLSX.</p><div class="actions" style="gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-payroll-template="grade">Golongan</button><button class="btn" type="button" data-payroll-template="position">Jabatan + Masa Kerja</button><button class="btn" type="button" data-payroll-template="individual">Individual</button><button class="btn" type="button" data-payroll-template="attendance">Kehadiran</button><button class="btn" type="button" data-payroll-template="teaching">Jam Mengajar</button><button class="btn primary" type="button" data-payroll-template="hybrid">Hybrid / Campuran</button><button class="btn" type="button" data-payroll-template="snapshot">Snapshot Payroll</button><button class="btn" type="button" data-payroll-template="long">Komponen Memanjang</button><button class="btn" type="button" data-payroll-template="multiunit">Multi Unit</button></div></div><div class="card wide"><h3>Analisis Semua Sheet</h3><div id="sheetAnalysis"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Preview Hasil Baca</h3><div id="importPreview"><div class="empty">Belum ada file dibaca.</div></div></div><div class="card wide"><h3>Cara Kerja Import</h3><div class="note"><b>Gaji bulan di Excel</b> disimpan persis sebagai snapshot. <b>Gaji bulan berikutnya</b> dihitung dari profil aturan yang terdeteksi. Bonus, THR, rapel, lembur, honor jam, dan koreksi dianggap komponen bulanan sehingga tidak otomatis berulang. Klaar akan membuka halaman Aturan Gaji setelah import agar hasil deteksi dapat diperiksa.</div></div></div></section>`,
             );
+          let fileField = $id("excelFile")?.closest(".field");
+          if (fileField && !$id("importPeriodConfirm"))
+            fileField.insertAdjacentHTML(
+              "afterend",
+              '<div class="field"><label>Periode gaji (wajib dikonfirmasi)</label><input type="month" id="importPeriodConfirm"><small class="muted">Dipakai jika Excel hanya menulis nama bulan tanpa tahun.</small></div>',
+            );
+          $id("importExcel")
+            ?.querySelector(".grid")
+            ?.insertAdjacentHTML(
+              "beforeend",
+              '<div id="importBatchList" class="wide"></div>',
+            );
+          renderImportBatches();
         }
         function renderExcelMapper() {
           let mode = $id("importMode")?.value || "auto";
@@ -8536,6 +9196,24 @@
             });
           });
           document.addEventListener("click", async (e) => {
+            let rollbackBtn = e.target?.closest?.("[data-rollback-batch]");
+            if (rollbackBtn) {
+              if (
+                confirm(
+                  "Batalkan batch import ini? Snapshot dan komponen yang dibuat batch tersebut akan dihapus.",
+                )
+              ) {
+                try {
+                  rollbackImportBatch(rollbackBtn.dataset.rollbackBatch);
+                  renderImportBatches();
+                  render();
+                  toast("Batch import dibatalkan.", "ok");
+                } catch (err) {
+                  toast(err.message, "bad");
+                }
+              }
+              return;
+            }
             let templateBtn = e.target?.closest?.("[data-payroll-template]");
             if (templateBtn) {
               try {
@@ -8558,6 +9236,7 @@
               importAnalysis = [];
               importContext = null;
               detectedPayrollProfile = null;
+              importPeriodOverride = "";
               masterIndex = {
                 items: [],
                 byName: {},
@@ -8667,12 +9346,23 @@
               try {
                 if (!importedWB) throw new Error("Baca file dulu.");
                 let mode = $id("importMode").value,
+                  confirmedPeriod =
+                    $id("importPeriodConfirm")?.value || "",
+                  preflight = importPreflightReview(mode),
                   predicted =
                     detectedPayrollProfile || detectPayrollProfile(),
                   predictionText =
                     mode === "auto" || mode === "payroll"
                       ? `\n\nMetode terdeteksi: ${predicted.name}\nKeyakinan: ${predicted.confidence}%\n${(predicted.reasons || []).join("; ")}\n\nJika dilanjutkan, Klaar akan mengaktifkan profil ini dan membuka Aturan Gaji.`
                       : "";
+                if (
+                  (mode === "auto" || mode === "payroll") &&
+                  !confirmedPeriod
+                )
+                  throw new Error(
+                    "Pilih periode bulan dan tahun payroll sebelum import.",
+                  );
+                importPeriodOverride = confirmedPeriod;
                 let ok = confirm(
                   mode === "auto"
                     ? "Import sheet tercentang dengan filter stabil? Backup otomatis akan dibuat dulu." +
@@ -8683,6 +9373,13 @@
                         predictionText,
                 );
                 if (!ok) return;
+                if (
+                  preflight.mismatch > 0 &&
+                  !confirm(
+                    `${preflight.mismatch} dari ${preflight.rows} baris belum cocok penuh antara rincian komponen dan total Excel. Nilai bersih Excel tetap akan dipertahankan sebagai snapshot dan selisih dicatat sebagai koreksi audit. Tetap lanjut?`,
+                  )
+                )
+                  return;
                 makeBackup("Sebelum import Excel");
                 let res =
                   mode === "auto"
@@ -8706,6 +9403,7 @@
                   employees: (db.employees || []).length,
                 });
                 db.importHistory = db.importHistory.slice(0, 20);
+                renderImportBatches();
                 audit("import_excel", "Import Excel diterapkan", {
                   mode,
                   reports: res.reports || [],
