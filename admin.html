@@ -471,9 +471,20 @@
         font-variant-numeric: tabular-nums;
         font-weight: 600;
       }
-      /* Di Payroll hanya jumlah/kali yang diinput. Nominal ada di slip. */
+      /* Ringkasan nominal tetap terlihat agar draft payroll mudah diaudit. */
       #payTable td.money {
-        display: none;
+        display: table-cell;
+      }
+      .pay-component-summary {
+        min-width: 210px;
+        max-width: 280px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.45;
+      }
+      .att-input.manual-correction {
+        border-color: #f59e0b;
+        background: #fffbeb;
       }
       .person {
         display: flex;
@@ -3719,6 +3730,19 @@
         });
         return res;
       }
+      function hasKlaarAttendance(empId, month) {
+        return dateList(month).some(
+          (date) => !!(db.attendanceRecords?.[date] || {})[empId],
+        );
+      }
+      function automaticPayrollSummary(empId, month) {
+        if (hasKlaarAttendance(empId, month))
+          return monthSummary(empId, month);
+        return {
+          ...(db.importedPayrollSnapshots?.[month]?.[empId]?.summary ||
+            monthSummary(empId, month)),
+        };
+      }
       function payrollDefinitionAttendanceType(definition) {
         let n = payrollNorm(definition?.name || "");
         if (/\btelat\b|terlambat/.test(n)) return "telat";
@@ -3779,24 +3803,130 @@
         let box = (db.importedPayrollSnapshots || {})[m] || {},
           it = box[e.id];
         if (!it) return null;
-        // Bulan yang berasal dari Excel adalah snapshot audit. Jangan pernah
-        // menghitung ulang snapshot memakai tarif/aturan yang mungkin sudah
-        // berubah setelah import. Perubahan aturan hanya berlaku untuk periode
-        // berikutnya; koreksi bulan import harus dibuat sebagai penyesuaian
-        // eksplisit agar angka Excel tetap dapat ditelusuri.
-        let summary = { ...(it.summary || monthSummary(e.id, m)) },
+        // Snapshot Excel tetap menjadi sumber audit, tetapi Payroll memakai
+        // salinan kerja. Salinan ini boleh menerima koreksi kehadiran/jumlah
+        // serta tarif terbaru selama periode belum difinalisasi.
+        let originalSummary = { ...(it.summary || monthSummary(e.id, m)) },
+          summary = { ...(summaryOverride || originalSummary) },
           allow = (it.allow || []).map((item) => ({ ...item })),
           ded = (it.ded || []).map((item) => ({ ...item })),
           base = +it.base || 0,
-          allowances = Number.isFinite(+it.allowances)
-            ? +it.allowances
-            : allow.reduce((sum, item) => sum + (+item.amount || 0), 0),
-          deductions = Number.isFinite(+it.deductions)
-            ? +it.deductions
-            : ded.reduce((sum, item) => sum + (+item.amount || 0), 0),
-          net = Number.isFinite(+it.net)
+          originalNet = Number.isFinite(+it.net)
             ? +it.net
-            : base + allowances - deductions;
+            : base +
+              allow.reduce((sum, item) => sum + (+item.amount || 0), 0) -
+              ded.reduce((sum, item) => sum + (+item.amount || 0), 0);
+
+        // Migrasi aman untuk snapshot lama: jika total bersih sudah benar tetapi
+        // rincian slip belum lengkap, tampilkan selisih sebagai penyesuaian audit.
+        let legacyLineNet =
+            base +
+            allow.reduce((sum, item) => sum + (+item.amount || 0), 0) -
+            ded.reduce((sum, item) => sum + (+item.amount || 0), 0),
+          legacyDelta = originalNet - legacyLineNet;
+        if (Math.abs(legacyDelta) >= 1) {
+          let adjustment = {
+            name: "Koreksi/penyesuaian sesuai Excel",
+            amount: Math.abs(legacyDelta),
+            source: "legacy_snapshot_reconciliation",
+          };
+          (legacyDelta > 0 ? allow : ded).push(adjustment);
+        }
+
+        // Aturan pokok/jabatan yang diedit melalui menu Gaji ikut memperbarui
+        // salinan kerja. Penyesuaian audit di atas tetap menjaga sumber Excel
+        // asli sehingga perubahan aturan terlihat sebagai selisih draft.
+        let method = db.settings.payrollMethod || "grade",
+          profile = db.payrollProfile || {},
+          hybridBase = profile.baseSource || "grade",
+          grade = getGrade(e.grade),
+          position = getPos(e.position),
+          ruleBase = 0;
+        if (
+          method === "grade" ||
+          (method === "hybrid" && hybridBase === "grade")
+        )
+          ruleBase = moneyOfGrade(grade);
+        else if (
+          method === "position_tenure" ||
+          (method === "hybrid" && hybridBase === "position")
+        )
+          ruleBase = +position.salary || 0;
+        else if (method === "individual" || method === "custom")
+          ruleBase = +e.baseSalary || 0;
+        if (ruleBase > 0) base = ruleBase;
+
+        let replaceExistingRuleLine = (list, matcher, amount, fallbackName) => {
+          let index = list.findIndex((item) => matcher.test(payrollNorm(item.name)));
+          if (index < 0) return;
+          if (+amount > 0)
+            list[index] = {
+              ...list[index],
+              name: list[index].name || fallbackName,
+              amount: +amount,
+              source: "payroll_draft_rule",
+            };
+          else list.splice(index, 1);
+        };
+        replaceExistingRuleLine(
+          allow,
+          /fungsional/,
+          +position.functionalAllowance || 0,
+          "Tunjangan Fungsional",
+        );
+        replaceExistingRuleLine(
+          allow,
+          /tunjangan rumah|tunj rumah|tj rumah/,
+          +position.houseAllowance || 0,
+          "Tunjangan Rumah",
+        );
+
+        // Komponen berbasis jumlah (telat, sakit, daycare, eskul, jam, dll.)
+        // mengikuti jumlah draft dan tarif aktif di menu Gaji. Komponen lain
+        // dari Excel tetap dipertahankan apa adanya.
+        activePayrollDefinitions(m).forEach((definition) => {
+          let quantity = payrollDefinitionQuantity(
+              definition,
+              e.id,
+              m,
+              summary,
+            ),
+            rate = +definition.rate || 0,
+            target = definition.kind === "deduction" ? ded : allow,
+            opposite = definition.kind === "deduction" ? allow : ded;
+          for (let i = target.length - 1; i >= 0; i--) {
+            if (componentBelongsToDefinition(target[i], definition))
+              target.splice(i, 1);
+          }
+          for (let i = opposite.length - 1; i >= 0; i--) {
+            if (componentBelongsToDefinition(opposite[i], definition))
+              opposite.splice(i, 1);
+          }
+          if (quantity > 0 && rate > 0)
+            target.push({
+              name: definition.name,
+              amount: quantity * rate,
+              quantity,
+              rate,
+              calculationType: "quantity_rate",
+              source: "payroll_draft_rule",
+            });
+        });
+
+        let allowances = allow.reduce(
+            (sum, item) => sum + (+item.amount || 0),
+            0,
+          ),
+          deductions = ded.reduce(
+            (sum, item) => sum + (+item.amount || 0),
+            0,
+          ),
+          net = base + allowances - deductions,
+          changed =
+            Math.abs(net - originalNet) >= 1 ||
+            Object.keys(summary).some(
+              (key) => +(summary[key] || 0) !== +(originalSummary[key] || 0),
+            );
         return {
           ...it,
           id: e.id,
@@ -3811,8 +3941,18 @@
           allowances,
           deductions,
           net,
-          source: "import_excel_snapshot",
-          snapshotLocked: true,
+          source: "import_excel_working",
+          snapshotLocked: false,
+          snapshotOriginalNet: originalNet,
+          snapshotChanged: changed,
+          sourceReconciliation: it.reconciliation || {},
+          reconciliation: {
+            grossDelta: 0,
+            deductionDelta: 0,
+            netDelta: 0,
+            unresolvedCount: 0,
+            normalizedWorkingCopy: true,
+          },
         };
       }
       function payrollEmp(e, m, summaryOverride) {
@@ -3987,19 +4127,9 @@
             if (x && x.id) byId[x.id] = x;
           });
           let rows = active.map((e) => {
-            let p = byId[e.id] || payrollEmp(e, m);
-            let o =
-              (db.payrollOverrides &&
-                db.payrollOverrides[m] &&
-                db.payrollOverrides[m][e.id]) ||
-              {};
-            if (o.sum) {
-              for (let k in o.sum) {
-                p.summary[k] = (p.summary[k] || 0) + o.sum[k];
-                if (p.summary[k] < 0) p.summary[k] = 0;
-              }
-            }
-            return p;
+            // Item final sudah menyimpan nilai koreksi pada saat dikunci.
+            // Jangan aplikasikan override lagi karena akan terhitung dua kali.
+            return byId[e.id] || payrollEmp(e, m);
           });
           locked.forEach((x) => {
             if (x && x.id && !active.some((e) => e.id == x.id)) rows.push(x);
@@ -4007,9 +4137,7 @@
           return rows;
         }
         return active.map((e) => {
-          let snapshotSummary =
-              db.importedPayrollSnapshots?.[m]?.[e.id]?.summary,
-            realSum = snapshotSummary || monthSummary(e.id, m);
+          let realSum = automaticPayrollSummary(e.id, m);
           let overSum =
             (db.payrollOverrides &&
               db.payrollOverrides[m] &&
@@ -4155,10 +4283,24 @@
                 errs.push("Duplikat identitas karyawan: " + (e.nip || e.name));
               seen[key] = 1;
             }
+            let hasImportedSnapshot =
+              !!db.importedPayrollSnapshots?.[m]?.[e.id];
             if (schoolUsesPositions() && !e.position)
-              errs.push("Karyawan tanpa jabatan: " + e.name);
+              (hasImportedSnapshot ? warn : errs).push(
+                "Karyawan tanpa jabatan: " +
+                  e.name +
+                  (hasImportedSnapshot
+                    ? " (snapshot tetap dapat diperiksa; lengkapi untuk bulan berikutnya)"
+                    : ""),
+              );
             if (schoolUsesGrades() && !e.grade)
-              errs.push("Karyawan tanpa golongan: " + e.name);
+              (hasImportedSnapshot ? warn : errs).push(
+                "Karyawan tanpa golongan: " +
+                  e.name +
+                  (hasImportedSnapshot
+                    ? " (snapshot tetap dapat diperiksa; lengkapi untuk bulan berikutnya)"
+                    : ""),
+              );
             if (!e.bank) warn.push("Rekening kosong: " + e.name);
           });
         items.forEach((p) => {
@@ -4166,7 +4308,7 @@
             errs.push("Gaji bersih Rp0/negatif: " + p.name);
           if ((+p.deductions || 0) > (+p.base || 0) + (+p.allowances || 0))
             errs.push("Potongan lebih besar dari penghasilan: " + p.name);
-          if (p.source === "import_excel_snapshot") {
+          if (String(p.source || "").startsWith("import_excel")) {
             let lineNet =
                 (+p.base || 0) +
                 (p.allow || []).reduce(
@@ -5097,34 +5239,41 @@
         if ($("payTableHead"))
           $("payTableHead").innerHTML =
             `<th>Karyawan</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpha</th><th>Telat</th>` +
-            inputDefs
-              .map(
-                (d) =>
-                  `<th>${esc(d.name)}<br><span class="muted">× ${rp(d.rate)}</span></th>`,
-              )
-              .join("") +
-            `<th>Pokok</th><th>Tunjangan</th><th>Potongan</th><th>Bersih</th><th>Aksi</th>`;
-        // Payroll adalah lembar input kuantitas. Tarif dan nominal rupiah
-        // hanya ditampilkan di Aturan Gaji dan slip.
-        if ($("payTableHead"))
-          $("payTableHead").innerHTML =
-            `<th>Karyawan</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpha</th><th>Telat</th>` +
             inputDefs.map((d) => `<th>${esc(d.name)}</th>`).join("") +
-            `<th>Aksi</th>`;
+            `<th>Pokok</th><th>Tunjangan</th><th>Potongan</th><th>Bersih</th><th>Rincian Komponen</th><th>Aksi</th>`;
         $("payStatus").innerHTML =
           (db.locks[m]
             ? `Status: <b>Final/Terkunci</b> pada ${esc(db.locks[m].at)}`
             : hasExcel
-              ? "Status: <b>Snapshot Import Excel</b>. Angka bulan import dikunci agar tetap sama dengan file sumber. Perubahan aturan hanya berlaku mulai periode berikutnya."
+              ? "Status: <b>Draft dari Import Excel</b>. Sumber Excel tetap tersimpan; koreksi jumlah dan tarif dapat dilakukan sampai finalisasi."
               : "Status: <b>Draft</b>. Edit angka absensi manual untuk koreksi (akan disimpan untuk bulan ini).") +
           (hasExcel
-            ? `<div class="note"><b>Sumber gaji:</b> Excel import bulan ${esc(m)}. Payroll hanya menampilkan jumlah/kali. Tarif dan rupiah ditampilkan di Aturan Gaji dan slip.</div>`
+            ? `<div class="note"><b>Sumber awal:</b> Excel bulan ${esc(m)}. Kehadiran tetap mengikuti Klaar Hadir; edit manual disimpan sebagai koreksi draft. Tarif dari menu Gaji langsung menghitung ulang Payroll dan slip.</div>`
             : "") +
           validationHtml(v);
         $("payTable").innerHTML = rows
           .map(
             (p) => {
-              let dynamicCells = inputDefs
+              let manualSum = db.payrollOverrides?.[m]?.[p.id]?.sum || {},
+                hasManualCorrection = Object.keys(manualSum).length > 0,
+                componentItems = [...(p.allow || []), ...(p.ded || [])],
+                componentPreview = componentItems.length
+                  ? componentItems
+                      .slice(0, 3)
+                      .map(
+                        (item) =>
+                          `${esc(item.name)}: ${rp(item.amount || 0)}`,
+                      )
+                      .join("<br>") +
+                    (componentItems.length > 3
+                      ? `<br><b>+${componentItems.length - 3} lainnya</b>`
+                      : "")
+                  : "Tidak ada komponen",
+                detailCell = `<td class="pay-component-summary">${componentPreview}<br><button class="btn small" style="margin-top:6px" data-slip="${p.id}">Lihat rincian</button></td>`,
+                resetButton = hasManualCorrection
+                  ? `<button class="btn small warn" data-reset-payroll-auto="${p.id}">Kembali otomatis</button>`
+                  : "",
+                dynamicCells = inputDefs
                 .map((d) => {
                   let q =
                     (db.periodInputs &&
@@ -5132,18 +5281,13 @@
                       db.periodInputs[m][p.id] &&
                       db.periodInputs[m][p.id][d.id]) ||
                     0;
-                  return `<td><input type="number" min="0" step="1" class="att-input pay-dyn-input" data-emp="${p.id}" data-def="${d.id}" value="${q}" ${db.locks[m] || p.snapshotLocked ? "disabled" : ""}></td>`;
+                  return `<td><input type="number" min="0" step="1" class="att-input pay-dyn-input" data-emp="${p.id}" data-def="${d.id}" value="${q}" ${db.locks[m] ? "disabled" : ""} title="Jumlah/kali; tarifnya diatur melalui menu Gaji"></td>`;
                 })
                 .join("");
-              return `<tr><td><div class="person"><div class="avatar">${initials(p.name)}</div><div class="pmeta"><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.position)} • ${labelMonth(m)}${p.source && String(p.source).includes("import_excel") ? " • Excel" : ""}</div></div></div></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="hadir" value="${p.summary.hadir}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="izin" value="${p.summary.izin}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="sakit" value="${p.summary.sakit}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="alpha" value="${p.summary.alpha}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" class="att-input" data-emp="${p.id}" data-type="telat" value="${p.summary.telat}" ${db.locks[m] ? "disabled" : ""}></td>${dynamicCells}<td class="money">${rp(p.base)}</td><td class="money">${rp(p.allowances)}</td><td class="money">${rp(p.deductions)}</td><td class="money click-value" data-full="${rp(p.net)}" data-title="Gaji bersih ${esc(p.name)}">${rp(p.net)}</td><td class="action-cell pay-action"><div class="row-actions"><button class="btn small primary" data-slip="${p.id}">Slip</button><button class="btn small success" data-send-slip="${p.id}">${db.sentSlips && db.sentSlips[m] && db.sentSlips[m][p.id] ? "Terkirim" : "Kirim"}</button></div></td></tr>`;
+              return `<tr><td><div class="person"><div class="avatar">${initials(p.name)}</div><div class="pmeta"><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.position)} • ${labelMonth(m)}${p.source && String(p.source).includes("import_excel") ? " • Excel" : ""}${hasManualCorrection ? ' • <span style="color:#b45309">Koreksi manual</span>' : ""}${p.snapshotChanged ? ' • <span style="color:#b45309">Draft berubah</span>' : ""}</div></div></div></td><td><input type="number" min="0" class="att-input ${Object.prototype.hasOwnProperty.call(manualSum, "hadir") ? "manual-correction" : ""}" data-emp="${p.id}" data-type="hadir" value="${p.summary.hadir}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" min="0" class="att-input ${Object.prototype.hasOwnProperty.call(manualSum, "izin") ? "manual-correction" : ""}" data-emp="${p.id}" data-type="izin" value="${p.summary.izin}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" min="0" class="att-input ${Object.prototype.hasOwnProperty.call(manualSum, "sakit") ? "manual-correction" : ""}" data-emp="${p.id}" data-type="sakit" value="${p.summary.sakit}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" min="0" class="att-input ${Object.prototype.hasOwnProperty.call(manualSum, "alpha") ? "manual-correction" : ""}" data-emp="${p.id}" data-type="alpha" value="${p.summary.alpha}" ${db.locks[m] ? "disabled" : ""}></td><td><input type="number" min="0" class="att-input ${Object.prototype.hasOwnProperty.call(manualSum, "telat") ? "manual-correction" : ""}" data-emp="${p.id}" data-type="telat" value="${p.summary.telat}" ${db.locks[m] ? "disabled" : ""}></td>${dynamicCells}<td class="money">${rp(p.base)}</td><td class="money">${rp(p.allowances)}</td><td class="money">${rp(p.deductions)}</td><td class="money click-value" data-full="${rp(p.net)}" data-title="Gaji bersih ${esc(p.name)}">${rp(p.net)}</td>${detailCell}<td class="action-cell pay-action"><div class="row-actions"><button class="btn small primary" data-slip="${p.id}">Slip</button>${resetButton}<button class="btn small success" data-send-slip="${p.id}">${db.sentSlips && db.sentSlips[m] && db.sentSlips[m][p.id] ? "Terkirim" : "Kirim"}</button></div></td></tr>`;
             },
           )
           .join("");
-        if (hasExcel && !db.locks[m]) {
-          $("payTable")
-            .querySelectorAll("input")
-            .forEach((input) => (input.disabled = true));
-        }
       }
       function slipHtml(p, m, buttons = true) {
         let logo = db.settings.logo
@@ -5315,6 +5459,22 @@
         if (sl) showSlip(sl.dataset.slip);
         let ss = e.target.closest("[data-send-slip]");
         if (ss) sendSlip(ss.dataset.sendSlip);
+        let resetAuto = e.target.closest("[data-reset-payroll-auto]");
+        if (resetAuto) {
+          let m = $("payMonth").value || monthNow(),
+            empId = resetAuto.dataset.resetPayrollAuto;
+          if (db.payrollOverrides?.[m]?.[empId]) {
+            delete db.payrollOverrides[m][empId].sum;
+            if (!Object.keys(db.payrollOverrides[m][empId]).length)
+              delete db.payrollOverrides[m][empId];
+            if (!Object.keys(db.payrollOverrides[m]).length)
+              delete db.payrollOverrides[m];
+          }
+          saveLocal();
+          renderPayroll();
+          toast("Koreksi dihapus. Kehadiran kembali mengikuti Klaar Hadir.");
+          return;
+        }
         let ee = e.target.closest("[data-edit-emp]");
         if (ee) {
           closeModal();
@@ -5692,9 +5852,7 @@
               delete db.payrollOverrides[m][empId].sum[type];
             }
           } else {
-            let realSum =
-              db.importedPayrollSnapshots?.[m]?.[empId]?.summary ||
-              monthSummary(empId, m);
+            let realSum = automaticPayrollSummary(empId, m);
             let autoVal = realSum[type] || 0;
             let delta = val - autoVal;
             db.payrollOverrides = db.payrollOverrides || {};
@@ -8157,9 +8315,30 @@
             (sum, item) => sum + (+item.amount || 0),
             0,
           );
+          // Koreksi Excel adalah baris nyata di slip, bukan sekadar angka yang
+          // diam-diam ditambahkan ke gaji bersih. Dengan begitu rincian slip
+          // selalu dapat direkonsiliasi hingga rupiah terakhir.
+          let excelDeductionsBeforeCorrection = deductions;
+          if (correction > 0)
+            addAllow("Koreksi periode", correction, "excel_correction");
+          else if (correction < 0)
+            addDed(
+              "Koreksi periode",
+              Math.abs(correction),
+              "excel_correction",
+            );
           // Jika Excel punya Gaji Bersih, jadikan itu sumber utama agar nominal akhir sama persis dengan Excel.
-          if (!net) net = gross - deductions + correction;
-          let expected = gross - deductions + correction;
+          allowances = allow.reduce(
+            (sum, item) => sum + (+item.amount || 0),
+            0,
+          );
+          deductions = ded.reduce(
+            (sum, item) => sum + (+item.amount || 0),
+            0,
+          );
+          if (!net) net = gross - excelDeductionsBeforeCorrection + correction;
+          let expected =
+            gross - excelDeductionsBeforeCorrection + correction;
           let diff = net - expected;
           if (net && Math.abs(diff) >= 1) {
             // Tidak boleh membuat koreksi otomatis. Selisih wajib dipetakan
@@ -8186,9 +8365,10 @@
               excelGross: gross,
               componentGross,
               grossDelta: gross - componentGross,
-              excelDeductions: deductions,
+              excelDeductions: excelDeductionsBeforeCorrection,
               componentDeductions,
-              deductionDelta: deductions - componentDeductions,
+              deductionDelta:
+                excelDeductionsBeforeCorrection - componentDeductions,
               excelNet: net,
               calculatedNet: expected,
               netDelta: diff,
