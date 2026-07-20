@@ -3092,6 +3092,20 @@
         localStorage.setItem(KEY, JSON.stringify(db));
         AUTO_SUPPRESS = false;
       }
+      let payrollDraftRenderTimer = null,
+        payrollDraftSaveTimer = null;
+      function queuePayrollDraftRefresh() {
+        // Edit angka payroll bisa terjadi beruntun. Tunda render dan serialisasi
+        // database agar satu koreksi tidak membuat seluruh tabel bekerja dua kali.
+        clearTimeout(payrollDraftRenderTimer);
+        payrollDraftRenderTimer = setTimeout(() => renderPayroll(), 60);
+        clearTimeout(payrollDraftSaveTimer);
+        payrollDraftSaveTimer = setTimeout(() => {
+          if (isDemo) return;
+          saveLocalSilent();
+          queueAutoSync(900);
+        }, 250);
+      }
       function initials(n) {
         return (
           String(n || "KL")
@@ -3881,6 +3895,50 @@
           "Tunjangan Rumah",
         );
 
+        // Tunjangan kehadiran pada salinan kerja harus mengikuti jumlah hadir
+        // terbaru. Utamakan aturan golongan; untuk snapshot lama yang belum
+        // memiliki golongan, turunkan tarif hariannya dari angka Excel supaya
+        // koreksi kehadiran tetap mengubah slip secara terukur.
+        let attendanceIndex = allow.findIndex((item) =>
+            /kehadiran|hadir|on time/.test(payrollNorm(item.name)),
+          ),
+          attendanceDays = (+summary.hadir || 0) + (+summary.telat || 0),
+          originalAttendanceDays =
+            (+originalSummary.hadir || 0) + (+originalSummary.telat || 0),
+          workDays = +db.settings.defaultWorkDays || 24,
+          attendanceFull = +grade.attendanceFull || 0,
+          attendanceDaily = +grade.attendanceDaily || 0,
+          attendanceAmount = 0;
+        if (attendanceFull || attendanceDaily) {
+          if (attendanceDays >= workDays && attendanceFull)
+            attendanceAmount = attendanceFull;
+          else {
+            let dailyRate =
+              attendanceDaily || (workDays ? attendanceFull / workDays : 0);
+            attendanceAmount = Math.round(dailyRate * attendanceDays);
+          }
+        } else if (attendanceIndex >= 0 && originalAttendanceDays > 0) {
+          attendanceAmount = Math.round(
+            ((+allow[attendanceIndex].amount || 0) / originalAttendanceDays) *
+              attendanceDays,
+          );
+        }
+        if (attendanceIndex >= 0) {
+          if (attendanceAmount > 0)
+            allow[attendanceIndex] = {
+              ...allow[attendanceIndex],
+              amount: attendanceAmount,
+              source: "payroll_draft_attendance",
+            };
+          else allow.splice(attendanceIndex, 1);
+        } else if (attendanceAmount > 0) {
+          allow.push({
+            name: "Tunjangan Kehadiran",
+            amount: attendanceAmount,
+            source: "payroll_draft_attendance",
+          });
+        }
+
         // Komponen berbasis jumlah (telat, sakit, daycare, eskul, jam, dll.)
         // mengikuti jumlah draft dan tarif aktif di menu Gaji. Komponen lain
         // dari Excel tetap dipertahankan apa adanya.
@@ -4267,8 +4325,8 @@
           activeEmployees().some((e) => e.position && String(e.position).trim())
         );
       }
-      function payrollValidation(m = monthNow()) {
-        let items = payroll(m),
+      function payrollValidation(m = monthNow(), calculatedItems = null) {
+        let items = calculatedItems || payroll(m),
           errs = [],
           warn = [];
         let seen = {};
@@ -5231,7 +5289,7 @@
         let m = $("payMonth").value || monthNow();
         $("payMonth").value = m;
         let rows = payroll(m),
-          v = payrollValidation(m),
+          v = payrollValidation(m, rows),
           hasExcel = !!(db.importedPayrollSnapshots || {})[m],
           inputDefs = activePayrollDefinitions(m).filter(
             (definition) => !payrollDefinitionAttendanceType(definition),
@@ -5837,8 +5895,7 @@
             0,
             +e.target.value || 0,
           );
-          saveLocal();
-          renderPayroll();
+          queuePayrollDraftRefresh();
           return;
         }
         if (e.target.classList.contains("att-input")) {
@@ -5863,8 +5920,7 @@
             db.payrollOverrides[m][empId].sum[type] = delta;
           }
           
-          saveLocal();
-          renderPayroll();
+          queuePayrollDraftRefresh();
         }
       });
       $("serverUrl").addEventListener("input", () =>
