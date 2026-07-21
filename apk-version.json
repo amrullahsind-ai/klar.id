@@ -1,8 +1,8 @@
 {
-  "versionCode": 3,
-  "versionName": "1.1.1",
-  "apkUrl": "https://github.com/amrullahsind-ai/klar.id/releases/download/apk-v1.1.1/klaar-hadir.apk",
-  "sha256": "c04915a37ffb99a970f6db3faee80c4c280f81aeb1305131646aac67290261b4",
+  "versionCode": 4,
+  "versionName": "1.1.2",
+  "apkUrl": "https://github.com/amrullahsind-ai/klar.id/releases/download/apk-v1.1.2/klaar-hadir.apk",
+  "sha256": "1198588974bf2e174585b49f1135f72f0345c7ee06082efb17f079ebd79bd291",
   "mandatory": false,
-  "notes": "perbaikan logo"
+  "notes": "logo"
 }
