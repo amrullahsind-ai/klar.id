@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#085842" />
     <title>Buka Klaar Hadir</title>
+    <link rel="icon" href="./klaar-logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <style>
       * { box-sizing: border-box; }
       body {
@@ -38,8 +41,16 @@
         text-decoration: none;
       }
       #openApp { color: #fff; background: #085842; }
-      #openWeb { margin-top: 10px; color: #085842; background: #e7f6f0; }
+      #downloadApk { margin-top: 10px; color: #085842; background: #dff7ee; }
+      #downloadApk[aria-disabled="true"] {
+        color: #94a3b8;
+        background: #f1f5f9;
+        pointer-events: none;
+      }
+      #openWeb { margin-top: 10px; color: #475569; background: #f1f5f9; }
       .note { margin-top: 18px; font-size: 12px; }
+      #downloadInfo { margin: 8px 0 0; min-height: 18px; font-size: 12px; color: #64748b; }
+      .hidden { display: none !important; }
     </style>
   </head>
   <body>
@@ -48,8 +59,10 @@
       <h1>Buka Klaar Hadir</h1>
       <p>Pilih aplikasi agar kode sekolah terpasang otomatis, lalu login menggunakan NIP dan PIN.</p>
       <a id="openApp" href="#">Buka di Aplikasi Klaar Hadir</a>
+      <a id="downloadApk" href="#" aria-disabled="true">Menyiapkan APK...</a>
+      <p id="downloadInfo" aria-live="polite"></p>
       <a id="openWeb" href="./employee.html">Lanjutkan di Browser</a>
-      <p class="note">Belum punya aplikasi? Gunakan pilihan browser terlebih dahulu.</p>
+      <p class="note">Unduhan APK hanya untuk Android. Setelah instalasi, kembali ke halaman ini lalu tekan <b>Buka di Aplikasi Klaar Hadir</b> agar kode sekolah ikut terpasang. Android mungkin meminta izin instalasi dari browser ini.</p>
     </main>
     <script>
       const token = new URLSearchParams(location.search).get("k") || "";
@@ -59,6 +72,46 @@
       document.getElementById("openApp").href = validToken
         ? "klaarhadir://login?k=" + validToken
         : "klaarhadir://login";
+
+      const downloadApk = document.getElementById("downloadApk");
+      const downloadInfo = document.getElementById("downloadInfo");
+      const isAndroid = /Android/i.test(navigator.userAgent || "");
+
+      function validApkUrl(rawUrl) {
+        try {
+          const url = new URL(rawUrl, location.href);
+          const host = url.hostname.toLowerCase();
+          const allowedHost = host === "app.klaar.my.id"
+            || host === "github.com"
+            || host.endsWith(".githubusercontent.com");
+          return url.protocol === "https:" && allowedHost && url.pathname.toLowerCase().endsWith(".apk")
+            ? url.href
+            : "";
+        } catch (_) {
+          return "";
+        }
+      }
+
+      fetch("./apk-version.json?t=" + Date.now(), { cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error("Metadata APK tidak tersedia");
+          return response.json();
+        })
+        .then((release) => {
+          const apkUrl = validApkUrl(release.apkUrl);
+          if (!apkUrl) throw new Error("Tautan APK tidak valid");
+          const version = String(release.versionName || "terbaru").trim();
+          downloadApk.href = apkUrl;
+          downloadApk.removeAttribute("aria-disabled");
+          downloadApk.textContent = isAndroid
+            ? "Download Aplikasi Android"
+            : "Download APK Android";
+          downloadInfo.textContent = "Versi " + version;
+        })
+        .catch(() => {
+          downloadApk.textContent = "APK belum tersedia";
+          downloadInfo.textContent = "Silakan lanjutkan di browser atau coba lagi nanti.";
+        });
     </script>
   </body>
 </html>
