@@ -17,6 +17,10 @@ android {
     namespace = "id.my.klaar.hadir"
     compileSdk = 35
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "id.my.klaar.hadir"
         minSdk = 24
