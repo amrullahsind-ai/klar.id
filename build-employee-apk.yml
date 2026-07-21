@@ -1,0 +1,46 @@
+name: Build Klaar Hadir APK (Testing)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android-employee/**"
+      - ".github/workflows/build-employee-apk.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-employee
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Restore reusable debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: klaar-hadir-debug-keystore-v1
+      - name: Create debug signing key when missing
+        shell: bash
+        run: |
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Klaar Hadir Debug,O=Klaar,C=ID"
+          fi
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: klaar-hadir-debug-testing-only
+          path: android-employee/app/build/outputs/apk/debug/app-debug.apk
