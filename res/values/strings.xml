@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Klaar Hadir</string>
+    <string name="no_browser">Tidak ada aplikasi yang bisa membuka tautan ini.</string>
+    <string name="no_file_picker">Pemilih file tidak tersedia.</string>
+</resources>

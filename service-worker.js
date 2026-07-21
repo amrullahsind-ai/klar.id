@@ -1,4 +1,4 @@
-const CACHE = 'klaar-shell-20260720-v12';
+const CACHE = 'klaar-shell-20260721-v13';
 const SHELL = [
   './',
   './index.html',
@@ -7,6 +7,13 @@ const SHELL = [
   './open-employee.html',
   './klaar-logo-192.png',
   './klaar-logo.png',
+  './klaar-logo.svg',
+  './icons/favicon-16.png',
+  './icons/favicon-32.png',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './admin-manifest.json',
   './employee-manifest.json'
 ];
