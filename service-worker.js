@@ -1,8 +1,9 @@
-const CACHE = 'klaar-shell-20260721-v14';
+const CACHE = 'klaar-shell-20260721-v15';
 const SHELL = [
   './',
   './index.html',
   './admin.html',
+  './payroll-import-core.js',
   './employee.html',
   './open-employee.html',
   './klaar-logo-192.png',

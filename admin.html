@@ -1189,6 +1189,7 @@
       }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="./payroll-import-core.js"></script>
     <script>
       tailwind.config = { corePlugins: { preflight: false } };
     </script>
@@ -3914,13 +3915,13 @@
           attendanceDaily = +grade.attendanceDaily || 0,
           attendanceAmount = 0;
         if (attendanceFull || attendanceDaily) {
-          if (attendanceDays >= workDays && attendanceFull)
-            attendanceAmount = attendanceFull;
-          else {
-            let dailyRate =
-              attendanceDaily || (workDays ? attendanceFull / workDays : 0);
-            attendanceAmount = Math.round(dailyRate * attendanceDays);
-          }
+          attendanceAmount = window.KlaarPayrollCore.attendanceAllowance({
+            hadir: +summary.hadir || 0,
+            telat: +summary.telat || 0,
+            workDays,
+            fullAmount: attendanceFull,
+            dailyRate: attendanceDaily,
+          });
         } else if (attendanceIndex >= 0 && originalAttendanceDays > 0) {
           attendanceAmount = Math.round(
             ((+allow[attendanceIndex].amount || 0) / originalAttendanceDays) *
@@ -4090,9 +4091,13 @@
 
         // Tunjangan Kehadiran dari Golongan sekarang ditarik keluar agar berlaku di SEMUA mode (termasuk Mode Excel)
         let fullish = sum.hadir + sum.telat >= work;
-        let att = fullish
-          ? +g.attendanceFull || 0
-          : (+g.attendanceDaily || 0) * (sum.hadir + sum.telat);
+        let att = window.KlaarPayrollCore.attendanceAllowance({
+          hadir: sum.hadir,
+          telat: sum.telat,
+          workDays: work,
+          fullAmount: +g.attendanceFull || 0,
+          dailyRate: +g.attendanceDaily || 0,
+        });
         if (att) {
           allow.push({
             name: "Tunjangan Kehadiran " + (fullish ? "full" : "harian"),
@@ -6959,19 +6964,13 @@
             byNipFlex: {},
             byBirth: [],
           };
+        const importCore = window.KlaarPayrollCore;
+        if (!importCore)
+          throw new Error("Mesin validasi payroll gagal dimuat.");
         const $id = (id) => document.getElementById(id);
-        const clean = (v) =>
-          String(v ?? "")
-            .replace(/\u00a0/g, " ")
-            .trim();
-        const norm = (s) =>
-          clean(s)
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, " ")
-            .trim();
-        const compact = (s) => norm(s).replace(/\s+/g, "");
+        const clean = importCore.clean;
+        const norm = importCore.norm;
+        const compact = importCore.compact;
         const isBlankRow = (r) => (r || []).every((x) => clean(x) === "");
         const isCode = (s) =>
           /^(aa|bb|cc|dd|slp|emp|imp)[\s.-]*\d+$/i.test(clean(s));
@@ -7034,29 +7033,7 @@
           if (isEmployeeLabel(nip)) return nip;
           return "";
         };
-        const toNum = (v) => {
-          if (typeof v === "number") return Math.round(v);
-          let s = clean(v);
-          if (!s) return 0;
-          s = s.replace(/\(([^)]*)\)/g, "-$1").replace(/[^0-9,.\-]/g, "");
-          if (!/\d/.test(s)) return 0;
-          let neg = /-/.test(s);
-          s = s.replace(/-/g, "");
-          let dec = Math.max(s.lastIndexOf(","), s.lastIndexOf("."));
-          let intPart = s,
-            frac = "";
-          if (dec > -1) {
-            let after = s.slice(dec + 1);
-            if (/^\d{1,2}$/.test(after)) {
-              intPart = s.slice(0, dec);
-              frac = after;
-            }
-          }
-          intPart = intPart.replace(/[.,]/g, "");
-          let n = parseFloat(intPart + (frac ? "." + frac : ""));
-          if (isNaN(n)) return 0;
-          return Math.round(neg ? -n : n);
-        };
+        const toNum = importCore.toNumber;
         const monthNowSafe = () =>
           typeof monthNow === "function"
             ? monthNow()
@@ -7840,26 +7817,7 @@
           };
         }
         function classifyImportedComponent(name, kind) {
-          let n = norm(name);
-          if (/koreksi|selisih|penyesuaian/.test(n)) return "monthly";
-          if (
-            /thr|bonus|rapel|lembur|overtime|insentif|honor kegiatan|honor.*jam|jam mengajar|\bjtm\b/.test(
-              n,
-            )
-          )
-            return "monthly";
-          if (/pinjaman|cicilan|angsuran|kasbon/.test(n)) return "installment";
-          if (/bpjs|jht|jkk|jkm|jaminan pensiun|pph|pajak/.test(n))
-            return "statutory";
-          if (/hadir|kehadiran|absen|alpha|alpa|telat|terlambat/.test(n))
-            return "attendance";
-          if (
-            /gaji pokok|gapok|fungsional|(?:tunjangan|tunj|tj).*rumah|masa kerja/.test(
-              n,
-            )
-          )
-            return "rule";
-          return "fixed";
+          return importCore.classifyImportedComponent(name, kind);
         }
         function classifyMoneyItems(money) {
           let classify = (items, kind) =>
@@ -8050,42 +8008,13 @@
           return hit?.name || employeeLabel(row, ctx) || "";
         }
         function semanticComponentKey(name) {
-          return norm(name)
-            .replace(/\b(tunjangan|tunj|tj|potongan|pot|biaya|anak)\b/g, " ")
-            .replace(/\b(kesehatan|tenaga kerja|ketenagakerjaan)\b/g, " $1 ")
-            .replace(/\s+/g, " ")
-            .trim();
+          return importCore.semanticComponentKey(name);
         }
         function quantityKindForHeader(header, headers, sourceIndex = -1) {
-          let key = semanticComponentKey(header),
-            words = key.split(" ").filter((x) => x.length > 2),
-            best = null;
-          (headers || []).forEach((candidate, index) => {
-            if (index === sourceIndex) return;
-            let n = norm(candidate);
-            if (!/tunj|pot|gaji|insentif|subsidi|beasiswa|bpjs/.test(n))
-              return;
-            let candidateKey = semanticComponentKey(candidate),
-              hits = words.filter((w) => candidateKey.includes(w)).length;
-            if (!hits) return;
-            let score = hits * 10 + (/pot|iuran/.test(n) ? 2 : 1);
-            if (!best || score > best.score)
-              best = {
-                index,
-                header: candidate,
-                kind: /pot|iuran/.test(n) ? "deduction" : "allowance",
-                score,
-              };
-          });
-          return (
-            best || {
-              index: -1,
-              header: "",
-              kind: /day care|daycare/.test(norm(header))
-                ? "deduction"
-                : "allowance",
-              score: 0,
-            }
+          return importCore.quantityKindForHeader(
+            header,
+            headers,
+            sourceIndex,
           );
         }
         function moneyFromRow(row, ctx) {
@@ -8163,47 +8092,34 @@
             // boleh menjadi quantity bila ada tarif DAN kolom hasil uang lain
             // yang cocok secara semantik. Ini mencegah nilai 1/2 berubah
             // menjadi Rp1/Rp2 karena tebakan parser.
-            if (
-              +meta.rate > 0 &&
-              Number.isInteger(amount) &&
-              amount >= 0 &&
-              Math.abs(amount) <= 1000
-            ) {
-              let linked = quantityKindForHeader(raw, ctx.headers || [], i),
-                operational =
-                  /hadir|telat|terlambat|sakit|izin|alpha|alpa|tanpa ket|tugas|\btgs\b|hari libur|hr\.?\s*libur|day\s*care|eskul|ekskul|futsal|renang|pramuka|musrif|musyrif|jam|malam|makan|lembur|shift|kegiatan/i.test(
-                    raw,
-                  ),
-                safelyLinked = linked.index >= 0 && linked.score >= 10;
-              if (!safelyLinked && !operational) {
-                  unresolved.push({
-                    column: raw,
-                    value: amount,
-                    reason:
-                      "Angka kecil punya tarif tetapi tidak memiliki pasangan kolom hasil yang pasti.",
-                  });
+            let quantityEvaluation = importCore.evaluateQuantityColumn({
+              header: raw,
+              headers: ctx.headers || [],
+              sourceIndex: i,
+              value: amount,
+              rate: +meta.rate || 0,
+            });
+            if (quantityEvaluation.recognized) {
+              if (quantityEvaluation.unresolved) {
+                unresolved.push({
+                  column: raw,
+                  value: amount,
+                  reason: quantityEvaluation.reason,
+                });
               } else {
-              let operationalDeduction =
-                /telat|terlambat|sakit|izin|alpha|alpa|tanpa ket|day\s*care/i.test(
-                  raw,
-                );
               inputs.push({
                 id: "qty_" + compact(raw),
                 name: raw,
-                quantity: amount,
-                rate: +meta.rate,
-                amount: amount * +meta.rate,
-                kind: safelyLinked
-                  ? linked.kind
-                  : operationalDeduction
-                    ? "deduction"
-                    : "allowance",
-                resultHeader: linked.header || "",
+                quantity: quantityEvaluation.quantity,
+                rate: quantityEvaluation.rate,
+                amount: quantityEvaluation.amount,
+                kind: quantityEvaluation.kind,
+                resultHeader: quantityEvaluation.resultHeader,
                 // Hanya pasangan quantity->kolom hasil yang pasti yang boleh
                 // menjadi aturan aktif otomatis. Deteksi kegiatan tanpa kolom
                 // hasil tetap disimpan untuk review, tetapi tidak menghitung uang.
-                active: safelyLinked,
-                confidence: safelyLinked ? linked.score || 0 : 80,
+                active: quantityEvaluation.active,
+                confidence: quantityEvaluation.confidence,
                 sourceColumn: raw,
                 calculationType: "quantity_rate",
               });
@@ -8397,9 +8313,14 @@
             0,
           );
           if (!net) net = gross - excelDeductionsBeforeCorrection + correction;
-          let expected =
-            gross - excelDeductionsBeforeCorrection + correction;
-          let diff = net - expected;
+          let exactReconciliation = importCore.reconcilePayroll({
+              gross,
+              deductions: excelDeductionsBeforeCorrection,
+              correction,
+              net,
+            }),
+            expected = exactReconciliation.calculatedNet,
+            diff = exactReconciliation.delta;
           if (net && Math.abs(diff) >= 1) {
             // Tidak boleh membuat koreksi otomatis. Selisih wajib dipetakan
             // admin ke kolom koreksi yang nyata sebelum import diterapkan.

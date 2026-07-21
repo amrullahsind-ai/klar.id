@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <title>Klaar Payroll Regression</title>
+    <script src="../payroll-import-core.js"></script>
+  </head>
+  <body data-status="running">
+    <h1>Payroll regression</h1>
+    <ol id="results"></ol>
+    <script>
+      (function () {
+        const core = window.KlaarPayrollCore;
+        const results = document.getElementById("results");
+        let passed = 0;
+        let failed = 0;
+
+        function test(name, run) {
+          const item = document.createElement("li");
+          try {
+            run();
+            passed++;
+            item.dataset.result = "pass";
+            item.textContent = "PASS: " + name;
+          } catch (error) {
+            failed++;
+            item.dataset.result = "fail";
+            item.textContent = "FAIL: " + name + " — " + error.message;
+          }
+          results.appendChild(item);
+        }
+
+        function equal(actual, expected, message) {
+          if (actual !== expected)
+            throw new Error(
+              (message || "nilai berbeda") +
+                `; aktual=${actual}, expected=${expected}`,
+            );
+        }
+
+        test("format rupiah Indonesia dibaca bulat", function () {
+          equal(core.toNumber("Rp 3.879.800"), 3879800);
+          equal(core.toNumber("(50.000)"), -50000);
+          equal(core.toNumber("1"), 1);
+          equal(core.toNumber("2"), 2);
+        });
+
+        [
+          ["KARLINA", 3879800, 1109800, 0, 2770000],
+          ["ESTI SUSILOWATI", 8959800, 4169800, 0, 4790000],
+          ["AFIFAH USWATUN NISA", 474000, 0, 0, 474000],
+          ["RIKA AMRIANI", 7189800, 3907300, 50000, 3332500],
+        ].forEach(function (row) {
+          test("rekonsiliasi Excel Agustus: " + row[0], function () {
+            const result = core.reconcilePayroll({
+              gross: row[1],
+              deductions: row[2],
+              correction: row[3],
+              net: row[4],
+            });
+            equal(result.exact, true);
+            equal(result.delta, 0);
+          });
+        });
+
+        test("selisih Rp1 selalu diblokir", function () {
+          const result = core.reconcilePayroll({
+            gross: 1000000,
+            deductions: 100000,
+            correction: 0,
+            net: 900001,
+          });
+          equal(result.exact, false);
+          equal(result.delta, 1);
+        });
+
+        test("jumlah daycare menjadi 2x tarif, bukan Rp2", function () {
+          const headers = [
+            "DAY CARE ANAK PG-TK",
+            "POTONGAN DAY CARE",
+          ];
+          const result = core.evaluateQuantityColumn({
+            header: headers[0],
+            headers,
+            sourceIndex: 0,
+            value: 2,
+            rate: 175000,
+          });
+          equal(result.active, true);
+          equal(result.kind, "deduction");
+          equal(result.amount, 350000);
+          equal(result.resultHeader, "POTONGAN DAY CARE");
+        });
+
+        test("jumlah pramuka menjadi 2x tarif tunjangan", function () {
+          const headers = ["ESKUL PRAMUKA", "TUNJ. ESKUL"];
+          const result = core.evaluateQuantityColumn({
+            header: headers[0],
+            headers,
+            sourceIndex: 0,
+            value: 2,
+            rate: 25000,
+          });
+          equal(result.active, true);
+          equal(result.kind, "allowance");
+          equal(result.amount, 50000);
+        });
+
+        test("kolom asing tidak diam-diam menjadi uang", function () {
+          const result = core.evaluateQuantityColumn({
+            header: "JUMLAH ACARA",
+            headers: ["JUMLAH ACARA", "CATATAN"],
+            sourceIndex: 0,
+            value: 1,
+            rate: 10000,
+          });
+          equal(result.active, false);
+          equal(result.unresolved, true);
+          equal(result.amount, 0);
+        });
+
+        test("perubahan hadir menghitung ulang tunjangan", function () {
+          equal(
+            core.attendanceAllowance({
+              hadir: 25,
+              workDays: 25,
+              fullAmount: 375000,
+              dailyRate: 15000,
+            }),
+            375000,
+          );
+          equal(
+            core.attendanceAllowance({
+              hadir: 24,
+              workDays: 25,
+              fullAmount: 375000,
+              dailyRate: 15000,
+            }),
+            360000,
+          );
+        });
+
+        test("komponen tetap dan periode diklasifikasikan benar", function () {
+          equal(core.classifyImportedComponent("Gaji Pokok"), "rule");
+          equal(core.classifyImportedComponent("Tunjangan Rumah"), "rule");
+          equal(core.classifyImportedComponent("Tunjangan Lembur"), "monthly");
+          equal(core.classifyImportedComponent("Koreksi Gaji"), "monthly");
+          equal(core.classifyImportedComponent("Potongan Pinjaman"), "installment");
+          equal(core.classifyImportedComponent("BPJS Kesehatan"), "statutory");
+          equal(core.classifyImportedComponent("Day Care"), "fixed");
+        });
+
+        document.body.dataset.status = failed ? "failed" : "passed";
+        document.body.dataset.passed = String(passed);
+        document.body.dataset.failed = String(failed);
+        const summary = document.createElement("p");
+        summary.id = "summary";
+        summary.textContent = `${passed} lulus, ${failed} gagal`;
+        document.body.appendChild(summary);
+      })();
+    </script>
+  </body>
+</html>
