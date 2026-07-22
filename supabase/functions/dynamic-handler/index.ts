@@ -1,15 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ====== CORS (inline, supaya function ini 1 file utuh & bisa di-paste di dashboard) ======
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
-};
-function jsonResponse(obj, status = 200) {
+const ALLOWED_ORIGINS = new Set((Deno.env.get("ALLOWED_ORIGINS") || "https://app.klaar.my.id").split(",").map((x)=>x.trim()).filter(Boolean));
+function corsHeadersFor_(req) {
+  const origin = String(req.headers.get("origin") || "");
+  return {
+    ...(origin && ALLOWED_ORIGINS.has(origin) ? {
+      "Access-Control-Allow-Origin": origin
+    } : {}),
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin"
+  };
+}
+function jsonResponse(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: {
-      ...corsHeaders,
+      ...extraHeaders,
       "Content-Type": "application/json"
     }
   });
@@ -97,6 +104,67 @@ async function verifyLicenseToken(token) {
       ok: false,
       error: String(err?.message || err)
     };
+  }
+}
+
+const SELFIE_BUCKET = "selfies";
+const SELFIE_URL_TTL_SECONDS = 15 * 60;
+
+async function sha256Hex_(value) {
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(String(value || "")));
+  return Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2, "0")).join("");
+}
+
+async function selfieTenantPrefix_(licenseCode) {
+  return `tenant/${await sha256Hex_(licenseCode)}`;
+}
+
+async function safeSelfiePath_(licenseCode, candidate) {
+  const path = String(candidate || "").trim();
+  const prefix = await selfieTenantPrefix_(licenseCode);
+  return path.startsWith(prefix + "/") ? path : "";
+}
+
+async function signSelfiePaths_(licenseCode, paths) {
+  const prefix = await selfieTenantPrefix_(licenseCode);
+  const clean = [
+    ...new Set((paths || []).map((x)=>String(x || "").trim()).filter((x)=>x.startsWith(prefix + "/")))
+  ];
+  const signed = new Map();
+  for(let i = 0; i < clean.length; i += 100){
+    const chunk = clean.slice(i, i + 100);
+    const { data, error } = await supabase.storage.from(SELFIE_BUCKET).createSignedUrls(chunk, SELFIE_URL_TTL_SECONDS);
+    if (error) throw error;
+    (data || []).forEach((item, index)=>{
+      const path = String(item?.path || chunk[index] || "");
+      const url = String(item?.signedUrl || "");
+      if (path && url) signed.set(path, url);
+    });
+  }
+  return signed;
+}
+
+function collectAttendanceWithSelfies_(node, out, depth = 0) {
+  if (!node || typeof node !== "object" || depth > 4) return;
+  if (node.checkInSelfiePath || node.checkOutSelfiePath) out.push(node);
+  for (const value of Object.values(node)) {
+    if (value && typeof value === "object") collectAttendanceWithSelfies_(value, out, depth + 1);
+  }
+}
+
+async function hydrateAttendanceSelfieUrls_(licenseCode, attendanceRecords) {
+  const records = [];
+  collectAttendanceWithSelfies_(attendanceRecords, records);
+  if (!records.length) return;
+  const paths = [];
+  for (const record of records){
+    if (record.checkInSelfiePath) paths.push(record.checkInSelfiePath);
+    if (record.checkOutSelfiePath) paths.push(record.checkOutSelfiePath);
+  }
+  const signed = await signSelfiePaths_(licenseCode, paths);
+  for (const record of records){
+    record.checkInSelfieUrl = signed.get(String(record.checkInSelfiePath || "")) || "";
+    record.checkOutSelfieUrl = signed.get(String(record.checkOutSelfiePath || "")) || "";
   }
 }
 async function log_(action, licenseCode, message) {
@@ -527,6 +595,7 @@ async function loadAdmin_(licenseCode, p, tokenSchool) {
   const { data: reqRows } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode);
   data.attendanceRequests = reqRows ? reqRows.map((x)=>x.payload) : [];
   if (normalizeAllLateRecords_(data)) await upsertPayload(licenseCode, data);
+  await hydrateAttendanceSelfieUrls_(licenseCode, data.attendanceRecords);
   const out = JSON.parse(JSON.stringify(data));
   if (out.settings) delete out.settings.adminHash;
   return {
@@ -654,6 +723,7 @@ async function loadEmployee_(licenseCode, p) {
       db.attendanceRecords[r.attendance_date][emp.id] = r.payload;
     }
   }
+  await hydrateAttendanceSelfieUrls_(licenseCode, db.attendanceRecords);
   const { data: reqs } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode).eq("employee_id", emp.id);
   db.attendanceRequests = reqs ? reqs.map((x)=>x.payload) : [];
   return empView_(db, emp);
@@ -688,6 +758,7 @@ async function employeeCheckIn_(licenseCode, p) {
     if (!geo.ok) throw new Error(geo.error);
     const now = time_(schoolTimezone);
     const late = lateInfo_(db, now);
+    const selfiePath = await safeSelfiePath_(licenseCode, p.selfiePath);
     const r = {
       status: late.isLate ? "telat" : "hadir",
       date: d,
@@ -704,7 +775,8 @@ async function employeeCheckIn_(licenseCode, p) {
       lateApprovalAfter: late.lateApprovalAfter,
       needsLateApproval: late.needsApproval,
       message: late.isLate ? "Check-in berhasil, status TELAT " + (late.minutes ? "(" + late.minutes + " menit)" : "") + "." : "Check-in berhasil",
-      checkInSelfieUrl: p.selfieUrl || "",
+      checkInSelfiePath: selfiePath,
+      checkInSelfieUrl: "",
       checkInSelfieThumbUrl: p.selfieThumbUrl || ""
     };
     const { error } = await supabase.from("attendance_records").upsert({
@@ -717,6 +789,10 @@ async function employeeCheckIn_(licenseCode, p) {
       onConflict: "license_code, attendance_date, employee_id"
     });
     if (error) throw new Error("Gagal menyimpan absen: " + error.message);
+    if (selfiePath) {
+      const signed = await signSelfiePaths_(licenseCode, [selfiePath]);
+      r.checkInSelfieUrl = signed.get(selfiePath) || "";
+    }
     return {
       ok: true,
       record: r
@@ -744,7 +820,11 @@ async function employeeCheckOut_(licenseCode, p) {
     r.checkoutLng = Number(p.lng || 0);
     r.checkoutAccuracy = Number(p.accuracy || 0);
     r.checkoutMessage = "Check-out berhasil";
-    if (p.selfieUrl) r.checkOutSelfieUrl = p.selfieUrl;
+    const selfiePath = await safeSelfiePath_(licenseCode, p.selfiePath);
+    if (selfiePath) {
+      r.checkOutSelfiePath = selfiePath;
+      r.checkOutSelfieUrl = "";
+    }
     if (p.selfieThumbUrl) r.checkOutSelfieThumbUrl = p.selfieThumbUrl;
     const { error } = await supabase.from("attendance_records").upsert({
       license_code: licenseCode,
@@ -756,6 +836,10 @@ async function employeeCheckOut_(licenseCode, p) {
       onConflict: "license_code, attendance_date, employee_id"
     });
     if (error) throw new Error("Gagal menyimpan absen: " + error.message);
+    if (selfiePath) {
+      const signed = await signSelfiePaths_(licenseCode, [selfiePath]);
+      r.checkOutSelfieUrl = signed.get(selfiePath) || "";
+    }
     return {
       ok: true,
       record: r
@@ -828,31 +912,32 @@ async function uploadSelfie_(licenseCode, p) {
     const ts = Date.now();
     const type = String(p.selfieType || "checkin"); // 'checkin' | 'checkout'
     const fileName = `${emp.id}_${type}_${ts}.jpg`;
-    const storagePath = `${licenseCode}/${d}/${fileName}`;
+    const storagePath = `${await selfieTenantPrefix_(licenseCode)}/${d}/${fileName}`;
     // Upload ke Supabase Storage bucket 'selfies'
-    const { error: uploadErr } = await supabase.storage.from("selfies").upload(storagePath, bytes, {
+    const { error: uploadErr } = await supabase.storage.from(SELFIE_BUCKET).upload(storagePath, bytes, {
       contentType: "image/jpeg",
       upsert: true
     });
     if (uploadErr) {
       // Jika bucket belum ada, beri pesan yang jelas
       if (String(uploadErr.message).toLowerCase().includes("bucket") || String(uploadErr.message).toLowerCase().includes("not found")) {
-        throw new Error("Bucket 'selfies' belum dibuat di Supabase Storage. " + "Buat lewat Dashboard: Storage > New Bucket > Name: selfies, Public: ON.");
+        throw new Error("Bucket selfie privat belum tersedia. Hubungi administrator sistem.");
       }
       throw new Error("Upload foto gagal: " + uploadErr.message);
     }
-    // Ambil URL publik
-    const { data: publicData } = supabase.storage.from("selfies").getPublicUrl(storagePath);
-    const selfieUrl = publicData?.publicUrl || "";
+    // URL hanya berlaku sementara; bucket tidak boleh dibuat publik.
+    const { data: signedData, error: signedError } = await supabase.storage.from(SELFIE_BUCKET).createSignedUrl(storagePath, SELFIE_URL_TTL_SECONDS);
+    if (signedError) throw signedError;
+    const selfieUrl = signedData?.signedUrl || "";
     // Simpan metadata ke tabel attendance_selfies
     const watermarkText = String(p.watermarkText || "").slice(0, 500);
-    await supabase.from("attendance_selfies").insert({
+    const { error: metaError } = await supabase.from("attendance_selfies").insert({
       license_code: licenseCode,
       employee_id: emp.id,
       employee_name: emp.name || "",
       attendance_date: d,
       type,
-      selfie_url: selfieUrl,
+      selfie_url: "",
       storage_path: storagePath,
       lat: Number(p.lat || 0) || null,
       lng: Number(p.lng || 0) || null,
@@ -862,6 +947,7 @@ async function uploadSelfie_(licenseCode, p) {
       file_size_bytes: bytes.length,
       captured_at: new Date().toISOString()
     });
+    if (metaError) throw metaError;
     await log_("uploadSelfie", licenseCode, `${emp.name} (${type}) ${d} - ${sizeKB}KB`);
     return {
       ok: true,
@@ -890,16 +976,22 @@ async function getSelfieMeta_(licenseCode, p, tokenSchool) {
     const dateFilter = String(p.date || "");
     const empFilter = String(p.employeeId || "");
     // deno-lint-ignore no-explicit-any
-    let query = supabase.from("attendance_selfies").select("id,employee_id,employee_name,attendance_date,type,selfie_url,lat,lng,accuracy,location_name,watermark_text,file_size_bytes,captured_at").eq("license_code", licenseCode).order("captured_at", {
+    let query = supabase.from("attendance_selfies").select("id,employee_id,employee_name,attendance_date,type,selfie_url,storage_path,lat,lng,accuracy,location_name,watermark_text,file_size_bytes,captured_at").eq("license_code", licenseCode).order("captured_at", {
       ascending: false
     }).limit(200);
     if (dateFilter) query = query.eq("attendance_date", dateFilter);
     if (empFilter) query = query.eq("employee_id", empFilter);
     const { data, error } = await query;
     if (error) throw error;
+    const selfies = data || [];
+    const signed = await signSelfiePaths_(licenseCode, selfies.map((x)=>x.storage_path));
+    for (const selfie of selfies){
+      selfie.selfie_url = signed.get(String(selfie.storage_path || "")) || "";
+      delete selfie.storage_path;
+    }
     return {
       ok: true,
-      selfies: data || []
+      selfies
     };
   } catch (e) {
     return {
@@ -1228,6 +1320,14 @@ async function route(p) {
 }
 // ====== HTTP entry ======
 Deno.serve(async (req)=>{
+  const corsHeaders = corsHeadersFor_(req);
+  const origin = String(req.headers.get("origin") || "");
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return jsonResponse({
+      ok: false,
+      error: "Origin tidak diizinkan."
+    }, 403, corsHeaders);
+  }
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
@@ -1257,14 +1357,14 @@ Deno.serve(async (req)=>{
       return jsonResponse({
         ok: false,
         error: "Gunakan metode POST."
-      }, 405);
+      }, 405, corsHeaders);
     }
     const out = await route(params);
-    return jsonResponse(out);
+    return jsonResponse(out, 200, corsHeaders);
   } catch (err) {
     return jsonResponse({
       ok: false,
       error: String(err?.message || err)
-    });
+    }, 500, corsHeaders);
   }
 });

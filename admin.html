@@ -6014,6 +6014,15 @@
             warnDefaultPin(h);
           } else {
             await loadRemote();
+            if (h === DEFAULT_ADMIN_HASH) {
+              sessionStorage.removeItem(ADMIN_SESSION_KEY);
+              alert(
+                "Demi keamanan, PIN admin default 1234 wajib diganti sebelum membuka dashboard.",
+              );
+              location.href =
+                "credential-center.html?license=" + encodeURIComponent(license);
+              return;
+            }
             sessionStorage.setItem(
               ADMIN_SESSION_KEY,
               JSON.stringify({
