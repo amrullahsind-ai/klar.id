@@ -27,6 +27,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: klaar-hadir-production-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -66,8 +70,8 @@ jobs:
             echo "version_name harus seperti 1.1.0"; exit 1;
           }
           CURRENT_VERSION_CODE=$(jq -r '.versionCode' apk-version.json)
-          test "$INPUT_VERSION_CODE" -ge "$CURRENT_VERSION_CODE" || {
-            echo "version_code tidak boleh lebih kecil dari versi terbit ($CURRENT_VERSION_CODE)"; exit 1;
+          test "$INPUT_VERSION_CODE" -gt "$CURRENT_VERSION_CODE" || {
+            echo "version_code harus lebih besar dari versi terbit ($CURRENT_VERSION_CODE)"; exit 1;
           }
           jq -e '(.apkUrl | startswith("https://"))' apk-version.json >/dev/null
 
