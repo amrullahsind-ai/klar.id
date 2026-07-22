@@ -1,0 +1,27 @@
+# Source/deployment infrastructure: simpan di GitHub, jangan layani sebagai aset web.
+.github/
+android-employee/
+supabase/
+tests/
+build-employee-apk.yml
+release-employee-apk.yml
+index.ts
+config.toml
+
+# Dokumen dan artefak pengembangan internal.
+backups/
+docs/
+klaar-react/
+*.md
+*.ps1
+
+# Rahasia dan output lokal (lapisan tambahan selain .gitignore).
+.env*
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.apk
+*.log

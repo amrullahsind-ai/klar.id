@@ -1,0 +1,46 @@
+# Secrets and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+store-apps-script.gs
+master-apps-script*.gs
+credentials*.json
+service-account*.json
+
+# Android / Gradle build output
+**/.gradle/
+**/build/
+*.apk
+klaar-hadir.apk
+
+# JavaScript experiments and dependencies
+node_modules/
+klaar-react/
+
+# Local test/browser output
+tests/.browser-profile-*/
+docs/**/.browser-profile-*/
+screenshots/runtime-*.png
+tests/*-runtime.png
+
+# Generated release scratch files
+backups/
+apk-version.tmp.json
+release-notes.txt
+*.tmp
+*.log
+gh-login*.out
+gh-login*.err
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.cursor/

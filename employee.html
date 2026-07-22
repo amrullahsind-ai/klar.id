@@ -10,8 +10,10 @@
     <meta name="apple-mobile-web-app-title" content="Klaar Hadir" />
     <title>Klaar Hadir</title>
     <link rel="manifest" href="employee-manifest.json" />
-    <link rel="icon" href="klaar-logo.png" type="image/png" />
-    <link rel="apple-touch-icon" href="klaar-logo-192.png" />
+    <link rel="icon" href="./klaar-logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="./icons/favicon-16.png" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
@@ -1103,6 +1105,9 @@
     <script>
       // Tab Logic
       function switchTab(targetId) {
+        if (window.klaarMustChangePassword && targetId !== "tab-profil") {
+          targetId = "tab-profil";
+        }
         document
           .querySelectorAll(".tab-content")
           .forEach((el) => el.classList.remove("active"));
@@ -1122,6 +1127,8 @@
       switchTab("tab-beranda");
 
       const SALT = "|edupay-v4-final-rebuild",
+        DEFAULT_EMP_HASH =
+          "d3eecabb3db83dcdf562b12ff510afbfbf351e2a12efda3963e11c0d41c52e93",
         SERVER_KEY = "edupay_emp_server",
         LICENSE_KEY = "edupay_emp_license",
         SERVER_DRAFT_KEY = "edupay_emp_server_draft",
@@ -1247,7 +1254,11 @@
         else if (!nip || !pinHash) show("loginScreen");
         else
           loadEmployee()
-            .then(() => show("app"))
+            .then(() => {
+              window.klaarMustChangePassword = pinHash === DEFAULT_EMP_HASH;
+              show("app");
+              if (window.klaarMustChangePassword) switchTab("tab-profil");
+            })
             .catch((e) => {
               alert(e.message);
               show("loginScreen");
@@ -1604,7 +1615,12 @@
           await loadEmployee();
           localStorage.setItem(NIP_KEY, nip);
           localStorage.setItem(PINHASH_KEY, pinHash);
+          window.klaarMustChangePassword = pinHash === DEFAULT_EMP_HASH;
           show("app");
+          if (window.klaarMustChangePassword) {
+            switchTab("tab-profil");
+            alert("Password default 1234 wajib diganti sebelum menggunakan fitur lain.");
+          }
         } catch (err) {
           pinHash = "";
           localStorage.removeItem(NIP_KEY);
@@ -2053,9 +2069,10 @@
           $("selfieProgress").textContent =
             `✅ Foto tersimpan (${uploadRes.sizeKB}KB)`;
           const selfieUrl = uploadRes.selfieUrl || "";
+          const selfiePath = uploadRes.storagePath || "";
           closeSelfieModal(false);
           if (_selfieResolve) {
-            _selfieResolve({ selfieUrl, selfieB64: _selfieB64 });
+            _selfieResolve({ selfieUrl, selfiePath, selfieB64: _selfieB64 });
             _selfieResolve = null;
             _selfieReject = null;
           }
@@ -2125,6 +2142,7 @@
               lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy,
               selfieUrl: selfieResult?.selfieUrl || "",
+              selfiePath: selfieResult?.selfiePath || "",
             },
             "Memproses...",
           );
@@ -2170,6 +2188,7 @@
               lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy,
               selfieUrl: selfieResult?.selfieUrl || "",
+              selfiePath: selfieResult?.selfiePath || "",
             },
             "Memproses...",
           );
@@ -2248,10 +2267,12 @@
           if (!res.ok) throw new Error(res.error || "Gagal");
           pinHash = newHash;
           localStorage.setItem(PINHASH_KEY, newHash);
+          window.klaarMustChangePassword = false;
           $("newPass").value = "";
           $("newPass2").value = "";
           setBusy(false, "");
           alert("Password berhasil diganti.");
+          switchTab("tab-beranda");
         } catch (err) {
           setBusy(false, "");
           alert(err.message);
