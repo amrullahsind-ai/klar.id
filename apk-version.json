@@ -1,8 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.1.3",
-  "apkUrl": "https://github.com/amrullahsind-ai/klar.id/releases/download/apk-v1.1.3/klaar-hadir.apk",
-  "sha256": "1d0acb9b74af01b836905faf52e267508d6ba22df80855632e725823d5fa499d",
+  "versionCode": 6,
+  "versionName": "1.1.4",
+  "apkUrl": "https://github.com/amrullahsind-ai/klar.id/releases/download/apk-v1.1.4/klaar-hadir.apk",
+  "sha256": "2ad76b7d8b3b45ebdd95f444577c81dfb7a5013229e6ec00520c4f91335b9ee1",
   "mandatory": false,
-  "notes": "Peningkatan stabilitas Klaar Hadir."
+  "notes": "Penambahan pengajuan cuti dan izin, lampiran, shift, serta peningkatan absensi."
 }
