@@ -1336,6 +1336,9 @@
               class="w-[1em] h-[1em] inline-block align-middle"
             ></i>
             Absensi</button
+          ><button data-sec="operations">
+            <i data-lucide="calendar-clock" class="w-[1em] h-[1em] inline-block align-middle"></i>
+            Operasional</button
           ><button data-sec="monitor">
             <i
               data-lucide="monitor"
@@ -1428,6 +1431,10 @@
                 <div class="field" id="empPositionField">
                   <label>Jabatan</label
                   ><select id="empPosition"></select>
+                </div>
+                <div class="field wide">
+                  <label>Shift khusus</label><select id="empShift"></select>
+                  <small class="muted">Kosongkan agar otomatis mengikuti shift pertama yang cocok dengan jabatan.</small>
                 </div>
                 <div class="field" id="empGradeField">
                   <label>Golongan</label
@@ -1792,6 +1799,7 @@
                   ><select id="dedCode">
                     <option value="izin">Izin</option>
                     <option value="sakit">Sakit</option>
+                    <option value="cuti">Cuti</option>
                     <option value="alpha">Alpha</option>
                     <option value="telat">Telat</option>
                   </select>
@@ -1974,6 +1982,7 @@
             </div>
           </div>
         </section>
+        <section id="operations" class="section"><div class="split"><div class="card"><h3>Shift Kerja</h3><p class="muted">Buat shift sebanyak yang dibutuhkan dan kaitkan ke jabatan tertentu.</p><form class="form" id="shiftForm"><input type="hidden" id="shiftId"><div class="field wide"><label>Nama shift</label><input id="shiftName" required placeholder="Shift 1 / Pagi"></div><div class="field"><label>Jam masuk</label><input id="shiftStart" type="time" required></div><div class="field"><label>Jam pulang</label><input id="shiftEnd" type="time" required></div><div class="field"><label>Batas telat</label><input id="shiftLate" type="time" required></div><div class="field"><label>Status</label><select id="shiftActive"><option value="true">Aktif</option><option value="false">Nonaktif</option></select></div><div class="field wide"><label>Berlaku untuk jabatan</label><div id="shiftPositions" class="actions" style="gap:10px;flex-wrap:wrap"></div></div><div class="actions wide"><button class="btn" type="button" id="resetShift">Batal</button><button class="btn primary">Simpan Shift</button></div></form><div class="divider"></div><div id="shiftList"></div></div><div class="card"><h3>Kasbon Karyawan</h3><p class="muted">Potongan otomatis masuk payroll. Bulan tertentu dapat ditunda ke bulan berikutnya.</p><form class="form" id="cashForm"><input type="hidden" id="cashId"><div class="field wide"><label>Karyawan</label><select id="cashEmployee" required></select></div><div class="field"><label>Total kasbon</label><input id="cashAmount" class="rp" required></div><div class="field"><label>Cicilan per bulan</label><input id="cashInstallment" class="rp" required></div><div class="field"><label>Mulai bulan</label><input id="cashStartMonth" type="month" required></div><div class="field"><label>Status</label><select id="cashStatus"><option value="active">Aktif</option><option value="paid">Lunas</option><option value="cancelled">Dibatalkan</option></select></div><div class="field wide"><label>Catatan</label><input id="cashNote"></div><div class="actions wide"><button class="btn" type="button" id="resetCash">Batal</button><button class="btn primary">Simpan Kasbon</button></div></form><div class="divider"></div><div class="filters"><input id="cashPayrollMonth" type="month"><span class="muted">Bulan untuk tombol tunda</span></div><div id="cashList"></div></div></div></section>
         <section id="monitor" class="section">
           <div class="card">
             <h3>Monitor Absensi</h3>
@@ -2159,6 +2168,9 @@
                 </div>
                 <div class="field wide">
                   <label>Nama sekolah</label><input id="setSchool" />
+                </div>
+                <div class="field wide">
+                  <label>Sapaan untuk karyawan</label><input id="setGreeting" maxlength="40" placeholder="Halo / Assalamualaikum" />
                 </div>
                 <input
                   type="hidden"
@@ -2481,6 +2493,7 @@
         version: "stable-pilot",
         settings: {
           app: "Klaar",
+          greeting: "Halo",
           foundation: "Yayasan Pendidikan Contoh",
           school: "Sekolah Bina Prestasi",
           primary: EDURA_PRIMARY,
@@ -2724,6 +2737,8 @@
         attendanceRecords: {},
         _deletedAttendance: [],
         attendanceRequests: [],
+        shifts: [],
+        cashAdvances: [],
         deviceRequests: [],
         locks: {},
         sentSlips: {},
@@ -2836,6 +2851,19 @@
         );
         x._deletedAttendance = x._deletedAttendance || [];
         x.deviceRequests = x.deviceRequests || [];
+        x.settings.greeting = String(x.settings.greeting || "Halo").trim().slice(0, 40) || "Halo";
+        x.shifts = (Array.isArray(x.shifts) ? x.shifts : []).map((shift) => ({
+          id: shift.id || uid("shift"),
+          name: shift.name || "Shift",
+          startTime: shift.startTime || "07:00",
+          endTime: shift.endTime || "15:00",
+          lateAfter: shift.lateAfter || shift.startTime || "07:00",
+          lateApprovalAfter: shift.lateApprovalAfter || "",
+          positionIds: Array.isArray(shift.positionIds) ? shift.positionIds : [],
+          active: shift.active !== false,
+        }));
+        x.cashAdvances = (Array.isArray(x.cashAdvances) ? x.cashAdvances : []).map((cash) => ({ ...cash, payments: cash.payments || {}, deferredMonths: Array.isArray(cash.deferredMonths) ? cash.deferredMonths : [] }));
+        x.attendanceRequests = Array.isArray(x.attendanceRequests) ? x.attendanceRequests : [];
         x.auditLogs = Array.isArray(x.auditLogs) ? x.auditLogs : [];
         x.backupLogs = Array.isArray(x.backupLogs) ? x.backupLogs : [];
         x.importHistory = Array.isArray(x.importHistory) ? x.importHistory : [];
@@ -3608,6 +3636,7 @@
             "Jabatan, golongan, komponen custom, potongan.",
           ],
           attendanceRules: ["Absensi", "Lokasi, radius, jam, approval."],
+          operations: ["Operasional", "Shift kerja dan kasbon karyawan."],
           monitor: ["Monitor", "Pantau hadir/izin/sakit/alpha."],
           payroll: ["Payroll", "Hitung dari absensi otomatis."],
           reports: ["Laporan", "Rekap payroll."],
@@ -3657,7 +3686,7 @@
         return (db.attendanceRules && db.attendanceRules.lateAfter) || "07:15";
       }
       function isAbsenceStatus(st) {
-        return ["izin", "sakit", "alpha", "pending"].includes(
+        return ["izin", "sakit", "cuti", "alpha", "pending"].includes(
           String(st || "").toLowerCase(),
         );
       }
@@ -3734,7 +3763,7 @@
         return changed;
       }
       function monthSummary(empId, month) {
-        let res = { hadir: 0, izin: 0, sakit: 0, alpha: 0, telat: 0 };
+        let res = { hadir: 0, izin: 0, sakit: 0, cuti: 0, alpha: 0, telat: 0 };
         dateList(month).forEach((d) => {
           let r = (db.attendanceRecords[d] || {})[empId];
           if (r) {
@@ -4018,9 +4047,35 @@
           },
         };
       }
+      function cashAdvanceDue(cash, employeeId, month) {
+        if (!cash || cash.employeeId !== employeeId || cash.status !== "active") return 0;
+        if ((cash.startMonth || "0000-00") > month) return 0;
+        if ((cash.deferredMonths || []).includes(month)) return 0;
+        const paidBefore = Object.entries(cash.payments || {}).reduce(
+          (sum, entry) => sum + (entry[0] < month ? +entry[1] || 0 : 0),
+          0,
+        );
+        const remaining = Math.max(0, (+cash.amount || 0) - paidBefore);
+        return Math.min(remaining, +cash.installmentAmount || remaining);
+      }
+      function applyCashAdvances(item, employeeId, month) {
+        const dues = (db.cashAdvances || [])
+          .map((cash) => ({ cash, amount: cashAdvanceDue(cash, employeeId, month) }))
+          .filter((entry) => entry.amount > 0);
+        if (!dues.length) return item;
+        item.ded = Array.isArray(item.ded) ? item.ded : [];
+        dues.forEach(({ cash, amount }) => item.ded.push({
+          name: "Kasbon" + (cash.note ? " - " + cash.note : ""),
+          amount,
+          cashAdvanceId: cash.id,
+        }));
+        item.deductions = item.ded.reduce((sum, entry) => sum + (+entry.amount || 0), 0);
+        item.net = (+item.base || 0) + (+item.allowances || 0) - item.deductions;
+        return item;
+      }
       function payrollEmp(e, m, summaryOverride) {
         let snap = importedPayrollItem(e, m, summaryOverride);
-        if (snap) return snap;
+        if (snap) return applyCashAdvances(snap, e.id, m);
         let meth = db.settings.payrollMethod || "grade";
         if (meth === "excel" || meth === "custom") meth = "individual";
         let profile = db.payrollProfile || {},
@@ -4167,7 +4222,7 @@
         });
         let allowances = allow.reduce((s, x) => s + x.amount, 0),
           deductions = ded.reduce((s, x) => s + x.amount, 0);
-        return {
+        return applyCashAdvances({
           id: e.id,
           name: e.name,
           nip: e.nip,
@@ -4181,7 +4236,7 @@
           allowances,
           deductions,
           net: base + allowances - deductions,
-        };
+        }, e.id, m);
       }
       function payroll(m = monthNow()) {
         let active = db.employees.filter(
@@ -4522,6 +4577,10 @@
             (g) =>
               `<option value="${g.id}">${esc(g.name)} - gapok ${rp(moneyOfGrade(g))}</option>`,
           )
+          .join("");
+        $("empShift").innerHTML = '<option value="">Otomatis dari jabatan</option>' + db.shifts
+          .filter((shift) => shift.active !== false)
+          .map((shift) => `<option value="${shift.id}">${esc(shift.name)} (${esc(shift.startTime)}-${esc(shift.endTime)})</option>`)
           .join("");
         $("compTarget").innerHTML =
           db.positions
@@ -5099,7 +5158,7 @@
       function openManualAtt() {
         let emps = activeEmployees();
         modal(
-          `<div class="modal-head"><div><h3>Tambah Absensi Manual</h3><p>Isi data absensi secara spesifik</p></div><button class="btn danger" data-close>Tutup</button></div><form id="manualAttForm" class="form"><div class="field wide"><label>Karyawan</label><select id="manEmpId" required>${emps.map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join("")}</select></div><div class="field"><label>Tanggal</label><input type="date" id="manDate" value="${$("monitorDate").value || today()}" required></div><div class="field"><label>Status</label><select id="manStatus" required><option value="hadir">Hadir</option><option value="izin">Izin</option><option value="sakit">Sakit</option><option value="alpha">Alpha</option><option value="telat">Telat</option></select></div><div class="field"><label>Jam Masuk (opsional)</label><input type="time" id="manIn"></div><div class="field"><label>Jam Pulang (opsional)</label><input type="time" id="manOut"></div><div class="field wide"><label>Catatan</label><input type="text" id="manNote" placeholder="Cth: Lupa absen, error GPS, dll."></div><div class="actions wide" style="margin-top:10px"><button class="btn primary wide" type="submit">Simpan Absensi</button></div></form>`,
+          `<div class="modal-head"><div><h3>Tambah Absensi Manual</h3><p>Isi data absensi secara spesifik</p></div><button class="btn danger" data-close>Tutup</button></div><form id="manualAttForm" class="form"><div class="field wide"><label>Karyawan</label><select id="manEmpId" required>${emps.map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join("")}</select></div><div class="field"><label>Tanggal</label><input type="date" id="manDate" value="${$("monitorDate").value || today()}" required></div><div class="field"><label>Status</label><select id="manStatus" required><option value="hadir">Hadir</option><option value="izin">Izin</option><option value="sakit">Sakit</option><option value="cuti">Cuti</option><option value="alpha">Alpha</option><option value="telat">Telat</option></select></div><div class="field"><label>Jam Masuk (opsional)</label><input type="time" id="manIn"></div><div class="field"><label>Jam Pulang (opsional)</label><input type="time" id="manOut"></div><div class="field wide"><label>Catatan</label><input type="text" id="manNote" placeholder="Cth: Lupa absen, error GPS, dll."></div><div class="actions wide" style="margin-top:10px"><button class="btn primary wide" type="submit">Simpan Absensi</button></div></form>`,
         );
         $("manualAttForm").onsubmit = (e) => {
           e.preventDefault();
@@ -5162,7 +5221,7 @@
             pending
               .map(
                 (r) =>
-                  `<div class="slip-row"><span><b>${esc(empById(r.employeeId)?.name || "-")}</b><br>${esc(r.type)} - ${esc(r.date)}<br><span class="muted">${esc(r.reason || r.message || "")}</span></span><span><button class="btn small success" data-approve="${r.id}">Setujui</button> <button class="btn small danger" data-reject="${r.id}">Tolak</button></span></div>`,
+                  `<div class="slip-row"><span><b>${esc(empById(r.employeeId)?.name || "-")}</b><br>${esc(r.type)} - ${esc(r.date)}${r.endDate && r.endDate !== r.date ? " s.d. " + esc(r.endDate) : ""}<br><span class="muted">${esc(r.reason || r.message || "")}</span>${r.attachmentUrl ? `<br><a href="${esc(r.attachmentUrl)}" target="_blank" rel="noopener" class="btn small" style="margin-top:6px">Lihat lampiran</a>` : ""}</span><span><button class="btn small success" data-approve="${r.id}">Setujui</button> <button class="btn small danger" data-reject="${r.id}">Tolak</button></span></div>`,
               )
               .join("")
           : '<div class="empty">Tidak ada pengajuan absensi pending.</div>';
@@ -5455,10 +5514,39 @@
               .join("") || '<p class="muted">Belum ada audit.</p>'
           }`;
       }
+      function renderOperations() {
+        const selectedShift = db.shifts.find((shift) => shift.id === $("shiftId")?.value) || {};
+        $("shiftPositions").innerHTML = db.positions.map((position) =>
+          `<label class="badge" style="cursor:pointer"><input type="checkbox" data-shift-position="${position.id}" style="width:auto" ${selectedShift.positionIds?.includes(position.id) ? "checked" : ""}> ${esc(position.name)}</label>`,
+        ).join("") || '<span class="muted">Buat jabatan terlebih dahulu.</span>';
+        $("cashEmployee").innerHTML = activeEmployees().map((employee) =>
+          `<option value="${employee.id}">${esc(employee.name)} (${esc(employee.nip || "-")})</option>`,
+        ).join("");
+        if (!$("cashStartMonth").value) $("cashStartMonth").value = monthNow();
+        if (!$("cashPayrollMonth").value) $("cashPayrollMonth").value = $("payMonth").value || monthNow();
+        $("shiftList").innerHTML = db.shifts.length ? db.shifts.map((shift) => {
+          const positions = (shift.positionIds || []).map((id) => getPos(id).name).filter(Boolean).join(", ") || "Belum memilih jabatan";
+          return `<div class="slip-row"><span><b>${esc(shift.name)}</b> <span class="badge ${shift.active === false ? "warn" : "ok"}">${shift.active === false ? "Nonaktif" : "Aktif"}</span><br>${esc(shift.startTime)}-${esc(shift.endTime)}; batas telat ${esc(shift.lateAfter)}<br><span class="muted">${esc(positions)}</span></span><span><button class="btn small" data-edit-shift="${shift.id}">Edit</button> <button class="btn small danger" data-delete-shift="${shift.id}">Hapus</button></span></div>`;
+        }).join("") : '<div class="empty">Belum ada shift khusus. Absensi masih memakai jam global.</div>';
+        const month = $("cashPayrollMonth").value || monthNow();
+        $("cashList").innerHTML = db.cashAdvances.length ? db.cashAdvances.map((cash) => {
+          const employee = empById(cash.employeeId);
+          const paid = Object.values(cash.payments || {}).reduce((sum, amount) => sum + (+amount || 0), 0);
+          const deferred = (cash.deferredMonths || []).includes(month);
+          return `<div class="slip-row"><span><b>${esc(employee?.name || "Karyawan dihapus")}</b> <span class="badge ${cash.status === "active" ? "ok" : "warn"}">${esc(cash.status)}</span><br>Total ${rp(cash.amount)}; cicilan ${rp(cash.installmentAmount)}; terbayar ${rp(paid)}<br><span class="muted">Mulai ${esc(cash.startMonth)} ${cash.note ? "- " + esc(cash.note) : ""}</span></span><span><button class="btn small" data-edit-cash="${cash.id}">Edit</button> <button class="btn small ${deferred ? "success" : "warn"}" data-defer-cash="${cash.id}">${deferred ? "Aktifkan " + month : "Tunda " + month}</button> <button class="btn small danger" data-delete-cash="${cash.id}">Hapus</button></span></div>`;
+        }).join("") : '<div class="empty">Belum ada kasbon.</div>';
+      }
+      function resetShiftForm() {
+        $("shiftForm").reset(); $("shiftId").value = ""; $("shiftStart").value = "07:00"; $("shiftEnd").value = "15:00"; $("shiftLate").value = "07:00"; renderOperations();
+      }
+      function resetCashForm() {
+        $("cashForm").reset(); $("cashId").value = ""; $("cashStartMonth").value = monthNow(); $("cashStatus").value = "active"; renderOperations();
+      }
       function renderSettings() {
         $("setApp").value = db.settings.app;
         $("setFoundation").value = db.settings.foundation;
         $("setSchool").value = db.settings.school;
+        $("setGreeting").value = db.settings.greeting || "Halo";
         $("setPayrollMethod").value = db.settings.payrollMethod || "grade";
         $("setPrimary").value = EDURA_PRIMARY;
         $("setAccent").value = EDURA_ACCENT;
@@ -5491,6 +5579,7 @@
             employees: renderEmployees,
             salaryRules: renderSalaryRules,
             attendanceRules: renderAttendanceRules,
+            operations: renderOperations,
             monitor: renderMonitor,
             payroll: renderPayroll,
             reports: renderReports,
@@ -5555,6 +5644,7 @@
             $("empNip").value = x.nip || "";
             $("empPosition").value = x.position;
             $("empGrade").value = x.grade;
+            $("empShift").value = x.shiftId || "";
             $("empJoin").value = x.join || "";
             $("empContract").value = x.contract || "";
             $("empStatus").value = x.status || "Aktif";
@@ -5598,18 +5688,23 @@
           let r = db.attendanceRequests.find((x) => x.id == ap.dataset.approve);
           if (r) {
             r.status = "approved";
-            records(r.date)[r.employeeId] = stampRec({
-              status: r.type,
-              date: r.date,
-              reason: r.reason || r.message || "",
-              approvalStatus: "approved",
-              source: "request",
-              checkInTime: r.checkInTime || "",
-              isLate: !!r.isLate,
-              locationName: r.locationName || "",
-              distanceMeters: r.distanceMeters,
-              accuracy: r.accuracy,
-            });
+            let cursor = new Date(r.date + "T00:00:00Z"), end = new Date((r.endDate || r.date) + "T00:00:00Z");
+            while (cursor <= end) {
+              const requestDate = cursor.toISOString().slice(0, 10);
+              records(requestDate)[r.employeeId] = stampRec({
+                status: r.type,
+                date: requestDate,
+                reason: r.reason || r.message || "",
+                approvalStatus: "approved",
+                source: "admin_request",
+                requestId: r.id,
+                attachmentPath: r.attachmentPath || "",
+                checkInTime: "",
+                isLate: false,
+                locationName: "",
+              });
+              cursor.setUTCDate(cursor.getUTCDate() + 1);
+            }
             saveLocal();
             renderMonitor();
             toast("Approval absensi disetujui. Autosync berjalan.");
@@ -6173,6 +6268,41 @@
           toast("Titik dihapus. Autosync berjalan.");
         }
       });
+      $("shiftForm").onsubmit = (event) => {
+        event.preventDefault();
+        const id = $("shiftId").value || uid("shift");
+        const shift = { id, name: $("shiftName").value.trim(), startTime: $("shiftStart").value, endTime: $("shiftEnd").value, lateAfter: $("shiftLate").value || $("shiftStart").value, positionIds: Array.from(document.querySelectorAll("[data-shift-position]:checked")).map((input) => input.dataset.shiftPosition), active: $("shiftActive").value === "true" };
+        if (!shift.positionIds.length) return toast("Pilih minimal satu jabatan untuk shift.", "bad");
+        const duplicate = db.shifts.find((item) => item.id !== id && item.active !== false && item.positionIds.some((positionId) => shift.positionIds.includes(positionId)));
+        if (duplicate && !confirm(`Ada jabatan yang juga dipakai ${duplicate.name}. Shift pertama yang cocok akan digunakan. Tetap simpan?`)) return;
+        const index = db.shifts.findIndex((item) => item.id === id);
+        index >= 0 ? db.shifts[index] = shift : db.shifts.push(shift);
+        saveLocal(); resetShiftForm(); toast("Shift tersimpan. Jam telat employee akan mengikuti shift ini.");
+      };
+      $("cashForm").onsubmit = (event) => {
+        event.preventDefault();
+        const id = $("cashId").value || uid("cash"), old = db.cashAdvances.find((item) => item.id === id) || {};
+        const cash = { ...old, id, employeeId: $("cashEmployee").value, amount: parseRp($("cashAmount").value), installmentAmount: parseRp($("cashInstallment").value), startMonth: $("cashStartMonth").value, status: $("cashStatus").value, note: $("cashNote").value.trim(), payments: old.payments || {}, deferredMonths: old.deferredMonths || [], createdAt: old.createdAt || new Date().toISOString() };
+        if (!cash.amount || !cash.installmentAmount) return toast("Total dan cicilan kasbon harus lebih dari nol.", "bad");
+        const index = db.cashAdvances.findIndex((item) => item.id === id);
+        index >= 0 ? db.cashAdvances[index] = cash : db.cashAdvances.push(cash);
+        saveLocal(); resetCashForm(); toast("Kasbon tersimpan dan akan masuk payroll otomatis.");
+      };
+      $("resetShift").onclick = resetShiftForm;
+      $("resetCash").onclick = resetCashForm;
+      $("cashPayrollMonth").onchange = renderOperations;
+      document.addEventListener("click", (event) => {
+        const editShift = event.target.closest("[data-edit-shift]");
+        if (editShift) { const shift = db.shifts.find((item) => item.id === editShift.dataset.editShift); if (!shift) return; $("shiftId").value = shift.id; $("shiftName").value = shift.name; $("shiftStart").value = shift.startTime; $("shiftEnd").value = shift.endTime; $("shiftLate").value = shift.lateAfter; $("shiftActive").value = String(shift.active !== false); renderOperations(); }
+        const deleteShift = event.target.closest("[data-delete-shift]");
+        if (deleteShift && confirm("Hapus shift ini? Data absensi lama tetap menyimpan nama shift.")) { db.shifts = db.shifts.filter((item) => item.id !== deleteShift.dataset.deleteShift); saveLocal(); renderOperations(); }
+        const editCash = event.target.closest("[data-edit-cash]");
+        if (editCash) { const cash = db.cashAdvances.find((item) => item.id === editCash.dataset.editCash); if (!cash) return; $("cashId").value = cash.id; $("cashEmployee").value = cash.employeeId; $("cashAmount").value = rp(cash.amount); $("cashInstallment").value = rp(cash.installmentAmount); $("cashStartMonth").value = cash.startMonth; $("cashStatus").value = cash.status; $("cashNote").value = cash.note || ""; }
+        const deferCash = event.target.closest("[data-defer-cash]");
+        if (deferCash) { const month = $("cashPayrollMonth").value || monthNow(); if (db.locks[month]) return toast("Payroll bulan ini sudah terkunci. Buka kunci dulu.", "bad"); const cash = db.cashAdvances.find((item) => item.id === deferCash.dataset.deferCash); if (!cash) return; cash.deferredMonths = cash.deferredMonths || []; cash.deferredMonths = cash.deferredMonths.includes(month) ? cash.deferredMonths.filter((value) => value !== month) : [...cash.deferredMonths, month]; saveLocal(); renderOperations(); }
+        const deleteCash = event.target.closest("[data-delete-cash]");
+        if (deleteCash) { const cash = db.cashAdvances.find((item) => item.id === deleteCash.dataset.deleteCash); if (!cash) return; if (Object.values(cash.payments || {}).some((amount) => +amount > 0)) return toast("Kasbon yang sudah terpotong tidak boleh dihapus. Ubah status menjadi Dibatalkan.", "bad"); if (confirm("Hapus kasbon ini?")) { db.cashAdvances = db.cashAdvances.filter((item) => item.id !== cash.id); saveLocal(); renderOperations(); } }
+      });
       $("empForm").onsubmit = async (e) => {
         e.preventDefault();
         let id = $("empId").value || uid("e"),
@@ -6191,6 +6321,7 @@
             ? $("empPosition").value
             : old.position || "",
           grade: schoolUsesGrades() ? $("empGrade").value : old.grade || "",
+          shiftId: $("empShift").value || "",
           baseSalary: empBase > 0 ? empBase : "",
           allowances: comps.allow,
           deductions: comps.ded,
@@ -6465,6 +6596,14 @@
               .filter((e) => e.status != "Nonaktif" && !isArchived(e))
               .map((e) => payrollEmp(e, m)),
           };
+          (db.cashAdvances || []).forEach((cash) => {
+            const item = db.locks[m].items.find((row) => row.id === cash.employeeId);
+            const deduction = item?.ded?.find((entry) => entry.cashAdvanceId === cash.id);
+            cash.payments = cash.payments || {};
+            if (deduction) cash.payments[m] = +deduction.amount || 0;
+            const paid = Object.values(cash.payments).reduce((sum, amount) => sum + (+amount || 0), 0);
+            if (paid >= (+cash.amount || 0)) cash.status = "paid";
+          });
           audit("finalize_payroll", "Payroll final " + m, {
             items: db.locks[m].items.length,
           });
@@ -6475,6 +6614,10 @@
       $("unlockPayroll").onclick = () => {
         let m = $("payMonth").value || monthNow();
         if (confirm("Buka kunci payroll?")) {
+          (db.cashAdvances || []).forEach((cash) => {
+            if (cash.payments) delete cash.payments[m];
+            if (cash.status === "paid") cash.status = "active";
+          });
           delete db.locks[m];
           saveLocal();
           renderPayroll();
@@ -6560,6 +6703,7 @@
         db.settings.app = $("setApp").value;
         db.settings.foundation = $("setFoundation").value;
         db.settings.school = $("setSchool").value;
+        db.settings.greeting = $("setGreeting").value.trim().slice(0, 40) || "Halo";
         db.settings.payrollMethod = $("setPayrollMethod").value;
         db.settings.primary = EDURA_PRIMARY;
         db.settings.accent = EDURA_ACCENT;

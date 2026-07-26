@@ -760,6 +760,7 @@
 
         <div
           class="bg-white rounded-[28px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100"
+        <div id="requestStatusBox" class="mb-5"></div>
         >
           <form id="requestForm" class="flex flex-col gap-5">
             <div>
@@ -769,6 +770,15 @@
               >
               <input
                 id="reqDate"
+                type="date"
+                required
+                class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tanggal selesai</label>
+              <input
+                id="reqEndDate"
                 type="date"
                 required
                 class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
@@ -785,6 +795,7 @@
               >
                 <option value="izin">Izin</option>
                 <option value="sakit">Sakit</option>
+                <option value="cuti">Cuti</option>
               </select>
             </div>
             <div>
@@ -802,11 +813,12 @@
             <div>
               <label
                 class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
-                >Bukti / Keterangan (Opsional)</label
+                >Lampiran gambar (Opsional)</label
               >
               <input
                 id="reqProof"
-                placeholder="Surat dokter, dsb."
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
                 class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900"
               />
             </div>
@@ -1433,12 +1445,17 @@
         if ($("empName")) $("empName").textContent = e.name;
         if ($("empNameShort"))
           $("empNameShort").textContent = e.name.split(" ")[0];
+        const greetingHeading = $("empNameShort")?.closest("h2");
+        if (greetingHeading && greetingHeading.firstChild)
+          greetingHeading.firstChild.nodeValue =
+            String(state.greeting || "Halo").trim() + ", ";
         $("schoolName").textContent = state.school || "Klaar Hadir";
 
         let initial = (e.name || "K").charAt(0).toUpperCase();
         $("avatarInitials").textContent = initial;
 
         $("reqDate").value = today();
+        $("reqEndDate").value = today();
 
         // Beranda Status
         let st = statusLabel(r);
@@ -1448,7 +1465,9 @@
           $("berandaStatus").textContent = "Hadir ✓";
         $("berandaBadge").textContent = r?.checkInTime
           ? `In: ${r.checkInTime}`
-          : "Shift";
+          : state.todayShift
+            ? `${state.todayShift.name}: ${state.todayShift.startTime}-${state.todayShift.endTime}`
+            : "Shift reguler";
 
         let locText = "Belum ada data check-in hari ini";
         if (r?.locationName)
@@ -1461,7 +1480,6 @@
         <div class="row-item"><span>Login</span><strong>${esc(e.loginName || e.name)}</strong></div>
         <div class="row-item"><span>NIP/ID</span><strong>${esc(e.nip)}</strong></div>
         <div class="row-item"><span>Jabatan</span><strong>${esc(e.positionName || "-")}</strong></div>
-        <div class="row-item"><span>Golongan</span><strong>${esc(e.gradeName || "-")}</strong></div>
         <div class="row-item"><span>Status</span><strong>${esc(e.status || "-")}</strong></div>
         <div class="row-item"><span>Masa kerja</span><strong>${esc(e.years || 0)} tahun</strong></div>
         <div class="row-item"><span>Rekening</span><strong>${esc(e.bank || "-")}</strong></div>
@@ -1469,8 +1487,14 @@
         <div class="row-item"><span>Device ini</span><strong>${esc(state.deviceStatus || "aktif")}</strong></div>
       `;
 
+        if ($("requestStatusBox")) {
+          const requests = Array.isArray(state.requests) ? state.requests : [];
+          $("requestStatusBox").innerHTML = requests.length ? requests.slice(0, 5).map((request) =>
+            `<div class="bg-white rounded-2xl p-4 mb-2 border border-slate-100"><div class="flex justify-between gap-3"><strong class="capitalize">${esc(request.type)}</strong><span class="badge ${request.status === "approved" ? "ok" : request.status === "rejected" ? "bad" : "warn"}">${esc(request.status)}</span></div><p class="text-sm text-slate-500 mt-1">${esc(request.date)}${request.endDate && request.endDate !== request.date ? " s.d. " + esc(request.endDate) : ""}</p><p class="text-sm mt-1">${esc(request.reason || "-")}</p>${request.attachmentUrl ? `<a class="text-sm font-bold text-emerald-600" href="${esc(request.attachmentUrl)}" target="_blank" rel="noopener">Lihat lampiran</a>` : ""}</div>`,
+          ).join("") : '<div class="text-sm text-slate-400">Belum ada pengajuan.</div>';
+        }
         let alreadyIn = !!(r && r.checkInTime),
-          blocked = !!(r && ["izin", "sakit", "alpha"].includes(r.status));
+          blocked = !!(r && ["izin", "sakit", "cuti", "alpha"].includes(r.status));
         $("checkIn").disabled = alreadyIn || blocked;
         $("checkOut").disabled = !alreadyIn || !!(r && r.checkOutTime);
 
@@ -2111,7 +2135,7 @@
           }
           if (
             state?.todayRecord &&
-            ["izin", "sakit", "alpha"].includes(state.todayRecord.status)
+            ["izin", "sakit", "cuti", "alpha"].includes(state.todayRecord.status)
           ) {
             alert("Status hari ini sudah " + state.todayRecord.status + ".");
             return;
@@ -2203,23 +2227,52 @@
       if ($("biometricBtn")) {
         $("biometricBtn").onclick = () => {
           let r = normalizeEmployeeRec(state?.todayRecord);
-          let blocked = !!(r && ["izin", "sakit", "alpha"].includes(r.status));
+          let blocked = !!(r && ["izin", "sakit", "cuti", "alpha"].includes(r.status));
           if (blocked || (r && r.checkInTime && r.checkOutTime)) return;
           if (!r || !r.checkInTime) processCheckIn();
           else if (!r.checkOutTime) processCheckOut();
         };
       }
 
+      function requestImageData_(file) {
+        if (!file) return Promise.resolve("");
+        if (!/^image\/(jpeg|png|webp)$/i.test(file.type || ""))
+          return Promise.reject(new Error("Lampiran harus berupa JPG, PNG, atau WebP."));
+        if (file.size > 4 * 1024 * 1024)
+          return Promise.reject(new Error("Lampiran maksimal 4 MB."));
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Lampiran gagal dibaca."));
+          reader.readAsDataURL(file);
+        });
+      }
       $("requestForm").onsubmit = async (e) => {
         e.preventDefault();
         try {
+          const startDate = $("reqDate").value;
+          const endDate = $("reqEndDate").value || startDate;
+          if (endDate < startDate)
+            throw new Error("Tanggal selesai tidak boleh sebelum tanggal mulai.");
+          const attachmentFile = $("reqProof").files?.[0] || null;
+          let attachment = null;
+          if (attachmentFile) {
+            const uploaded = await jsonp("uploadRequestAttachment", { photoBase64: await requestImageData_(attachmentFile), fileName: attachmentFile.name, mimeType: attachmentFile.type });
+            if (!uploaded.ok) throw new Error(uploaded.error || "Lampiran gagal diunggah.");
+            attachment = uploaded.attachment;
+          }
+
           await runAction(
             "employeeRequest",
             {
-              date: $("reqDate").value,
+              date: startDate,
+              endDate,
               type: $("reqType").value,
               reason: $("reqReason").value,
-              proof: $("reqProof").value,
+              attachmentPath: attachment?.path || "",
+              attachmentName: attachment?.name || "",
+              attachmentMime: attachment?.mime || "",
+              proof: attachment?.name || "",
             },
             "Mengirim pengajuan...",
           );
