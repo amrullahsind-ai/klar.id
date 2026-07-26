@@ -2128,6 +2128,10 @@
               <h3>Tren Payroll</h3>
               <div id="trend"></div>
             </div>
+            <div class="card wide">
+              <h3>Laporan Kasbon Karyawan</h3>
+              <div id="cashAdvanceReport"></div>
+            </div>
           </div>
         </section>
         <section id="sync" class="section">
@@ -2761,6 +2765,7 @@
         payrollInputDefinitions: [],
         periodInputs: {},
         importBatches: [],
+        uiState: { payrollMonth: "" },
       };
       function clone(x) {
         return JSON.parse(JSON.stringify(x));
@@ -2875,6 +2880,8 @@
           ? x.payrollInputDefinitions
           : [];
         x.periodInputs = x.periodInputs || {};
+        x.uiState = x.uiState || {};
+        x.uiState.payrollMonth = String(x.uiState.payrollMonth || "");
         x.importBatches = Array.isArray(x.importBatches)
           ? x.importBatches
           : [];
@@ -3846,6 +3853,21 @@
             (!definition.effectiveFrom || month >= definition.effectiveFrom) &&
             (!definition.effectiveTo || month <= definition.effectiveTo),
         );
+      }
+      function latestRelevantPayrollMonth() {
+        let periods = [
+          monthNow(),
+          ...Object.keys(db.importedPayrollSnapshots || {}),
+          ...(db.payrollInputDefinitions || []).map(
+            (definition) => definition.effectiveFrom || "",
+          ),
+        ].filter((value) => /^\d{4}-\d{2}$/.test(value));
+        return periods.sort().slice(-1)[0] || monthNow();
+      }
+      function preferredPayrollMonth() {
+        return /^\d{4}-\d{2}$/.test(db.uiState?.payrollMonth || "")
+          ? db.uiState.payrollMonth
+          : latestRelevantPayrollMonth();
       }
       function importedPayrollItem(e, m, summaryOverride) {
         let box = (db.importedPayrollSnapshots || {})[m] || {},
@@ -4843,21 +4865,23 @@
             ? `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th></tr></thead><tbody>${excelComps.map((c) => `<tr><td>${esc(c.name)}</td><td><span class="badge ${c.kind == "deduction" ? "bad" : "ok"}">${c.kind == "deduction" ? "Potong" : "Tambah"}</span></td></tr>`).join("")}</tbody></table></div>`
             : '<div class="empty">Belum ada komponen dari Excel. Import file Excel payroll dulu.</div>';
           let inputRules = db.payrollInputDefinitions || [];
-          if (inputRules.length) {
-            $("excelCompSummary").innerHTML =
-              `<div class="note" style="margin-bottom:12px"><b>Tarif komponen hasil import</b><br>Ubah tarif di sini. Payroll hanya meminta jumlah/kali; hasil rupiahnya otomatis mengikuti tarif ini dan muncul di slip.</div>` +
-              `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th><th>Jumlah dari</th><th>Tarif</th><th>Aktif</th></tr></thead><tbody>` +
-              inputRules
-                .map((rule) => {
+          $("excelCompSummary").innerHTML =
+            `<div class="note" style="margin-bottom:12px"><b>Komponen payroll berbasis jumlah</b><br>Tarif diatur di sini. Payroll hanya meminta jumlah/kali, lalu nominal dihitung otomatis dan muncul di slip. Komponen berlaku mulai periode yang dipilih dan berlanjut sampai dinonaktifkan.</div>` +
+            `<div class="form" style="grid-template-columns:2fr 1fr 1fr 1fr auto;margin-bottom:12px;align-items:end">` +
+            `<div class="field"><label>Nama komponen baru</label><input id="newPayRuleName" placeholder="mis. Piket tambahan"></div>` +
+            `<div class="field"><label>Jenis</label><select id="newPayRuleKind"><option value="allowance">Tunjangan</option><option value="deduction">Potongan</option></select></div>` +
+            `<div class="field"><label>Tarif per kali</label><input id="newPayRuleRate" class="rp" value="Rp0"></div>` +
+            `<div class="field"><label>Berlaku mulai</label><input id="newPayRuleFrom" type="month" value="${esc($("payMonth")?.value || preferredPayrollMonth())}"></div>` +
+            `<button type="button" class="btn primary" data-add-pay-rule>Tambah</button></div>` +
+            (inputRules.length
+              ? `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th><th>Jumlah dari</th><th>Tarif</th><th>Berlaku mulai</th><th>Aktif</th></tr></thead><tbody>` +
+                inputRules.map((rule) => {
                   let attendanceType = payrollDefinitionAttendanceType(rule),
-                    sourceLabel = attendanceType
-                      ? `Kolom ${attendanceType}`
-                      : "Input per karyawan";
-                  return `<tr><td><input class="pay-rule-name" data-rule-id="${rule.id}" value="${esc(rule.name)}"></td><td><select class="pay-rule-kind" data-rule-id="${rule.id}"><option value="allowance" ${rule.kind !== "deduction" ? "selected" : ""}>Tunjangan</option><option value="deduction" ${rule.kind === "deduction" ? "selected" : ""}>Potongan</option></select></td><td>${esc(sourceLabel)}</td><td><input class="rp pay-rule-rate" data-rule-id="${rule.id}" value="${rp(rule.rate || 0)}"></td><td><input type="checkbox" class="pay-rule-active" data-rule-id="${rule.id}" ${rule.active !== false ? "checked" : ""}></td></tr>`;
-                })
-                .join("") +
-              `</tbody></table></div>`;
-          }
+                    sourceLabel = attendanceType ? `Kolom ${attendanceType}` : "Input per karyawan";
+                  return `<tr><td><input class="pay-rule-name" data-rule-id="${rule.id}" value="${esc(rule.name)}"></td><td><select class="pay-rule-kind" data-rule-id="${rule.id}"><option value="allowance" ${rule.kind !== "deduction" ? "selected" : ""}>Tunjangan</option><option value="deduction" ${rule.kind === "deduction" ? "selected" : ""}>Potongan</option></select></td><td>${esc(sourceLabel)}</td><td><input class="rp pay-rule-rate" data-rule-id="${rule.id}" value="${rp(rule.rate || 0)}"></td><td><input type="month" class="pay-rule-from" data-rule-id="${rule.id}" value="${esc(rule.effectiveFrom || "")}"></td><td><input type="checkbox" class="pay-rule-active" data-rule-id="${rule.id}" ${rule.active !== false ? "checked" : ""}></td></tr>`;
+                }).join("") +
+                `</tbody></table></div>`
+              : '<div class="empty">Belum ada komponen berbasis jumlah. Tambahkan komponen pertama di atas.</div>');
         }
         $("salaryRulesSplit2").style.display = "";
       }
@@ -5482,6 +5506,33 @@
           rows.map((x) => ({ label: labelMonth(x.m), value: x.total })),
         );
         fitMoney();
+        let cashRows = (db.cashAdvances || []).map((cash) => {
+          let paid = Object.values(cash.payments || {}).reduce(
+              (value, amount) => value + (+amount || 0),
+              0,
+            ),
+            amount = +cash.amount || 0;
+          return {
+            cash,
+            employee: empById(cash.employeeId),
+            amount,
+            paid,
+            remaining: cash.status === "cancelled" ? 0 : Math.max(0, amount - paid),
+          };
+        });
+        let cashOriginal = cashRows.reduce((value, row) => value + row.amount, 0),
+          cashPaid = cashRows.reduce((value, row) => value + row.paid, 0),
+          cashRemaining = cashRows.reduce((value, row) => value + row.remaining, 0);
+        $("cashAdvanceReport").innerHTML =
+          `<div class="grid cards" style="margin-bottom:14px"><div class="card stat"><div class="stat-label">Total kasbon</div><div class="stat-value money-fit">${rp(cashOriginal)}</div></div><div class="card stat"><div class="stat-label">Sudah dipotong</div><div class="stat-value money-fit">${rp(cashPaid)}</div></div><div class="card stat"><div class="stat-label">Sisa kasbon</div><div class="stat-value money-fit">${rp(cashRemaining)}</div></div></div>` +
+          (cashRows.length
+            ? `<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Kasbon awal</th><th>Cicilan</th><th>Terpotong</th><th>Sisa</th><th>Status</th><th>Riwayat potongan payroll</th></tr></thead><tbody>${cashRows.map((row) => {
+                let history = Object.entries(row.cash.payments || {}).filter((entry) => +entry[1] > 0).sort((a, b) => a[0].localeCompare(b[0])).map((entry) => `${labelMonth(entry[0])}: ${rp(entry[1])}`).join("<br>") || "Belum ada";
+                let status = row.cash.status === "paid" ? "Lunas" : row.cash.status === "cancelled" ? "Dibatalkan" : "Aktif";
+                return `<tr><td><b>${esc(row.employee?.name || "Karyawan dihapus")}</b><br><span class="muted">Mulai ${esc(row.cash.startMonth || "-")}</span></td><td class="money">${rp(row.amount)}</td><td class="money">${rp(row.cash.installmentAmount || 0)}</td><td class="money">${rp(row.paid)}</td><td class="money">${rp(row.remaining)}</td><td><span class="badge ${status === "Lunas" ? "ok" : status === "Dibatalkan" ? "warn" : ""}">${status}</span></td><td>${history}</td></tr>`;
+              }).join("")}</tbody></table></div>`
+            : '<div class="empty">Belum ada kasbon yang tercatat.</div>');
+        fitMoney();
       }
       function bars(id, items) {
         let max = Math.max(1, ...items.map((x) => x.value));
@@ -5615,6 +5666,39 @@
         if (sl) showSlip(sl.dataset.slip);
         let ss = e.target.closest("[data-send-slip]");
         if (ss) sendSlip(ss.dataset.sendSlip);
+        let addPayRule = e.target.closest("[data-add-pay-rule]");
+        if (addPayRule) {
+          let name = ($("newPayRuleName")?.value || "").trim(),
+            kind = $("newPayRuleKind")?.value || "allowance",
+            rate = Math.max(0, parseRp($("newPayRuleRate")?.value || "0")),
+            effectiveFrom = $("newPayRuleFrom")?.value || preferredPayrollMonth();
+          if (!name) {
+            toast("Isi nama komponen terlebih dahulu.", "bad");
+            return;
+          }
+          if ((db.payrollInputDefinitions || []).some((rule) => payrollNorm(rule.name) === payrollNorm(name))) {
+            toast("Komponen dengan nama tersebut sudah ada. Edit baris yang tersedia.", "bad");
+            return;
+          }
+          db.payrollInputDefinitions.push({
+            id: uid("input_admin"),
+            name,
+            kind,
+            calculationType: "quantity_rate",
+            rate,
+            effectiveFrom,
+            effectiveTo: "",
+            scope: "employee_input",
+            source: "admin_manual",
+            active: true,
+            updatedAt: new Date().toISOString(),
+          });
+          db.uiState.payrollMonth = effectiveFrom;
+          saveLocal(); renderSalaryRules(); renderPayroll();
+          toast("Komponen ditambahkan dan kolom inputnya tersedia di Payroll.", "ok");
+          return;
+        }
+
         let resetAuto = e.target.closest("[data-reset-payroll-auto]");
         if (resetAuto) {
           let m = $("payMonth").value || monthNow(),
@@ -5963,10 +6047,18 @@
       }
       bindCrudClick();
       document.addEventListener("change", (e) => {
+        if (e.target.id === "payMonth") {
+          db.uiState = db.uiState || {};
+          db.uiState.payrollMonth = e.target.value || monthNow();
+          saveLocalSilent();
+          renderPayroll();
+          return;
+        }
         if (
           e.target.classList.contains("pay-rule-name") ||
           e.target.classList.contains("pay-rule-kind") ||
           e.target.classList.contains("pay-rule-rate") ||
+          e.target.classList.contains("pay-rule-from") ||
           e.target.classList.contains("pay-rule-active")
         ) {
           let rule = (db.payrollInputDefinitions || []).find(
@@ -5979,6 +6071,8 @@
             rule.kind = e.target.value;
           if (e.target.classList.contains("pay-rule-rate"))
             rule.rate = Math.max(0, parseRp(e.target.value));
+          if (e.target.classList.contains("pay-rule-from"))
+            rule.effectiveFrom = e.target.value || "";
           if (e.target.classList.contains("pay-rule-active"))
             rule.active = e.target.checked;
           rule.updatedAt = new Date().toISOString();
@@ -6572,7 +6666,7 @@
         };
       $("calcPayroll").onclick = () =>
         refreshLiveData("Mengambil absensi terbaru untuk payroll...");
-      $("payMonth").value = monthNow();
+      $("payMonth").value = preferredPayrollMonth();
       $("lockPayroll").onclick = () => {
         let m = $("payMonth").value || monthNow(),
           v = payrollValidation(m);
@@ -9172,6 +9266,8 @@
               .sort()
               .slice(-1)[0] || importMonth;
             if ($id("payMonth")) $id("payMonth").value = importMonth;
+            db.uiState = db.uiState || {};
+            db.uiState.payrollMonth = importMonth;
             db.importBatches = Array.isArray(db.importBatches)
               ? db.importBatches
               : [];
