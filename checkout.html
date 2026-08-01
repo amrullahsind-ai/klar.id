@@ -71,11 +71,11 @@
         <textarea id="buyerNotes" placeholder="Opsional: nomor WhatsApp atau catatan lain"></textarea>
 
         <div class="price-summary">
-          <div><b>Lisensi Klaar</b><span>Semua fitur · 1 sekolah · selamanya</span></div>
-          <div class="price-amount">Rp200.000</div>
+          <div><b>Langganan Klaar Bulanan</b><span>Semua fitur · 1 sekolah · 1 bulan</span></div>
+          <div class="price-amount">Hubungi kami</div>
         </div>
 
-        <button class="btn" type="submit" id="submitBtn">Buat Pesanan →</button>
+        <button class="btn" type="submit" id="submitBtn">Minta Info Harga →</button>
         <div class="msg" id="msg"></div>
       </form>
       <p class="muted">Dengan memesan, Anda setuju kode lisensi hanya untuk 1 sekolah/yayasan.</p>
@@ -122,6 +122,8 @@
     const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
     // Nomor WA penjual untuk konfirmasi (format internasional tanpa +). Kosongkan = tombol WA disembunyikan.
     const SELLER_WA = '6282283516237';
+    // Tetap false sampai harga bulanan dan handler Apps Script sudah diperbarui.
+    const PRICING_OPEN = false;
 
     const $ = id => document.getElementById(id);
     // Satu paket saja.
@@ -173,9 +175,15 @@
       let school=$('school').value.trim(), email=$('email').value.trim(), buyerNotes=$('buyerNotes').value.trim();
       if(!school) return showErr('Nama sekolah wajib diisi.');
       if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Email tidak valid.');
+      if(!PRICING_OPEN){
+        const text=encodeURIComponent('Halo, saya ingin informasi langganan bulanan Klaar.\nSekolah: '+school+'\nEmail: '+email+(buyerNotes?'\nCatatan: '+buyerNotes:''));
+        if(SELLER_WA) window.open('https://wa.me/'+SELLER_WA+'?text='+text,'_blank','noopener');
+        let m=$('msg'); m.textContent='Permintaan siap dikirim melalui WhatsApp. Harga belum dikunci dan belum ada pesanan berbayar yang dibuat.'; m.className='msg ok';
+        return;
+      }
       let btn=$('submitBtn'); btn.disabled=true; btn.textContent='Memproses...';
       try{
-        let res=await jsonp({action:'createOrder', school, email, plan, buyerNotes});
+        let res=await jsonp({action:'createOrder', school, email, plan, billingPeriod:'monthly', durationMonths:1, buyerNotes});
         if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal membuat pesanan.');
         currentOrder=res;
         $('outOrderId').textContent=res.orderId;

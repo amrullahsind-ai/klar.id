@@ -32,7 +32,8 @@ select
   schedule,
   active
 from cron.job
-where jobname = 'klaar-auto-alpha';
+where jobname in ('klaar-auto-alpha', 'klaar-selfie-retention')
+order by jobname;
 
 -- Tidak menampilkan nilai secret. Hanya memastikan namanya tersedia.
 select
@@ -41,3 +42,14 @@ select
   updated_at
 from vault.decrypted_secrets
 where name = 'klaar_cron_secret';
+
+-- Ringkasan lisensi tanpa menampilkan kode lisensi atau data sekolah.
+select
+  status,
+  plan,
+  count(*) as total,
+  count(*) filter (where expires_at is null) as tanpa_tanggal_berakhir,
+  count(*) filter (where expires_at <= now()) as sudah_berakhir
+from public.licenses
+group by status, plan
+order by status, plan;
