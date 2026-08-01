@@ -6,6 +6,7 @@ Dokumen ini dipakai satu kali sebelum sekolah mulai memakai data nyata. Kerjakan
 
 1. Supabase Free Tier tidak menyediakan backup harian yang dapat dipulihkan dari Dashboard. Buat backup manual sebelum migration:
    - Cara resmi dan lengkap: gunakan `supabase db dump` mengikuti dokumentasi Supabase.
+   - Skrip bantu workspace: set `KLAAR_DATABASE_URL` hanya pada sesi terminal, lalu jalankan `powershell -ExecutionPolicy Bypass -File .\scripts\backup-supabase.ps1`.
    - Cara darurat yang lebih mudah: buka Table Editor dan ekspor CSV untuk tabel `licenses`, `databases`, `attendance_records`, `attendance_requests`, `attendance_selfies`, dan `logs`. File dalam bucket Storage harus dicadangkan terpisah karena backup database hanya menyimpan metadata Storage.
 2. Unduh ZIP branch `main` terbaru repository GitHub melalui [tautan langsung ini](https://github.com/amrullahsind-ai/klar.id/archive/refs/heads/main.zip). Alternatifnya: buka halaman repo -> tombol hijau **Code** -> **Download ZIP**.
 3. Simpan ZIP dan hasil ekspor di folder backup bertanggal. Jangan hapus data atau file lama sebelum pengujian selesai.
@@ -25,6 +26,8 @@ Jangan pernah commit file `.env`, keystore, password, `CRON_SECRET`, service-rol
 5. Pastikan seluruh tabel menampilkan `rls_enabled = true`.
 6. Pastikan bucket `selfies` menampilkan `public = false`.
 7. Pastikan cron `klaar-auto-alpha` menampilkan `active = true`.
+8. Setelah Edge Function terbaru dideploy, jalankan `supabase/selfie-retention-cron.sql` sekali.
+9. Jalankan kembali `supabase/verify-production.sql` dan pastikan cron `klaar-selfie-retention` menampilkan `active = true`.
 
 Catatan: selfie uji coba lama yang menggunakan path lama mungkin tidak lagi tampil setelah bucket dibuat private. Hapus hanya data uji setelah backup. Jangan mengedit tabel internal `storage.objects` secara manual.
 
@@ -62,7 +65,8 @@ Push file source terbaru ke branch `main`. Vercel akan menjalankan deploy. Sesud
 7. Uji dua lisensi sekolah berbeda dan pastikan data, selfie, serta pegawai tidak saling terlihat.
 8. Uji refresh halaman admin dan employee; sesi harus kembali ke halaman sebelumnya selama belum logout.
 9. Uji cron auto-alpha dan lihat hasil terbaru di `cron.job_run_details`.
-10. Buat satu payroll uji dan cocokkan total komponen dengan perhitungan manual.
+10. Uji action `cleanupExpiredSelfies` pada data uji yang melewati masa retensi 30 hari. Pastikan file Storage dan metadata selfie terhapus, tetapi catatan absensi tetap ada.
+11. Buat satu payroll uji dan cocokkan total komponen dengan perhitungan manual.
 
 ## 8. Rilis APK
 

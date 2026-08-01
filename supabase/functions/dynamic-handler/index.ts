@@ -93,11 +93,26 @@ async function verifyLicenseToken(token) {
         error: "payload tanpa school"
       };
     }
+    const rawExpiry = payload.exp ?? payload.expiresAt ?? payload.expires_at ?? "";
+    let expiresAt = "";
+    if (rawExpiry !== "") {
+      const parsedExpiry = typeof rawExpiry === "number"
+        ? new Date(rawExpiry < 100000000000 ? rawExpiry * 1000 : rawExpiry)
+        : new Date(String(rawExpiry));
+      if (Number.isNaN(parsedExpiry.getTime())) {
+        return { ok: false, error: "tanggal kedaluwarsa lisensi tidak valid" };
+      }
+      expiresAt = parsedExpiry.toISOString();
+      if (parsedExpiry.getTime() <= Date.now()) {
+        return { ok: false, error: "lisensi sudah berakhir", expired: true, expiresAt };
+      }
+    }
     return {
       ok: true,
       school: String(payload.school),
       plan: String(payload.plan || ""),
-      iat: payload.iat || ""
+      iat: payload.iat || "",
+      expiresAt
     };
   } catch (err) {
     return {
@@ -109,6 +124,8 @@ async function verifyLicenseToken(token) {
 
 const SELFIE_BUCKET = "selfies";
 const SELFIE_URL_TTL_SECONDS = 15 * 60;
+const SELFIE_RETENTION_DAYS = Math.min(365, Math.max(30, Number(Deno.env.get("SELFIE_RETENTION_DAYS") || 30) || 30));
+const SELFIE_RETENTION_BATCH_SIZE = Math.min(1000, Math.max(50, Number(Deno.env.get("SELFIE_RETENTION_BATCH_SIZE") || 500) || 500));
 
 async function sha256Hex_(value) {
   const digest = await crypto.subtle.digest("SHA-256", enc.encode(String(value || "")));
@@ -167,6 +184,20 @@ async function hydrateAttendanceSelfieUrls_(licenseCode, attendanceRecords) {
     record.checkOutSelfieUrl = signed.get(String(record.checkOutSelfiePath || "")) || "";
   }
 }
+async function hydrateRequestAttachmentUrls_(licenseCode, requests) {
+  const rows = Array.isArray(requests) ? requests : [];
+  const paths = rows.map((r)=>String(r?.attachmentPath || "")).filter(Boolean);
+  if (!paths.length) return;
+  const signed = await signSelfiePaths_(licenseCode, paths);
+  rows.forEach((request)=>{
+    request.attachmentUrl = signed.get(String(request.attachmentPath || "")) || "";
+  });
+}
+
+function safeFilePart_(value) {
+  return String(value || "attachment").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-80);
+}
+
 async function log_(action, licenseCode, message) {
   try {
     await supabase.from("logs").insert({
@@ -177,7 +208,7 @@ async function log_(action, licenseCode, message) {
   } catch (_e) {
   /* logging tidak boleh menggagalkan request */ }
 }
-async function ensureLicenseRow(licenseCode, schoolName) {
+async function ensureLicenseRow(licenseCode, schoolName, plan = "", expiresAt = "") {
   // Auto-provision: buat baris licenses jika belum ada (padanan ensureDemoLicense_).
   const { data } = await supabase.from("licenses").select("license_code").eq("license_code", licenseCode).maybeSingle();
   if (!data) {
@@ -185,6 +216,8 @@ async function ensureLicenseRow(licenseCode, schoolName) {
       license_code: licenseCode,
       school_name: schoolName || "",
       status: "active",
+      plan: plan || "monthly",
+      expires_at: expiresAt || null,
       notes: "Auto-provision oleh Edge Function"
     });
   }
@@ -243,6 +276,8 @@ function normalizeDb(data, licenseCode) {
   data.components = Array.isArray(data.components) ? data.components : [];
   data.attendanceRecords = data.attendanceRecords && typeof data.attendanceRecords === "object" ? data.attendanceRecords : {};
   data.attendanceRequests = Array.isArray(data.attendanceRequests) ? data.attendanceRequests : [];
+  data.shifts = Array.isArray(data.shifts) ? data.shifts : [];
+  data.cashAdvances = Array.isArray(data.cashAdvances) ? data.cashAdvances : [];
   data.deviceRequests = Array.isArray(data.deviceRequests) ? data.deviceRequests : [];
   data.attendanceRules = data.attendanceRules && typeof data.attendanceRules === "object" ? data.attendanceRules : {};
   data.locks = data.locks && typeof data.locks === "object" ? data.locks : {};
@@ -258,6 +293,7 @@ function normalizeDb(data, licenseCode) {
   data.settings = data.settings && typeof data.settings === "object" ? data.settings : {};
   data.attendanceRules.autoAlphaEnabled = data.attendanceRules.autoAlphaEnabled === true;
   data.attendanceRules.autoAlphaAt = data.attendanceRules.autoAlphaAt || "09:30";
+  data.settings.greeting = String(data.settings.greeting || "Halo").trim().slice(0, 40) || "Halo";
   data.attendanceRules.autoAlphaGraceMinutes = Math.max(0, Number(data.attendanceRules.autoAlphaGraceMinutes ?? 30));
   data.attendanceRules.timezone = data.attendanceRules.timezone || "Asia/Jakarta";
   data.attendanceRules.autoAlphaWorkDays = Array.isArray(data.attendanceRules.autoAlphaWorkDays) ? data.attendanceRules.autoAlphaWorkDays.map(Number) : [1, 2, 3, 4, 5, 6];
@@ -283,7 +319,8 @@ function defaultDb(licenseCode, schoolName) {
       primary: "#085842",
       accent: "#39AE89",
       adminUser: "admin",
-      adminHash: DEFAULT_ADMIN_HASH
+      adminHash: DEFAULT_ADMIN_HASH,
+      greeting: "Halo"
     },
     employees: [],
     positions: [],
@@ -292,6 +329,8 @@ function defaultDb(licenseCode, schoolName) {
     deductions: [],
     attendanceRecords: {},
     attendanceRequests: [],
+    shifts: [],
+    cashAdvances: [],
     attendanceRules: {},
     deviceRequests: [],
     locks: {},
@@ -432,10 +471,22 @@ function timeToMin_(hhmm) {
   if (!m) return null;
   return Number(m[1]) * 60 + Number(m[2]);
 }
-function lateInfo_(db, now) {
+function shiftForEmployee_(db, emp) {
+  const shifts = Array.isArray(db?.shifts) ? db.shifts : [];
+  const active = shifts.filter((shift)=>shift && shift.active !== false);
+  if (emp?.shiftId) {
+    const direct = active.find((shift)=>shift.id === emp.shiftId);
+    if (direct) return direct;
+  }
+  return active.find((shift)=>
+    Array.isArray(shift.positionIds) && shift.positionIds.includes(emp?.position)
+  ) || null;
+}
+function lateInfo_(db, now, emp = null) {
   const rules = db && db.attendanceRules || {};
-  const lateAfter = rules.lateAfter || "07:15";
-  const approvalAfter = rules.lateApprovalAfter || "08:30";
+  const shift = shiftForEmployee_(db, emp);
+  const lateAfter = shift?.lateAfter || shift?.startTime || rules.lateAfter || "07:15";
+  const approvalAfter = shift?.lateApprovalAfter || rules.lateApprovalAfter || "08:30";
   const n = timeToMin_(now), l = timeToMin_(lateAfter), a = timeToMin_(approvalAfter);
   const isLate = n !== null && l !== null && n > l;
   return {
@@ -443,7 +494,8 @@ function lateInfo_(db, now) {
     minutes: isLate ? n - l : 0,
     lateAfter,
     lateApprovalAfter: approvalAfter,
-    needsApproval: isLate && a !== null && n > a
+    needsApproval: isLate && a !== null && n > a,
+    shift
   };
 }
 function normalizeLateRecord_(db, r) {
@@ -453,6 +505,7 @@ function normalizeLateRecord_(db, r) {
     "izin",
     "sakit",
     "alpha",
+    "cuti",
     "pending"
   ].indexOf(st) >= 0) return r;
   if (r.lateApproved || r.lateOverride || r.lateStatus === "approved" || r.lateManuallyApproved) {
@@ -460,7 +513,12 @@ function normalizeLateRecord_(db, r) {
     r.isLate = false;
     return r;
   }
-  const late = lateInfo_(db, r.checkInTime);
+  const storedLate = r.shiftId && r.lateAfter;
+  const late = storedLate ? (()=>{
+    const current = timeToMin_(r.checkInTime), limit = timeToMin_(r.lateAfter), approval = timeToMin_(r.lateApprovalAfter);
+    const isLate = current !== null && limit !== null && current > limit;
+    return { isLate, minutes: isLate ? current - limit : 0, lateAfter: r.lateAfter, lateApprovalAfter: r.lateApprovalAfter || "", needsApproval: isLate && approval !== null && current > approval };
+  })() : lateInfo_(db, r.checkInTime);
   if (late.isLate) {
     r.status = "telat";
     r.isLate = true;
@@ -526,6 +584,7 @@ function empView_(db, emp) {
   const todayRecord = normalizeLateRecord_(db, (recs[d] || {})[emp.id] || null);
   const pos = (db.positions || []).find((x)=>x.id === emp.position) || {};
   const gr = (db.grades || []).find((x)=>x.id === emp.grade) || {};
+  const todayShift = shiftForEmployee_(db, emp);
   const hist = Object.keys(recs).sort().reverse().slice(0, 40).map((date)=>Object.assign({
       date
     }, (recs[date] || {})[emp.id] || {})).filter((x)=>x.status);
@@ -538,10 +597,13 @@ function empView_(db, emp) {
       years: years_(emp.join, emp.yearsImported)
     }),
     school: (db.settings || {}).school || "Klaar",
+    greeting: String(db.settings?.greeting || "Halo"),
+    todayShift,
     todayRecord,
     history: hist,
     slip,
-    todayRequest: (db.attendanceRequests || []).find((r)=>r.employeeId === emp.id && r.date === d && r.status === "pending") || null,
+    todayRequest: (db.attendanceRequests || []).find((r)=>r.employeeId === emp.id && r.date <= d && (r.endDate || r.date) >= d && r.status === "pending") || null,
+    requests: (db.attendanceRequests || []).filter((r)=>r.employeeId === emp.id).sort((a, b)=>String(b.createdAt || "").localeCompare(String(a.createdAt || ""))),
     deviceStatus: "aktif"
   };
 }
@@ -569,8 +631,8 @@ function time_(timeZone = "Asia/Jakarta") {
   const hh = p.hour === "24" ? "00" : p.hour;
   return `${hh}:${p.minute}`;
 }
-async function loadAdmin_(licenseCode, p, tokenSchool) {
-  await ensureLicenseRow(licenseCode, tokenSchool);
+async function loadAdmin_(licenseCode, p, tokenSchool, licenseMeta = { plan: "", expiresAt: "" }) {
+  await ensureLicenseRow(licenseCode, tokenSchool, licenseMeta.plan, licenseMeta.expiresAt);
   let data = await loadPayload(licenseCode);
   if (!data) {
     data = defaultDb(licenseCode, tokenSchool);
@@ -594,6 +656,7 @@ async function loadAdmin_(licenseCode, p, tokenSchool) {
   }
   const { data: reqRows } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode);
   data.attendanceRequests = reqRows ? reqRows.map((x)=>x.payload) : [];
+  await hydrateRequestAttachmentUrls_(licenseCode, data.attendanceRequests);
   if (normalizeAllLateRecords_(data)) await upsertPayload(licenseCode, data);
   await hydrateAttendanceSelfieUrls_(licenseCode, data.attendanceRecords);
   const out = JSON.parse(JSON.stringify(data));
@@ -602,7 +665,9 @@ async function loadAdmin_(licenseCode, p, tokenSchool) {
     ok: true,
     license: {
       licenseCode,
-      status: "active"
+      status: "active",
+      plan: licenseMeta.plan || "monthly",
+      expiresAt: licenseMeta.expiresAt || ""
     },
     data: out
   };
@@ -657,12 +722,14 @@ async function saveAdmin_(licenseCode, payloadStr, p, tokenSchool) {
   const reqs = parsed.attendanceRequests || [];
   for (const r of reqs){
     if (r.id) {
+      const requestPayload = { ...r };
+      delete requestPayload.attachmentUrl;
       await supabase.from("attendance_requests").upsert({
         id: r.id,
         license_code: licenseCode,
         employee_id: r.employeeId,
         attendance_date: r.date,
-        payload: r
+        payload: requestPayload
       }, {
         onConflict: "id"
       });
@@ -726,6 +793,7 @@ async function loadEmployee_(licenseCode, p) {
   await hydrateAttendanceSelfieUrls_(licenseCode, db.attendanceRecords);
   const { data: reqs } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode).eq("employee_id", emp.id);
   db.attendanceRequests = reqs ? reqs.map((x)=>x.payload) : [];
+  await hydrateRequestAttachmentUrls_(licenseCode, db.attendanceRequests);
   return empView_(db, emp);
 }
 async function employeeChangePassword_(licenseCode, p) {
@@ -757,7 +825,7 @@ async function employeeCheckIn_(licenseCode, p) {
     const geo = geofenceCheck_(db, lat, lng, accuracy);
     if (!geo.ok) throw new Error(geo.error);
     const now = time_(schoolTimezone);
-    const late = lateInfo_(db, now);
+    const late = lateInfo_(db, now, emp);
     const selfiePath = await safeSelfiePath_(licenseCode, p.selfiePath);
     const r = {
       status: late.isLate ? "telat" : "hadir",
@@ -777,7 +845,11 @@ async function employeeCheckIn_(licenseCode, p) {
       message: late.isLate ? "Check-in berhasil, status TELAT " + (late.minutes ? "(" + late.minutes + " menit)" : "") + "." : "Check-in berhasil",
       checkInSelfiePath: selfiePath,
       checkInSelfieUrl: "",
-      checkInSelfieThumbUrl: p.selfieThumbUrl || ""
+      checkInSelfieThumbUrl: p.selfieThumbUrl || "",
+      shiftId: late.shift?.id || "",
+      shiftName: late.shift?.name || "",
+      shiftStartTime: late.shift?.startTime || "",
+      shiftEndTime: late.shift?.endTime || ""
     };
     const { error } = await supabase.from("attendance_records").upsert({
       license_code: licenseCode,
@@ -851,20 +923,73 @@ async function employeeCheckOut_(licenseCode, p) {
     };
   }
 }
+async function uploadRequestAttachment_(licenseCode, p) {
+  try {
+    const db = await loadPayload(licenseCode);
+    if (!db) throw new Error("Database belum ada.");
+    const emp = checkEmployee(db, p);
+    const source = String(p.photoBase64 || "");
+    const match = source.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i);
+    if (!match) throw new Error("Lampiran harus berupa JPG, PNG, atau WebP.");
+    const binary = atob(match[2]);
+    if (binary.length > 4 * 1024 * 1024) throw new Error("Lampiran maksimal 4 MB.");
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const mime = match[1].toLowerCase();
+    const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+    const original = safeFilePart_(p.fileName || `lampiran.${ext}`);
+    const path = `${await selfieTenantPrefix_(licenseCode)}/requests/${emp.id}/${Date.now()}_${original.replace(/\.[^.]+$/, "")}.${ext}`;
+    const { error } = await supabase.storage.from(SELFIE_BUCKET).upload(path, bytes, {
+      contentType: mime,
+      upsert: false
+    });
+    if (error) throw new Error("Upload lampiran gagal: " + error.message);
+    const signed = await signSelfiePaths_(licenseCode, [path]);
+    return {
+      ok: true,
+      attachment: {
+        path,
+        name: original,
+        mime,
+        url: signed.get(path) || ""
+      }
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: String(e?.message || e)
+    };
+  }
+}
+
 async function employeeRequest_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
     const emp = checkEmployee(db, p);
+    const allowedTypes = new Set(["izin", "sakit", "cuti"]);
+    const type = String(p.type || "izin").toLowerCase();
+    if (!allowedTypes.has(type)) throw new Error("Jenis pengajuan tidak valid.");
+    const date = String(p.date || today_(db.attendanceRules?.timezone));
+    const endDate = String(p.endDate || date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < date)
+      throw new Error("Rentang tanggal pengajuan tidak valid.");
+    const days = Math.floor((Date.parse(endDate + "T00:00:00Z") - Date.parse(date + "T00:00:00Z")) / 86400000) + 1;
+    if (days > 60) throw new Error("Satu pengajuan maksimal 60 hari.");
+    const attachmentPath = await safeSelfiePath_(licenseCode, p.attachmentPath);
     const r = {
       id: "req_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
       employeeId: emp.id,
       employeeName: emp.name,
-      date: p.date || today_(db.attendanceRules?.timezone),
-      type: p.type || "izin",
+      date,
+      endDate,
+      type,
       status: "pending",
       reason: p.reason || "",
-      proof: p.proof || "",
+      proof: String(p.proof || "").slice(0, 200),
+      attachmentPath,
+      attachmentName: attachmentPath ? safeFilePart_(p.attachmentName) : "",
+      attachmentMime: attachmentPath ? String(p.attachmentMime || "").slice(0, 50) : "",
       createdAt: new Date().toISOString()
     };
     const { error } = await supabase.from("attendance_requests").insert({
@@ -1126,6 +1251,57 @@ async function syncCheck_(licenseCode) {
     serverUpdatedAt: String(d._serverUpdatedAt || "")
   };
 }
+// ====== Retensi selfie (dipanggil satu kali sehari oleh Supabase Cron) ======
+async function cleanupExpiredSelfies_(p) {
+  if (!CRON_SECRET || CRON_SECRET.length < 24 || String(p.cronSecret || "") !== CRON_SECRET) {
+    return { ok: false, error: "Otorisasi cron tidak valid." };
+  }
+  const cutoff = new Date(Date.now() - SELFIE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data: rows, error: selectError } = await supabase
+    .from("attendance_selfies")
+    .select("id,license_code,storage_path,file_size_bytes,captured_at")
+    .lt("captured_at", cutoff)
+    .like("storage_path", "tenant/%")
+    .order("captured_at", { ascending: true })
+    .limit(SELFIE_RETENTION_BATCH_SIZE);
+  if (selectError) throw selectError;
+  const candidates = (rows || []).filter((row)=>String(row.storage_path || "").startsWith("tenant/"));
+  const summary = {
+    retentionDays: SELFIE_RETENTION_DAYS,
+    cutoff,
+    selected: (rows || []).length,
+    deletedFiles: 0,
+    deletedMetadata: 0,
+    reclaimedBytes: 0,
+    failedBatches: 0
+  };
+  for(let i = 0; i < candidates.length; i += 100){
+    const chunk = candidates.slice(i, i + 100);
+    const paths = chunk.map((row)=>String(row.storage_path || ""));
+    const { error: storageError } = await supabase.storage.from(SELFIE_BUCKET).remove(paths);
+    if (storageError) {
+      summary.failedBatches++;
+      await log_("selfie_retention_error", "", `Storage gagal untuk ${paths.length} file: ${storageError.message}`);
+      continue;
+    }
+    summary.deletedFiles += chunk.length;
+    summary.reclaimedBytes += chunk.reduce((total, row)=>total + (Number(row.file_size_bytes) || 0), 0);
+    const ids = chunk.map((row)=>row.id);
+    const { error: metadataError } = await supabase.from("attendance_selfies").delete().in("id", ids);
+    if (metadataError) {
+      summary.failedBatches++;
+      await log_("selfie_retention_error", "", `Metadata gagal untuk ${ids.length} selfie: ${metadataError.message}`);
+      continue;
+    }
+    summary.deletedMetadata += chunk.length;
+  }
+  await log_(
+    "selfie_retention",
+    "",
+    `${summary.deletedFiles} file dan ${summary.deletedMetadata} metadata dihapus; ${summary.reclaimedBytes} byte dibebaskan`
+  );
+  return { ok: summary.failedBatches === 0, ...summary, ranAt: new Date().toISOString() };
+}
 // ====== Alpha otomatis (dipanggil terjadwal oleh Supabase Cron) ======
 function zonedParts_(timeZone) {
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -1247,7 +1423,9 @@ async function route(p) {
     };
   }
   if (action === "runAutoAlpha") return await runAutoAlpha_(p);
+  if (action === "cleanupExpiredSelfies") return await cleanupExpiredSelfies_(p);
   let tokenSchool = "";
+  let licenseMeta = { plan: "", expiresAt: "" };
   if (REQUIRE_SIGNED_LICENSE) {
     if (!LICENSE_SECRET || LICENSE_SECRET === "GANTI_SECRET_INI_DENGAN_ACAK_MIN_40_KARAKTER" || LICENSE_SECRET.length < 40) {
       await log_("config_error", licenseCode, "LICENSE_SECRET belum dikonfigurasi");
@@ -1261,12 +1439,15 @@ async function route(p) {
       await log_("license_denied", licenseCode, lic.error || "token tidak valid");
       return {
         ok: false,
-        error: "Lisensi tidak valid. Aktivasi dengan kode lisensi resmi dari Klaar Store."
+        error: ("expired" in lic && lic.expired)
+          ? "Masa langganan Klaar sudah berakhir. Data sekolah tetap tersimpan. Hubungi penjual untuk memperpanjang lisensi."
+          : "Lisensi tidak valid. Aktivasi dengan kode lisensi resmi dari Klaar Store."
       };
     }
     tokenSchool = lic.school;
-    // Revocation: bila baris licenses ada & status bukan active -> tolak.
-    const { data: licRow } = await supabase.from("licenses").select("status").eq("license_code", licenseCode).maybeSingle();
+    licenseMeta = { plan: lic.plan || "monthly", expiresAt: lic.expiresAt || "" };
+    // Status dan expiry database dapat menonaktifkan lisensi tanpa menghapus data tenant.
+    const { data: licRow } = await supabase.from("licenses").select("status,plan,expires_at").eq("license_code", licenseCode).maybeSingle();
     if (licRow && String(licRow.status || "active") !== "active") {
       await log_("license_suspended", licenseCode, "status=" + licRow.status);
       return {
@@ -1274,19 +1455,35 @@ async function route(p) {
         error: "Lisensi dinonaktifkan. Hubungi penjual."
       };
     }
+    if (licRow?.expires_at) {
+      const dbExpiry = new Date(String(licRow.expires_at));
+      if (!Number.isNaN(dbExpiry.getTime())) licenseMeta.expiresAt = dbExpiry.toISOString();
+      if (!Number.isNaN(dbExpiry.getTime()) && dbExpiry.getTime() <= Date.now()) {
+        await log_("license_expired", licenseCode, "expires_at=" + dbExpiry.toISOString());
+        return {
+          ok: false,
+          expired: true,
+          expiresAt: dbExpiry.toISOString(),
+          error: "Masa langganan Klaar sudah berakhir. Data sekolah tetap tersimpan. Hubungi penjual untuk memperpanjang lisensi."
+        };
+      }
+    }
+    if (licRow?.plan) licenseMeta.plan = String(licRow.plan);
   }
   switch(action){
     case "validateLicense":
       return {
         ok: true,
-        valid: true
+        valid: true,
+        billingPeriod: "monthly",
+        expiresAt: licenseMeta.expiresAt || ""
       };
     case "repairDatabase":
       return await repairDatabase_(licenseCode, tokenSchool, p);
     case "syncCheck":
       return await syncCheck_(licenseCode);
     case "loadAdmin":
-      return await loadAdmin_(licenseCode, p, tokenSchool);
+      return await loadAdmin_(licenseCode, p, tokenSchool, licenseMeta);
     case "saveAdmin":
       return await saveAdmin_(licenseCode, p.payload || "{}", p, tokenSchool);
     case "changeAdminCredential":
@@ -1303,6 +1500,8 @@ async function route(p) {
       return await employeeRequest_(licenseCode, p);
     case "uploadSelfie":
       return await uploadSelfie_(licenseCode, p);
+    case "uploadRequestAttachment":
+      return await uploadRequestAttachment_(licenseCode, p);
     case "getSelfieMeta":
       return await getSelfieMeta_(licenseCode, p, tokenSchool);
     case "archiveEmployee":

@@ -85,7 +85,7 @@
       <div class="grid2">
         <div><label for="mSchool">Nama sekolah</label><input id="mSchool" placeholder="cth. SDIT Al Falah" /></div>
         <div><label for="mEmail">Email (opsional)</label><input id="mEmail" type="email" placeholder="email pembeli" /></div>
-        <div><label for="mPlan">Paket</label><select id="mPlan"><option value="starter">Lisensi Klaar (Rp200rb)</option></select></div>
+        <div><label for="mPlan">Paket</label><select id="mPlan"><option value="starter">Klaar Bulanan (1 sekolah)</option></select></div>
         <div><button class="btn btn-accent" id="issueBtn" style="width:100%">Terbitkan</button></div>
       </div>
       <div class="msg" id="issueMsg"></div>
@@ -217,7 +217,7 @@
       if(!school){ flash($('issueMsg'),'Nama sekolah wajib diisi.',false); return; }
       let btn=$('issueBtn'); btn.disabled=true; btn.textContent='...';
       try{
-        let res=await jsonp({action:'issueManual', adminHash, school, email, plan});
+        let res=await jsonp({action:'issueManual', adminHash, school, email, plan, billingPeriod:'monthly', durationMonths:1});
         if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
         let note = res.emailed ? 'Email terkirim.' : (email?('⚠ Email gagal: '+(res.emailError||'')):'(email tidak diisi)');
         $('issueMsg').innerHTML='<b>Token terbit</b> ('+note+'):<div class="token-box">'+esc(res.token)+'</div>';
