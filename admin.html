@@ -1429,24 +1429,27 @@
                   />
                 </div>
                 <div class="field" id="empPositionField">
-                  <label>Jabatan</label
+                  <label id="empPositionLabel">Jabatan</label
                   ><select id="empPosition"></select>
+                  <small class="muted" id="empPositionHelp"></small>
                 </div>
                 <div class="field wide">
                   <label>Shift khusus</label><select id="empShift"></select>
                   <small class="muted">Kosongkan agar otomatis mengikuti shift pertama yang cocok dengan jabatan.</small>
                 </div>
                 <div class="field" id="empGradeField">
-                  <label>Golongan</label
+                  <label id="empGradeLabel">Golongan</label
                   ><select id="empGrade"></select>
+                  <small class="muted" id="empGradeHelp"></small>
                 </div>
                 <div class="field wide" id="empBaseField">
-                  <label>Gaji Pokok (khusus karyawan ini)</label
+                  <label id="empBaseLabel">Gaji Pokok (khusus karyawan ini)</label
                   ><input
                     id="empBaseSalary"
                     class="rp"
                     placeholder="Kosongkan untuk ikut aturan golongan/jabatan"
                   />
+                  <small class="muted" id="empBaseHelp"></small>
                 </div>
                 <div class="field wide">
                   <label>Tunjangan &amp; Potongan (khusus karyawan ini)</label>
@@ -1548,6 +1551,24 @@
                 gap: 10px;
               "
             ></div>
+            <div
+              id="hybridBaseSourceCard"
+              class="note"
+              style="display: none; margin-top: 14px"
+            >
+              <div class="form">
+                <div class="field wide">
+                  <label for="hybridBaseSource">Sumber gaji pokok Hybrid</label>
+                  <select id="hybridBaseSource" onchange="saveHybridBaseSource(this.value)">
+                    <option value="grade">Golongan</option>
+                    <option value="position">Jabatan</option>
+                    <option value="employee">Nominal khusus per karyawan</option>
+                  </select>
+                  <small class="muted" id="hybridBaseSourceHelp"></small>
+                </div>
+              </div>
+              <div id="hybridFormulaPreview" style="margin-top: 8px"></div>
+            </div>
           </div>
           <!-- ===== FORM SPESIFIK METODE ===== -->
           <div class="split" id="salaryRulesSplit1">
@@ -4632,6 +4653,67 @@
         document
           .querySelectorAll(".col-grade")
           .forEach((el) => (el.style.display = ug ? "" : "none"));
+
+        let method = db.settings.payrollMethod || "grade",
+          hybridBase = db.payrollProfile?.baseSource || "grade",
+          positionLabel = $("empPositionLabel"),
+          positionHelp = $("empPositionHelp"),
+          gradeLabel = $("empGradeLabel"),
+          gradeHelp = $("empGradeHelp"),
+          baseLabel = $("empBaseLabel"),
+          baseHelp = $("empBaseHelp"),
+          baseInput = $("empBaseSalary");
+        if (positionLabel) positionLabel.textContent = "Jabatan";
+        if (gradeLabel) gradeLabel.textContent = "Golongan";
+        if (positionHelp) positionHelp.textContent = "";
+        if (gradeHelp) gradeHelp.textContent = "";
+        if (baseLabel) baseLabel.textContent = "Gaji Pokok (khusus karyawan ini)";
+        if (baseHelp)
+          baseHelp.textContent =
+            "Kosongkan agar mengikuti sumber gaji pokok yang aktif.";
+        if (baseInput) {
+          baseInput.disabled = false;
+          baseInput.required = false;
+        }
+
+        if (method === "hybrid") {
+          if (positionLabel)
+            positionLabel.textContent =
+              hybridBase === "position"
+                ? "Jabatan (sumber gaji pokok)"
+                : "Jabatan (sumber tunjangan)";
+          if (positionHelp)
+            positionHelp.textContent =
+              hybridBase === "position"
+                ? "Gaji pokok diambil dari aturan jabatan ini."
+                : "Tidak menambah gaji pokok kedua; hanya komponen jabatan yang digunakan.";
+          if (gradeLabel)
+            gradeLabel.textContent =
+              hybridBase === "grade"
+                ? "Golongan (sumber gaji pokok)"
+                : "Golongan (aturan pendukung)";
+          if (gradeHelp)
+            gradeHelp.textContent =
+              hybridBase === "grade"
+                ? "Gaji pokok diambil dari aturan golongan ini."
+                : "Tidak menjadi gaji pokok selama sumber Hybrid bukan Golongan.";
+          if (baseLabel)
+            baseLabel.textContent =
+              hybridBase === "employee"
+                ? "Gaji Pokok Karyawan (wajib untuk Hybrid ini)"
+                : "Gaji Pokok Karyawan (tidak dipakai oleh rumus aktif)";
+          if (baseHelp)
+            baseHelp.textContent =
+              hybridBase === "employee"
+                ? "Isi nominal karena sumber gaji pokok Hybrid dipilih per karyawan."
+                : "Gaji pokok tetap diambil dari " +
+                  (hybridBase === "position" ? "Jabatan." : "Golongan.") +
+                  " Kosongkan agar form tidak membingungkan.";
+          if (baseInput) {
+            baseInput.disabled = hybridBase !== "employee";
+            baseInput.required = hybridBase === "employee";
+          }
+        }
       }
       function empCompRow(kind, name, amount) {
         let isDed = kind === "deduction";
@@ -4760,6 +4842,33 @@
           "ok",
         );
       }
+      function saveHybridBaseSource(source) {
+        if (!["grade", "position", "employee"].includes(source)) return;
+        db.settings.payrollMethod = "hybrid";
+        db.payrollProfile = {
+          ...(db.payrollProfile || {}),
+          id: db.payrollProfile?.id || "profile_manual",
+          name: "Hybrid / Campuran",
+          method: "hybrid",
+          baseSource: source,
+          panels: ["grade", "position", "components"],
+          confidence: 100,
+          source: "manual",
+          reasons: [],
+        };
+        saveLocal();
+        renderSalaryRules();
+        renderEmployees();
+        toast(
+          "Sumber gaji pokok Hybrid: " +
+            ({
+              grade: "Golongan",
+              position: "Jabatan",
+              employee: "Per karyawan",
+            }[source] || source),
+          "ok",
+        );
+      }
       function renderSalaryRules() {
         fillSelects();
         $("posTable").innerHTML =
@@ -4845,6 +4954,33 @@
           (mt) =>
             `<div class="method-card${m === mt.id ? " active" : ""}" onclick="saveMethod('${mt.id}')">${mt.badge ? `<span class="method-badge">${mt.badge}</span>` : ""}<span class="method-icon">${mt.icon}</span><div class="method-title">${mt.title}</div><p class="method-desc">${mt.desc}</p></div>`,
         ).join("");
+        let hybridSourceCard = $("hybridBaseSourceCard"),
+          hybridSourceSelect = $("hybridBaseSource"),
+          hybridSourceHelp = $("hybridBaseSourceHelp"),
+          hybridFormulaPreview = $("hybridFormulaPreview"),
+          hybridSource = ["grade", "position", "employee"].includes(
+            profile.baseSource,
+          )
+            ? profile.baseSource
+            : "grade";
+        if (hybridSourceCard)
+          hybridSourceCard.style.display = m === "hybrid" ? "" : "none";
+        if (hybridSourceSelect) hybridSourceSelect.value = hybridSource;
+        if (hybridSourceHelp)
+          hybridSourceHelp.textContent =
+            "KLAAR hanya memakai satu sumber gaji pokok. Pilihan lain tetap dapat memberi tunjangan atau aturan pendukung.";
+        if (hybridFormulaPreview) {
+          let formulas = {
+            grade:
+              "Gaji pokok Golongan + tunjangan Golongan + tunjangan Jabatan + komponen lain",
+            position:
+              "Gaji pokok Jabatan + tunjangan Jabatan + masa kerja + komponen lain",
+            employee:
+              "Gaji pokok khusus Karyawan + tunjangan Jabatan + komponen lain",
+          };
+          hybridFormulaPreview.innerHTML =
+            '<b>Rumus aktif:</b> ' + esc(formulas[hybridSource]);
+        }
         // Show/hide method-specific cards
         let showPos = m === "position_tenure" || m === "hybrid",
           $gradeCard = $("gradeCard"),
