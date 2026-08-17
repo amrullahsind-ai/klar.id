@@ -57,14 +57,18 @@ Harga baru dipublikasikan setelah pengukuran pemakaian pilot minimal satu bulan.
 - Lakukan uji pemulihan berkala; file backup yang belum pernah diuji belum dapat dianggap aman.
 - Setelah sekolah berbayar aktif, Supabase Pro lebih tepat karena menyediakan backup harian dengan retensi tujuh hari.
 
-## Yang masih harus dikerjakan di Apps Script Store
+## Store dan panel penjual
 
-Source Apps Script penjual tidak tersedia di workspace ini. Sebelum sistem bulanan diterbitkan, handler `createOrder`, `confirmOrder`, dan `issueManual` harus:
+Store tidak lagi bergantung pada Apps Script atau Spreadsheet. `seller-handler` memakai Supabase Auth untuk akun penjual, allowlist `seller_users`, audit log, rate limit, tabel order, dan tabel lisensi yang sama dengan aplikasi.
 
-- menerima `billingPeriod=monthly` dan `durationMonths=1`;
-- menghitung `expiresAt` satu bulan kalender dari tanggal aktivasi;
-- memasukkan expiry ke payload token yang ditandatangani;
-- menulis `expiresAt` pada spreadsheet lisensi;
-- memperbarui baris `licenses.expires_at` di Supabase atau menyediakan proses sinkronisasi yang aman;
-- tidak menyimpan `LICENSE_SECRET` di spreadsheet atau frontend.
+- Harga tetap tertutup sampai `STORE_PRICING_OPEN=true` dan `KLAAR_MONTHLY_PRICE_IDR` diisi di secret/environment backend.
+- Lisensi baru berlaku satu bulan kalender.
+- Perpanjangan menghasilkan token baru tetapi mempertahankan `tenant_key`; data sekolah tidak berubah atau terhapus.
+- Sekolah yang dibebaskan dari pembayaran dapat diberi 1–365 hari melalui aksi `Waktu gratis`; alasan, pemberi, masa berlaku lama/baru, dan nilai nol dicatat untuk audit.
+- Penangguhan mencabut sesi aplikasi dan menghentikan akses tanpa menghapus data.
+- Email memakai penyedia backend (`RESEND_API_KEY`), bukan MailApp.
+- `LICENSE_SECRET`, service-role, dan kredensial penjual tidak pernah ditempatkan di frontend.
 
+## Keputusan go-live
+
+Source sudah menyediakan kontrol teknis utama, tetapi status “siap dijual” baru boleh diberikan setelah migration/deploy staging dan produksi diverifikasi, restore staging berhasil, legal final, harga final, monitoring hijau, serta pilot 2–3 sekolah menyelesaikan satu siklus payroll.

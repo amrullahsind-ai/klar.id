@@ -2428,7 +2428,7 @@
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("");
       }
-      // b64url dari Uint8Array (cocok byte-per-byte dengan Utilities.base64Encode di Apps Script).
+      // b64url dari Uint8Array (cocok byte-per-byte dengan penandatangan backend).
       function bytesToB64url(bytes) {
         let bin = "";
         for (let i = 0; i < bytes.length; i++)
@@ -2995,7 +2995,8 @@
         serverUrl = KLAAR_API,
         license = localStorage.getItem(LICENSE_KEY) || "",
         licenseInfo = {},
-        adminAuth = null;
+        adminAuth = null,
+        serverRevision = 0;
       try {
         const savedSession = JSON.parse(
           sessionStorage.getItem(ADMIN_SESSION_KEY) || "null",
@@ -3004,10 +3005,10 @@
           savedSession &&
           savedSession.license === license &&
           savedSession.user &&
-          savedSession.hash &&
+          savedSession.token &&
           Number(savedSession.expiresAt || 0) > Date.now()
         ) {
-          adminAuth = { user: savedSession.user, hash: savedSession.hash };
+          adminAuth = { user: savedSession.user, hash: "", sessionToken: savedSession.token };
         } else {
           sessionStorage.removeItem(ADMIN_SESSION_KEY);
         }
@@ -3087,7 +3088,7 @@
       }
       async function runAutoSync() {
         if (!autoDirty) return;
-        if (!serverUrl || !license) {
+        if (!serverUrl || !license || !adminAuth) {
           setAutoBadge("Tersimpan lokal (server belum diatur)", "warn");
           return;
         }
@@ -3104,9 +3105,24 @@
           let pre = await jsonp("syncCheck");
           preStamp = (pre && pre.serverUpdatedAt) || "";
         } catch (e) {}
-        saveRemote(true);
-        let ack = await confirmSync(preStamp, targetCount, 20000);
-        autoBusy = false;
+        const saveAck = await saveRemote(true);
+        let ack;
+        if (!saveAck || !saveAck.ok) {
+          autoBusy = false;
+          if (saveAck?.conflict) {
+            autoDirty = false;
+            setAutoBadge("Konflik data — muat ulang sebelum lanjut", "bad");
+            toast(
+              "Data server berubah dari perangkat lain. Data lokal tidak ditimpa. Muat ulang data server, lalu ulangi perubahan Anda.",
+              "bad",
+            );
+            return;
+          }
+          ack = saveAck || { ok: false, error: "Sync ditolak server" };
+        } else {
+          ack = await confirmSync(preStamp, targetCount, 20000);
+          autoBusy = false;
+        }
         if (ack && ack.ok) {
           autoRetryCount = 0;
           lastAutoSync = new Date().toLocaleTimeString("id-ID", {
@@ -3363,7 +3379,16 @@
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(
-              Object.assign({ action, licenseCode: license }, extra),
+              Object.assign(
+                {
+                  action,
+                  licenseCode: license,
+                  sessionToken: adminAuth?.sessionToken || "",
+                  adminUser: adminAuth?.user || "",
+                  adminHash: adminAuth?.hash || "",
+                },
+                extra,
+              ),
             ),
             signal: ctrl.signal,
           });
@@ -3388,8 +3413,6 @@
         if (!adminAuth) throw new Error("Login admin dulu.");
         let res = await jsonp("deleteEmployee", {
           employeeId: empId,
-          adminUser: adminAuth.user,
-          adminHash: adminAuth.hash,
         });
         if (!res || !res.ok)
           throw new Error((res && res.error) || "Delete server gagal");
@@ -3440,8 +3463,6 @@
         let localCount = (db.employees || []).length;
         try {
           let res = await jsonp("loadAdmin", {
-            adminUser: adminAuth.user,
-            adminHash: adminAuth.hash,
           });
           if (!res || !res.ok) {
             setAutoBadge("Verifikasi server gagal — cek koneksi", "bad");
@@ -3565,10 +3586,22 @@
         if (isDemo) return { ok: true, demo: true };
         if (!adminAuth) throw new Error("Login admin dulu.");
         let res = await jsonp("loadAdmin", {
-          adminUser: adminAuth.user,
-          adminHash: adminAuth.hash,
         });
         if (!res.ok) throw new Error(res.error || "Load gagal");
+        serverRevision = Number(res.revision || serverRevision || 1);
+        if (res.sessionToken) {
+          adminAuth.sessionToken = res.sessionToken;
+          adminAuth.hash = "";
+          sessionStorage.setItem(
+            ADMIN_SESSION_KEY,
+            JSON.stringify({
+              license,
+              user: adminAuth.user,
+              token: adminAuth.sessionToken,
+              expiresAt: Date.parse(res.sessionExpiresAt || "") || Date.now() + 12 * 60 * 60 * 1000,
+            }),
+          );
+        }
         licenseInfo = res.license || {};
         if (res.data) {
           let incoming = normalizeDB(
@@ -3617,34 +3650,29 @@
           toast("Refresh server gagal: " + err.message);
         }
       }
-      function saveRemote(isAuto = false) {
+      async function saveRemote(isAuto = false) {
         if (!license) {
           if (!isAuto) alert("Belum ada kode lisensi");
           setAutoBadge("Belum terkoneksi", "bad");
-          return;
+          return { ok: false, error: "Belum ada kode lisensi" };
         }
         AUTO_SUPPRESS = true;
         localStorage.setItem(KEY, JSON.stringify(db));
         AUTO_SUPPRESS = false;
-        api("saveAdmin", {
+        try {
+          const res = await api("saveAdmin", {
           payload: JSON.stringify(db),
-          adminUser: adminAuth ? adminAuth.user : "",
-          adminHash: adminAuth ? adminAuth.hash : "",
-        })
-          .then((res) => {
-            try {
-              window.postMessage(res, "*");
-            } catch (e) {}
-          })
-          .catch((err) => {
-            try {
-              window.postMessage(
-                { ok: false, error: (err && err.message) || "Sync gagal" },
-                "*",
-              );
-            } catch (e) {}
+          baseRevision: serverRevision || 1,
           });
-        if (!isAuto) toast("Sync manual dikirim ke server.");
+          if (res?.ok && res.revision) serverRevision = Number(res.revision);
+          try { window.postMessage(res, "*"); } catch (e) {}
+          if (!isAuto) toast(res?.ok ? "Data tersimpan di server." : (res?.error || "Sync ditolak server."), res?.ok ? "ok" : "bad");
+          return res;
+        } catch (err) {
+          const failure = { ok: false, error: (err && err.message) || "Sync gagal" };
+          try { window.postMessage(failure, "*"); } catch (e) {}
+          return failure;
+        }
       }
       function section(id) {
         if (!$(id)) id = "dashboard";
@@ -6353,8 +6381,8 @@
               JSON.stringify({
                 license,
                 user: adminAuth.user,
-                hash: adminAuth.hash,
-                expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+                token: adminAuth.sessionToken,
+                expiresAt: Date.now() + 12 * 60 * 60 * 1000,
               }),
             );
             showApp();
@@ -6372,6 +6400,7 @@
         }
       };
       $("logout").onclick = () => {
+        api("logoutSession").catch(() => {});
         adminAuth = null;
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         showLogin();

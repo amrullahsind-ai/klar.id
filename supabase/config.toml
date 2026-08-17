@@ -1,2 +1,7 @@
 [functions.dynamic-handler]
 verify_jwt = false
+
+# Login dan checkout publik tidak mempunyai JWT Supabase. seller-handler tetap
+# memverifikasi Bearer token sendiri untuk setiap action penjual.
+[functions.seller-handler]
+verify_jwt = false

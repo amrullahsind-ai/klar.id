@@ -110,6 +110,7 @@ async function verifyLicenseToken(token) {
     return {
       ok: true,
       school: String(payload.school),
+      tenantKey: String(payload.tenantKey || payload.tenant_key || ""),
       plan: String(payload.plan || ""),
       iat: payload.iat || "",
       expiresAt
@@ -126,6 +127,8 @@ const SELFIE_BUCKET = "selfies";
 const SELFIE_URL_TTL_SECONDS = 15 * 60;
 const SELFIE_RETENTION_DAYS = Math.min(365, Math.max(30, Number(Deno.env.get("SELFIE_RETENTION_DAYS") || 30) || 30));
 const SELFIE_RETENTION_BATCH_SIZE = Math.min(1000, Math.max(50, Number(Deno.env.get("SELFIE_RETENTION_BATCH_SIZE") || 500) || 500));
+const ADMIN_SESSION_HOURS = Math.min(72, Math.max(1, Number(Deno.env.get("ADMIN_SESSION_HOURS") || 12) || 12));
+const EMPLOYEE_SESSION_DAYS = Math.min(90, Math.max(1, Number(Deno.env.get("EMPLOYEE_SESSION_DAYS") || 30) || 30));
 
 async function sha256Hex_(value) {
   const digest = await crypto.subtle.digest("SHA-256", enc.encode(String(value || "")));
@@ -208,12 +211,14 @@ async function log_(action, licenseCode, message) {
   } catch (_e) {
   /* logging tidak boleh menggagalkan request */ }
 }
-async function ensureLicenseRow(licenseCode, schoolName, plan = "", expiresAt = "") {
+async function ensureLicenseRow(licenseCode, schoolName, plan = "", expiresAt = "", accessToken = "") {
   // Auto-provision: buat baris licenses jika belum ada (padanan ensureDemoLicense_).
   const { data } = await supabase.from("licenses").select("license_code").eq("license_code", licenseCode).maybeSingle();
   if (!data) {
     await supabase.from("licenses").insert({
       license_code: licenseCode,
+      tenant_key: licenseCode,
+      access_token: accessToken || licenseCode,
       school_name: schoolName || "",
       status: "active",
       plan: plan || "monthly",
@@ -223,7 +228,7 @@ async function ensureLicenseRow(licenseCode, schoolName, plan = "", expiresAt = 
   }
 }
 async function getRow(licenseCode) {
-  const { data, error } = await supabase.from("databases").select("payload, updated_at").eq("license_code", licenseCode).maybeSingle();
+  const { data, error } = await supabase.from("databases").select("payload, updated_at, revision").eq("license_code", licenseCode).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -232,7 +237,7 @@ async function loadPayload(licenseCode) {
   if (!row) return null;
   return normalizeDb(row.payload || {}, licenseCode);
 }
-// Full-replace (dipakai loadAdmin auto-create & saveAdmin). Kembalikan payload tersimpan.
+// Full-replace hanya untuk bootstrap/repair. Penyimpanan rutin memakai CAS revision.
 async function upsertPayload(licenseCode, data) {
   const { data: out, error } = await supabase.from("databases").upsert({
     license_code: licenseCode,
@@ -240,19 +245,20 @@ async function upsertPayload(licenseCode, data) {
     updated_at: new Date().toISOString()
   }, {
     onConflict: "license_code"
-  }).select("payload").single();
+  }).select("payload,revision").single();
   if (error) throw error;
-  return out.payload;
+  return out;
 }
-// Compare-and-swap: hanya menulis bila updated_at belum berubah (optimistic lock,
-// pengganti LockService). Kembalikan true bila menang.
-async function savePayloadCAS(licenseCode, data, prevUpdatedAt) {
+// Compare-and-swap berbasis revision; timestamp saja tidak cukup kuat bila dua
+// request datang pada resolusi waktu yang sama.
+async function savePayloadCAS(licenseCode, data, prevRevision) {
   const { data: out, error } = await supabase.from("databases").update({
     payload: data,
-    updated_at: new Date().toISOString()
-  }).eq("license_code", licenseCode).eq("updated_at", prevUpdatedAt).select("license_code");
+    updated_at: new Date().toISOString(),
+    revision: Number(prevRevision || 1) + 1
+  }).eq("license_code", licenseCode).eq("revision", Number(prevRevision || 1)).select("license_code,payload,revision");
   if (error) throw error;
-  return !!(out && out.length > 0);
+  return out && out.length ? out[0] : null;
 }
 // Read-modify-write aman-konkurensi (padanan withDB_ + LockService).
 async function withDB(licenseCode, fn) {
@@ -261,7 +267,7 @@ async function withDB(licenseCode, fn) {
     if (!row) throw new Error("Database belum ada. Sync dari Admin dulu.");
     const db = normalizeDb(row.payload || {}, licenseCode);
     const result = fn(db) || {};
-    const won = await savePayloadCAS(licenseCode, db, row.updated_at);
+    const won = await savePayloadCAS(licenseCode, db, row.revision);
     if (won) return result;
   // kalah balapan -> ulangi dgn data terbaru
   }
@@ -389,6 +395,102 @@ function checkEmployee(db, p) {
     throw new Error("Username atau password salah. Untuk karyawan hasil import, default biasanya 1234.");
   }
   return emp;
+}
+
+async function consumeLoginLimit_(licenseCode, subjectType, login, p) {
+  const identity = `${licenseCode}|${subjectType}|${norm_(login)}|${String(p?._requestFingerprint || "unknown")}`;
+  const rateKey = await sha256Hex_(identity);
+  const { data, error } = await supabase.rpc("consume_rate_limit", {
+    p_key: rateKey,
+    p_scope: `${subjectType}-login`,
+    p_limit: subjectType === "admin" ? 5 : 8,
+    p_window_seconds: 900,
+    p_block_seconds: 900
+  });
+  if (error) throw new Error("Proteksi login belum siap. Jalankan migration hardening komersial.");
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result?.allowed) {
+    throw new Error(`Terlalu banyak percobaan login. Coba lagi dalam ${Number(result?.retry_after_seconds || 60)} detik.`);
+  }
+  return rateKey;
+}
+
+async function resetLoginLimit_(rateKey) {
+  if (rateKey) await supabase.rpc("reset_rate_limit", { p_key: rateKey });
+}
+
+async function getAppSession_(licenseCode, subjectType, rawToken) {
+  const token = String(rawToken || "").trim();
+  if (!token) return null;
+  const tokenHash = await sha256Hex_(token);
+  const { data, error } = await supabase.from("app_sessions")
+    .select("id,subject_id,expires_at")
+    .eq("token_hash", tokenHash)
+    .eq("license_code", licenseCode)
+    .eq("subject_type", subjectType)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+  if (error || !data) return null;
+  await supabase.from("app_sessions").update({ last_seen_at: new Date().toISOString() }).eq("id", data.id);
+  return data;
+}
+
+async function createAppSession_(licenseCode, subjectType, subjectId, p) {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const token = b64urlFromBytes(bytes);
+  const tokenHash = await sha256Hex_(token);
+  const ttlMs = subjectType === "admin" ? ADMIN_SESSION_HOURS * 60 * 60 * 1000 : EMPLOYEE_SESSION_DAYS * 24 * 60 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  const { error } = await supabase.from("app_sessions").insert({
+    token_hash: tokenHash,
+    license_code: licenseCode,
+    subject_type: subjectType,
+    subject_id: String(subjectId || ""),
+    device_id: String(p?.deviceId || "").slice(0, 200),
+    device_name: String(p?.deviceName || "").slice(0, 200),
+    user_agent: String(p?._userAgent || "").slice(0, 500),
+    expires_at: expiresAt
+  });
+  if (error) throw new Error("Gagal membuat sesi aman.");
+  return { sessionToken: token, sessionExpiresAt: expiresAt };
+}
+
+async function authenticateAdmin_(licenseCode, db, p, issueSession = false) {
+  const session = await getAppSession_(licenseCode, "admin", p?.sessionToken);
+  if (session) {
+    const configuredUser = String(db?.settings?.adminUser || "admin").trim().toLowerCase();
+    if (String(session.subject_id || "").toLowerCase() === configuredUser) {
+      return { ok: true, sessionToken: "", sessionExpiresAt: session.expires_at };
+    }
+  }
+  const login = String(p?.adminUser || "admin");
+  const rateKey = await consumeLoginLimit_(licenseCode, "admin", login, p);
+  if (!checkAdmin(db, p)) return { ok: false };
+  await resetLoginLimit_(rateKey);
+  const created = issueSession ? await createAppSession_(licenseCode, "admin", String(db?.settings?.adminUser || "admin"), p) : {};
+  return { ok: true, ...created };
+}
+
+async function authenticateEmployee_(licenseCode, db, p, issueSession = false) {
+  const session = await getAppSession_(licenseCode, "employee", p?.sessionToken);
+  if (session) {
+    const employee = (db.employees || []).find((item) => String(item.id) === String(session.subject_id));
+    if (employee && !["nonaktif", "arsip"].includes(String(employee.status || "Aktif").toLowerCase())) {
+      return { employee, sessionToken: "", sessionExpiresAt: session.expires_at };
+    }
+  }
+  const login = String(p?.nip || p?.login || p?.username || "");
+  const rateKey = await consumeLoginLimit_(licenseCode, "employee", login, p);
+  const employee = checkEmployee(db, p);
+  await resetLoginLimit_(rateKey);
+  const created = issueSession ? await createAppSession_(licenseCode, "employee", employee.id, p) : {};
+  return { employee, ...created };
+}
+
+async function revokeSubjectSessions_(licenseCode, subjectType, subjectId) {
+  await supabase.from("app_sessions").update({ revoked_at: new Date().toISOString() })
+    .eq("license_code", licenseCode).eq("subject_type", subjectType).eq("subject_id", String(subjectId || "")).is("revoked_at", null);
 }
 // ====== Geofence GPS (port) ======
 function haversine_(lat1, lng1, lat2, lng2) {
@@ -604,6 +706,7 @@ function empView_(db, emp) {
     slip,
     todayRequest: (db.attendanceRequests || []).find((r)=>r.employeeId === emp.id && r.date <= d && (r.endDate || r.date) >= d && r.status === "pending") || null,
     requests: (db.attendanceRequests || []).filter((r)=>r.employeeId === emp.id).sort((a, b)=>String(b.createdAt || "").localeCompare(String(a.createdAt || ""))),
+    mustChangePassword: String(emp.employeePinHash || DEFAULT_ADMIN_HASH) === DEFAULT_ADMIN_HASH,
     deviceStatus: "aktif"
   };
 }
@@ -632,13 +735,16 @@ function time_(timeZone = "Asia/Jakarta") {
   return `${hh}:${p.minute}`;
 }
 async function loadAdmin_(licenseCode, p, tokenSchool, licenseMeta = { plan: "", expiresAt: "" }) {
-  await ensureLicenseRow(licenseCode, tokenSchool, licenseMeta.plan, licenseMeta.expiresAt);
-  let data = await loadPayload(licenseCode);
-  if (!data) {
+  await ensureLicenseRow(licenseCode, tokenSchool, licenseMeta.plan, licenseMeta.expiresAt, p?._presentedLicenseCode);
+  let row = await getRow(licenseCode);
+  let data = row ? normalizeDb(row.payload || {}, licenseCode) : null;
+  if (!row) {
     data = defaultDb(licenseCode, tokenSchool);
     await upsertPayload(licenseCode, data);
+    row = await getRow(licenseCode);
   }
-  if (!checkAdmin(data, p)) {
+  const auth = await authenticateAdmin_(licenseCode, data, p, true);
+  if (!auth.ok) {
     await log_("loadAdmin_denied", licenseCode, "kredensial admin salah");
     return {
       ok: false,
@@ -657,7 +763,7 @@ async function loadAdmin_(licenseCode, p, tokenSchool, licenseMeta = { plan: "",
   const { data: reqRows } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode);
   data.attendanceRequests = reqRows ? reqRows.map((x)=>x.payload) : [];
   await hydrateRequestAttachmentUrls_(licenseCode, data.attendanceRequests);
-  if (normalizeAllLateRecords_(data)) await upsertPayload(licenseCode, data);
+  normalizeAllLateRecords_(data);
   await hydrateAttendanceSelfieUrls_(licenseCode, data.attendanceRecords);
   const out = JSON.parse(JSON.stringify(data));
   if (out.settings) delete out.settings.adminHash;
@@ -669,17 +775,32 @@ async function loadAdmin_(licenseCode, p, tokenSchool, licenseMeta = { plan: "",
       plan: licenseMeta.plan || "monthly",
       expiresAt: licenseMeta.expiresAt || ""
     },
+    revision: Number(row?.revision || 1),
+    sessionToken: auth.sessionToken || "",
+    sessionExpiresAt: auth.sessionExpiresAt || "",
     data: out
   };
 }
 async function saveAdmin_(licenseCode, payloadStr, p, tokenSchool) {
-  await ensureLicenseRow(licenseCode, tokenSchool);
-  const existing = await loadPayload(licenseCode);
-  if (!checkAdmin(existing || {}, p)) {
+  await ensureLicenseRow(licenseCode, tokenSchool, "", "", p?._presentedLicenseCode);
+  const row = await getRow(licenseCode);
+  const existing = row ? normalizeDb(row.payload || {}, licenseCode) : null;
+  const auth = await authenticateAdmin_(licenseCode, existing || {}, p, false);
+  if (!auth.ok) {
     await log_("saveAdmin_denied", licenseCode, "kredensial admin salah");
     return {
       ok: false,
       error: "Username/PIN admin salah. Sync ditolak."
+    };
+  }
+  if (!row) return { ok: false, error: "Database belum ada. Muat ulang aplikasi terlebih dahulu." };
+  const baseRevision = Number(p?.baseRevision || row.revision || 1);
+  if (!Number.isInteger(baseRevision) || baseRevision !== Number(row.revision || 1)) {
+    return {
+      ok: false,
+      conflict: true,
+      revision: Number(row.revision || 1),
+      error: "Data di server sudah berubah dari perangkat lain. Muat ulang sebelum menyimpan lagi."
     };
   }
   let parsed;
@@ -697,50 +818,25 @@ async function saveAdmin_(licenseCode, payloadStr, p, tokenSchool) {
   normalizeAllLateRecords_(data);
   data._serverUpdatedAt = new Date().toISOString();
   const expectEmp = Array.isArray(data.employees) ? data.employees.length : 0;
-  // Process relational delta for attendance
+  // Ambil delta relasional sebelum properti tersebut dikeluarkan dari blob utama.
   const delAtt = parsed._deletedAttendance || [];
-  for (const { date, empId } of delAtt){
-    await supabase.from("attendance_records").delete().eq("license_code", licenseCode).eq("attendance_date", date).eq("employee_id", empId);
-  }
   const recs = parsed.attendanceRecords || {};
-  for (const date of Object.keys(recs)){
-    for (const empId of Object.keys(recs[date])){
-      const r = recs[date][empId];
-      if (r && String(r.source).startsWith("admin")) {
-        await supabase.from("attendance_records").upsert({
-          license_code: licenseCode,
-          attendance_date: date,
-          employee_id: empId,
-          payload: r,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: "license_code, attendance_date, employee_id"
-        });
-      }
-    }
-  }
   const reqs = parsed.attendanceRequests || [];
-  for (const r of reqs){
-    if (r.id) {
-      const requestPayload = { ...r };
-      delete requestPayload.attachmentUrl;
-      await supabase.from("attendance_requests").upsert({
-        id: r.id,
-        license_code: licenseCode,
-        employee_id: r.employeeId,
-        attendance_date: r.date,
-        payload: requestPayload
-      }, {
-        onConflict: "id"
-      });
-    }
-  }
   // Remove relational properties before saving JSON blob
   delete data.attendanceRecords;
   delete data.attendanceRequests;
   delete data._deletedAttendance;
-  const saved = await upsertPayload(licenseCode, data);
-  const savedEmp = Array.isArray(saved.employees) ? saved.employees.length : -1;
+  const saved = await savePayloadCAS(licenseCode, data, baseRevision);
+  if (!saved) {
+    const latest = await getRow(licenseCode);
+    return {
+      ok: false,
+      conflict: true,
+      revision: Number(latest?.revision || baseRevision + 1),
+      error: "Perubahan lain masuk bersamaan. Data Anda belum ditimpa; muat ulang lalu ulangi perubahan."
+    };
+  }
+  const savedEmp = Array.isArray(saved.payload?.employees) ? saved.payload.employees.length : -1;
   if (savedEmp !== expectEmp) {
     await log_("saveAdmin_verify_fail", licenseCode, "harusnya " + expectEmp + " karyawan, tersimpan " + savedEmp);
     return {
@@ -748,23 +844,61 @@ async function saveAdmin_(licenseCode, payloadStr, p, tokenSchool) {
       error: "Verifikasi server gagal: harusnya " + expectEmp + " karyawan, tersimpan " + savedEmp + "."
     };
   }
+
+  // Blob sudah memenangkan CAS. Baru terapkan perubahan tabel relasional agar
+  // request yang kalah konflik tidak sempat mengubah absensi.
+  for (const { date, empId } of delAtt){
+    const { error } = await supabase.from("attendance_records").delete().eq("license_code", licenseCode).eq("attendance_date", date).eq("employee_id", empId);
+    if (error) throw error;
+  }
+  for (const date of Object.keys(recs)){
+    for (const empId of Object.keys(recs[date])){
+      const record = recs[date][empId];
+      if (record && String(record.source).startsWith("admin")) {
+        const { error } = await supabase.from("attendance_records").upsert({
+          license_code: licenseCode,
+          attendance_date: date,
+          employee_id: empId,
+          payload: record,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "license_code, attendance_date, employee_id" });
+        if (error) throw error;
+      }
+    }
+  }
+  for (const request of reqs){
+    if (!request.id) continue;
+    const requestPayload = { ...request };
+    delete requestPayload.attachmentUrl;
+    const { data: existingRequest, error: lookupError } = await supabase.from("attendance_requests")
+      .select("id,license_code").eq("id", request.id).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existingRequest && existingRequest.license_code !== licenseCode) throw new Error("ID pengajuan bentrok dengan tenant lain.");
+    const query = existingRequest
+      ? supabase.from("attendance_requests").update({ employee_id: request.employeeId, attendance_date: request.date, payload: requestPayload }).eq("id", request.id).eq("license_code", licenseCode)
+      : supabase.from("attendance_requests").insert({ id: request.id, license_code: licenseCode, employee_id: request.employeeId, attendance_date: request.date, payload: requestPayload });
+    const { error } = await query;
+    if (error) throw error;
+  }
   await log_("saveAdmin", licenseCode, "payload saved & verified (" + savedEmp + " karyawan)");
   return {
     ok: true,
     message: "Data tersimpan & terverifikasi",
     employees: savedEmp,
+    revision: Number(saved.revision || baseRevision + 1),
     serverUpdatedAt: data._serverUpdatedAt
   };
 }
 async function changeAdminCredential_(licenseCode, p) {
-  return await withDB(licenseCode, (db)=>{
+  try {
+    const current = await loadPayload(licenseCode);
+    if (!current) throw new Error("Database belum ada.");
+    const authParams = { ...p, adminUser: p.oldUser, adminHash: p.oldHash };
+    const auth = await authenticateAdmin_(licenseCode, current, authParams, false);
+    if (!auth.ok) throw new Error("Username/PIN lama salah.");
+    const oldSubject = String(current.settings?.adminUser || "admin");
+    const result = await withDB(licenseCode, (db)=>{
     db.settings = db.settings || {};
-    const curUser = String(db.settings.adminUser || "admin").trim();
-    const curHash = String(db.settings.adminHash || "") || DEFAULT_ADMIN_HASH;
-    const oldUser = String(p.oldUser || "").trim(), oldHash = String(p.oldHash || "");
-    if (oldHash !== curHash || oldUser && curUser && oldUser.toLowerCase() !== curUser.toLowerCase()) {
-      throw new Error("Username/PIN lama salah.");
-    }
     const newUser = String(p.newUser || "").trim(), newHash = String(p.newHash || "");
     if (!newUser || !newHash) throw new Error("Username/PIN baru belum lengkap.");
     db.settings.adminUser = newUser;
@@ -773,15 +907,18 @@ async function changeAdminCredential_(licenseCode, p) {
       ok: true,
       message: "Kredensial admin berhasil diganti."
     };
-  }).catch((e)=>({
-      ok: false,
-      error: String(e?.message || e)
-    }));
+    });
+    await revokeSubjectSessions_(licenseCode, "admin", oldSubject);
+    return result;
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
 }
 async function loadEmployee_(licenseCode, p) {
   const db = await loadPayload(licenseCode);
   if (!db) throw new Error("Database belum ada. Sync dari Admin dulu.");
-  const emp = checkEmployee(db, p);
+  const auth = await authenticateEmployee_(licenseCode, db, p, true);
+  const emp = auth.employee;
   const { data: recs } = await supabase.from("attendance_records").select("attendance_date, payload").eq("license_code", licenseCode).eq("employee_id", emp.id);
   db.attendanceRecords = {};
   if (recs) {
@@ -794,27 +931,36 @@ async function loadEmployee_(licenseCode, p) {
   const { data: reqs } = await supabase.from("attendance_requests").select("payload").eq("license_code", licenseCode).eq("employee_id", emp.id);
   db.attendanceRequests = reqs ? reqs.map((x)=>x.payload) : [];
   await hydrateRequestAttachmentUrls_(licenseCode, db.attendanceRequests);
-  return empView_(db, emp);
+  return { ...empView_(db, emp), sessionToken: auth.sessionToken || "", sessionExpiresAt: auth.sessionExpiresAt || "" };
 }
 async function employeeChangePassword_(licenseCode, p) {
-  return await withDB(licenseCode, (db)=>{
-    const emp = checkEmployee(db, p);
+  try {
+    const current = await loadPayload(licenseCode);
+    if (!current) throw new Error("Database belum ada.");
+    const auth = await authenticateEmployee_(licenseCode, current, p, false);
+    const employeeId = auth.employee.id;
+    const result = await withDB(licenseCode, (db)=>{
+    const emp = (db.employees || []).find((item)=>String(item.id) === String(employeeId));
+    if (!emp) throw new Error("Karyawan tidak ditemukan.");
     emp.employeePinHash = p.newHash;
     emp.updatedAt = new Date().toISOString();
     return {
       ok: true,
       message: "Password berhasil diganti"
     };
-  }).catch((e)=>({
-      ok: false,
-      error: String(e?.message || e)
-    }));
+    });
+    await revokeSubjectSessions_(licenseCode, "employee", employeeId);
+    const session = await createAppSession_(licenseCode, "employee", employeeId, p);
+    return { ...result, ...session };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
 }
 async function employeeCheckIn_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
-    const emp = checkEmployee(db, p);
+    const emp = (await authenticateEmployee_(licenseCode, db, p, false)).employee;
     const schoolTimezone = db.attendanceRules?.timezone || "Asia/Jakarta";
     const d = today_(schoolTimezone);
     const { data: existing } = await supabase.from("attendance_records").select("payload").eq("license_code", licenseCode).eq("attendance_date", d).eq("employee_id", emp.id).maybeSingle();
@@ -880,7 +1026,7 @@ async function employeeCheckOut_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
-    const emp = checkEmployee(db, p);
+    const emp = (await authenticateEmployee_(licenseCode, db, p, false)).employee;
     const schoolTimezone = db.attendanceRules?.timezone || "Asia/Jakarta";
     const d = today_(schoolTimezone);
     const { data: existing } = await supabase.from("attendance_records").select("payload").eq("license_code", licenseCode).eq("attendance_date", d).eq("employee_id", emp.id).maybeSingle();
@@ -927,7 +1073,7 @@ async function uploadRequestAttachment_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
-    const emp = checkEmployee(db, p);
+    const emp = (await authenticateEmployee_(licenseCode, db, p, false)).employee;
     const source = String(p.photoBase64 || "");
     const match = source.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i);
     if (!match) throw new Error("Lampiran harus berupa JPG, PNG, atau WebP.");
@@ -966,7 +1112,7 @@ async function employeeRequest_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
-    const emp = checkEmployee(db, p);
+    const emp = (await authenticateEmployee_(licenseCode, db, p, false)).employee;
     const allowedTypes = new Set(["izin", "sakit", "cuti"]);
     const type = String(p.type || "izin").toLowerCase();
     if (!allowedTypes.has(type)) throw new Error("Jenis pengajuan tidak valid.");
@@ -1017,7 +1163,7 @@ async function uploadSelfie_(licenseCode, p) {
   try {
     const db = await loadPayload(licenseCode);
     if (!db) throw new Error("Database belum ada.");
-    const emp = checkEmployee(db, p);
+    const emp = (await authenticateEmployee_(licenseCode, db, p, false)).employee;
     const base64Data = String(p.photoBase64 || "");
     if (!base64Data || base64Data.length < 100) {
       throw new Error("Data foto tidak valid.");
@@ -1090,9 +1236,10 @@ async function uploadSelfie_(licenseCode, p) {
 // ====== Admin: ambil metadata selfie absensi ======
 async function getSelfieMeta_(licenseCode, p, tokenSchool) {
   try {
-    await ensureLicenseRow(licenseCode, tokenSchool);
+    await ensureLicenseRow(licenseCode, tokenSchool, "", "", p?._presentedLicenseCode);
     const existing = await loadPayload(licenseCode);
-    if (!checkAdmin(existing || {}, p)) {
+    const auth = await authenticateAdmin_(licenseCode, existing || {}, p, false);
+    if (!auth.ok) {
       return {
         ok: false,
         error: "Admin auth gagal."
@@ -1126,8 +1273,10 @@ async function getSelfieMeta_(licenseCode, p, tokenSchool) {
   }
 }
 async function archiveEmployee_(licenseCode, empId, p) {
+  const current = await loadPayload(licenseCode);
+  const auth = await authenticateAdmin_(licenseCode, current || {}, p, false);
+  if (!auth.ok) return { ok: false, error: "Admin auth gagal." };
   return await withDB(licenseCode, (db)=>{
-    if (!checkAdmin(db, p)) throw new Error("Admin auth gagal.");
     const emp = (db.employees || []).find((e)=>e.id === empId);
     if (!emp) return {
       ok: false,
@@ -1156,8 +1305,10 @@ async function archiveEmployee_(licenseCode, empId, p) {
     }));
 }
 async function deleteEmployee_(licenseCode, empId, p) {
+  const current = await loadPayload(licenseCode);
+  const auth = await authenticateAdmin_(licenseCode, current || {}, p, false);
+  if (!auth.ok) return { ok: false, error: "Admin auth gagal." };
   return await withDB(licenseCode, (db)=>{
-    if (!checkAdmin(db, p)) throw new Error("Admin auth gagal.");
     db._deletedEmployees = db._deletedEmployees || [];
     if (empId && db._deletedEmployees.indexOf(empId) < 0) db._deletedEmployees.push(empId);
     db.employees = (db.employees || []).filter((e)=>e.id !== empId);
@@ -1184,8 +1335,10 @@ async function deleteEmployee_(licenseCode, empId, p) {
     }));
 }
 async function approveLateAsPresent_(licenseCode, empId, date, p) {
+  const current = await loadPayload(licenseCode);
+  const auth = await authenticateAdmin_(licenseCode, current || {}, p, false);
+  if (!auth.ok) return { ok: false, error: "Admin auth gagal." };
   return await withDB(licenseCode, (db)=>{
-    if (!checkAdmin(db, p)) throw new Error("Admin auth gagal.");
     const d = date || today_(db.attendanceRules?.timezone);
     db.attendanceRecords = db.attendanceRecords || {};
     db.attendanceRecords[d] = db.attendanceRecords[d] || {};
@@ -1211,10 +1364,11 @@ async function approveLateAsPresent_(licenseCode, empId, date, p) {
     }));
 }
 async function repairDatabase_(licenseCode, tokenSchool, p) {
-  await ensureLicenseRow(licenseCode, tokenSchool);
+  await ensureLicenseRow(licenseCode, tokenSchool, "", "", p?._presentedLicenseCode);
   const row = await getRow(licenseCode);
   const authDb = row ? normalizeDb(row.payload || {}, licenseCode) : defaultDb(licenseCode, tokenSchool);
-  if (!checkAdmin(authDb, p)) {
+  const auth = await authenticateAdmin_(licenseCode, authDb, p, false);
+  if (!auth.ok) {
     return {
       ok: false,
       error: "Admin auth gagal."
@@ -1235,7 +1389,7 @@ async function repairDatabase_(licenseCode, tokenSchool, p) {
     data: normalizeDb(row.payload || {}, licenseCode)
   };
 }
-async function syncCheck_(licenseCode) {
+async function syncCheck_(licenseCode, p) {
   const row = await getRow(licenseCode);
   if (!row) return {
     ok: true,
@@ -1243,13 +1397,23 @@ async function syncCheck_(licenseCode) {
     employees: 0,
     serverUpdatedAt: ""
   };
-  const d = row.payload || {};
+  const d = normalizeDb(row.payload || {}, licenseCode);
+  const auth = await authenticateAdmin_(licenseCode, d, p, false);
+  if (!auth.ok) return { ok: false, error: "Admin auth gagal." };
   return {
     ok: true,
     exists: true,
     employees: Array.isArray(d.employees) ? d.employees.length : 0,
     serverUpdatedAt: String(d._serverUpdatedAt || "")
   };
+}
+async function logoutSession_(licenseCode, p) {
+  const token = String(p?.sessionToken || "").trim();
+  if (!token) return { ok: true };
+  const tokenHash = await sha256Hex_(token);
+  await supabase.from("app_sessions").update({ revoked_at: new Date().toISOString() })
+    .eq("license_code", licenseCode).eq("token_hash", tokenHash).is("revoked_at", null);
+  return { ok: true };
 }
 // ====== Retensi selfie (dipanggil satu kali sehari oleh Supabase Cron) ======
 async function cleanupExpiredSelfies_(p) {
@@ -1413,7 +1577,7 @@ async function runAutoAlpha_(p) {
 // ====== Router (padanan route_) ======
 async function route(p) {
   const action = p.action || "loadAdmin";
-  const licenseCode = String(p.licenseCode || DEFAULT_LICENSE).trim();
+  const presentedLicenseCode = String(p.licenseCode || DEFAULT_LICENSE).trim();
   if (action === "ping" || action === "health") {
     return {
       ok: true,
@@ -1426,6 +1590,7 @@ async function route(p) {
   if (action === "cleanupExpiredSelfies") return await cleanupExpiredSelfies_(p);
   let tokenSchool = "";
   let licenseMeta = { plan: "", expiresAt: "" };
+  let licenseCode = presentedLicenseCode;
   if (REQUIRE_SIGNED_LICENSE) {
     if (!LICENSE_SECRET || LICENSE_SECRET === "GANTI_SECRET_INI_DENGAN_ACAK_MIN_40_KARAKTER" || LICENSE_SECRET.length < 40) {
       await log_("config_error", licenseCode, "LICENSE_SECRET belum dikonfigurasi");
@@ -1434,7 +1599,7 @@ async function route(p) {
         error: "Server belum dikonfigurasi: LICENSE_SECRET wajib diisi (min. 40 karakter). Hubungi penjual."
       };
     }
-    const lic = await verifyLicenseToken(licenseCode);
+    const lic = await verifyLicenseToken(presentedLicenseCode);
     if (!lic.ok) {
       await log_("license_denied", licenseCode, lic.error || "token tidak valid");
       return {
@@ -1445,9 +1610,15 @@ async function route(p) {
       };
     }
     tokenSchool = lic.school;
+    licenseCode = lic.tenantKey || presentedLicenseCode;
+    p._presentedLicenseCode = presentedLicenseCode;
     licenseMeta = { plan: lic.plan || "monthly", expiresAt: lic.expiresAt || "" };
     // Status dan expiry database dapat menonaktifkan lisensi tanpa menghapus data tenant.
-    const { data: licRow } = await supabase.from("licenses").select("status,plan,expires_at").eq("license_code", licenseCode).maybeSingle();
+    const { data: licRow } = await supabase.from("licenses").select("status,plan,expires_at,access_token").eq("license_code", licenseCode).maybeSingle();
+    if (licRow?.access_token && String(licRow.access_token) !== presentedLicenseCode) {
+      await log_("license_replaced", licenseCode, "token lama atau sudah diganti");
+      return { ok: false, error: "Kode lisensi ini sudah diganti. Gunakan kode terbaru dari penjual." };
+    }
     if (licRow && String(licRow.status || "active") !== "active") {
       await log_("license_suspended", licenseCode, "status=" + licRow.status);
       return {
@@ -1478,10 +1649,12 @@ async function route(p) {
         billingPeriod: "monthly",
         expiresAt: licenseMeta.expiresAt || ""
       };
+    case "logoutSession":
+      return await logoutSession_(licenseCode, p);
     case "repairDatabase":
       return await repairDatabase_(licenseCode, tokenSchool, p);
     case "syncCheck":
-      return await syncCheck_(licenseCode);
+      return await syncCheck_(licenseCode, p);
     case "loadAdmin":
       return await loadAdmin_(licenseCode, p, tokenSchool, licenseMeta);
     case "saveAdmin":
@@ -1540,6 +1713,10 @@ Deno.serve(async (req)=>{
     // Body JSON (jalur utama dari fetch)
     if (req.method === "POST") {
       const ct = req.headers.get("content-type") || "";
+      const contentLength = Number(req.headers.get("content-length") || 0);
+      if (contentLength > 6 * 1024 * 1024) {
+        return jsonResponse({ ok: false, error: "Payload terlalu besar." }, 413, corsHeaders);
+      }
       if (ct.includes("application/json")) {
         const body = await req.json().catch(()=>({}));
         params = {
@@ -1551,6 +1728,9 @@ Deno.serve(async (req)=>{
         for (const [k, v] of form.entries())params[k] = String(v);
       }
     }
+    const forwarded = String(req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+    params._requestFingerprint = await sha256Hex_(`${forwarded}|${req.headers.get("user-agent") || ""}`);
+    params._userAgent = String(req.headers.get("user-agent") || "");
     const action = String(params.action || "");
     if (req.method !== "POST" && action !== "ping" && action !== "health") {
       return jsonResponse({

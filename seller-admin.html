@@ -57,8 +57,10 @@
     <div class="brand"><img src="klaar-logo.png" alt="Klaar"/> Klaar Store · Penjual</div>
     <div class="card">
       <h1>Masuk Panel Penjual</h1>
-      <p class="sub">Masukkan password panel penjual yang tersimpan di pengelola kredensial Anda.</p>
+      <p class="sub">Masuk dengan akun Supabase Auth yang sudah diizinkan sebagai penjual.</p>
       <form id="loginForm">
+        <label for="email">Email</label>
+        <input id="email" type="email" required autocomplete="username" />
         <label for="pass">Password</label>
         <input id="pass" type="password" required autocomplete="current-password" />
         <button class="btn" type="submit" id="loginBtn" style="margin-top:16px;width:100%">Masuk</button>
@@ -85,7 +87,7 @@
       <div class="grid2">
         <div><label for="mSchool">Nama sekolah</label><input id="mSchool" placeholder="cth. SDIT Al Falah" /></div>
         <div><label for="mEmail">Email (opsional)</label><input id="mEmail" type="email" placeholder="email pembeli" /></div>
-        <div><label for="mPlan">Paket</label><select id="mPlan"><option value="starter">Klaar Bulanan (1 sekolah)</option></select></div>
+        <div><label for="mPlan">Paket</label><select id="mPlan"><option value="monthly">Klaar Bulanan (1 sekolah)</option></select></div>
         <div><button class="btn btn-accent" id="issueBtn" style="width:100%">Terbitkan</button></div>
       </div>
       <div class="msg" id="issueMsg"></div>
@@ -93,7 +95,7 @@
 
     <div class="card">
       <h1>Daftar Pesanan</h1>
-      <p class="sub">Email lisensi dikirim memakai MailApp dari akun Google yang men-deploy Apps Script Store. Pastikan izin MailApp sudah disetujui di Apps Script.</p>
+      <p class="sub">Pesanan dan lisensi tersimpan langsung di Supabase. Email dikirim melalui penyedia email backend bila sudah dikonfigurasi.</p>
       <p class="sub">Klik <b>Konfirmasi &amp; Terbitkan</b> setelah pembayaran masuk — token dibuat &amp; dikirim ke email pembeli.</p>
       <div class="tbl-wrap">
         <table>
@@ -103,133 +105,173 @@
       </div>
       <div class="msg" id="actMsg"></div>
     </div>
+
+    <div class="card" style="margin-top:16px">
+      <h1>Lisensi sekolah</h1>
+      <p class="sub">Gunakan perpanjangan berbayar untuk transaksi normal. “Waktu gratis” tidak membuat pembayaran dan wajib disertai alasan audit.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Sekolah</th><th>Tenant</th><th>Berlaku sampai</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="licensesBody"><tr><td colspan="5" class="muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="msg" id="licenseMsg"></div>
+    </div>
   </div>
 
   <script>
-    // Apps Script tetap dipakai khusus untuk transaksi dan lisensi Klaar Store.
-    const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
-    // Salt harus SAMA dengan SELLER_SALT di store-apps-script.gs.
-    const SELLER_SALT = '|klaar-store-seller-v1';
-    const SESSION_KEY = 'klaar_store_seller_hash';
-
+    const SELLER_API = 'https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/seller-handler';
+    const SESSION_KEY = 'klaar_store_seller_session_v2';
     const $ = id => document.getElementById(id);
-    let adminHash = sessionStorage.getItem(SESSION_KEY) || '';
+    let sellerSession = null;
+    try { sellerSession = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch(_e) {}
 
-    async function sha(text){
-      const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)+SELLER_SALT));
-      return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+    function saveSession(value){
+      sellerSession=value;
+      if(value) sessionStorage.setItem(SESSION_KEY,JSON.stringify(value));
+      else sessionStorage.removeItem(SESSION_KEY);
     }
-    function jsonp(params){
-      return new Promise((resolve,reject)=>{
-        if(/GANTI_DENGAN_URL/.test(STORE_SERVER_URL)) return reject(new Error('STORE_SERVER_URL belum diisi di seller-admin.html.'));
-        let cb='klaar_seller_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-        let s=document.createElement('script');
-        let sep=STORE_SERVER_URL.includes('?')?'&':'?';
-        let q=new URLSearchParams(Object.assign({callback:cb,t:Date.now()},params));
-        let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi.'))},16000);
-        function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
-        window[cb]=res=>{cleanup();resolve(res)};
-        s.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'))};
-        s.src=STORE_SERVER_URL+sep+q.toString();
-        document.body.appendChild(s);
-      });
-    }
-    function flash(el, text, ok){ el.textContent=text; el.className='msg '+(ok?'ok':'err'); }
-
-    function showApp(){ $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden'); loadOrders(); }
-    function showLogin(){ $('appView').classList.add('hidden'); $('loginView').classList.remove('hidden'); }
-
-    $('loginForm').onsubmit = async e => {
-      e.preventDefault();
-      let btn=$('loginBtn'); btn.disabled=true;
+    async function callApi(params, authenticated=true, retry=true){
+      let ctrl=new AbortController(), timer=setTimeout(()=>ctrl.abort(),20000);
       try{
-        let h = await sha($('pass').value);
-        let res = await jsonp({action:'listOrders', adminHash:h});
-        if(!res || !res.ok) throw new Error((res&&res.error)||'Login gagal.');
-        adminHash = h; sessionStorage.setItem(SESSION_KEY, h);
-        renderOrders(res.orders||[]);
-        showApp();
-      }catch(err){ flash($('loginMsg'), err.message, false); }
-      finally{ btn.disabled=false; }
+        const headers={'content-type':'application/json'};
+        if(authenticated && sellerSession?.accessToken) headers.authorization='Bearer '+sellerSession.accessToken;
+        const response=await fetch(SELLER_API,{method:'POST',headers,body:JSON.stringify(params),signal:ctrl.signal});
+        const result=await response.json().catch(()=>({ok:false,error:'Respons server tidak valid.'}));
+        if(response.status===401 && authenticated && retry && sellerSession?.refreshToken){
+          const refreshed=await callApi({action:'sellerRefresh',refreshToken:sellerSession.refreshToken},false,false);
+          if(refreshed.ok){
+            saveSession({accessToken:refreshed.accessToken,refreshToken:refreshed.refreshToken,expiresAt:refreshed.expiresAt});
+            return await callApi(params,true,false);
+          }
+        }
+        if(!response.ok || !result.ok) throw new Error(result.error||('HTTP '+response.status));
+        return result;
+      }catch(error){
+        if(error.name==='AbortError') throw new Error('Timeout koneksi ke server.');
+        throw error;
+      }finally{clearTimeout(timer)}
+    }
+    function flash(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err')}
+    function showApp(load=true){$('loginView').classList.add('hidden');$('appView').classList.remove('hidden');if(load){loadOrders();loadLicenses()}}
+    function showLogin(){saveSession(null);$('appView').classList.add('hidden');$('loginView').classList.remove('hidden')}
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+
+    $('loginForm').onsubmit=async e=>{
+      e.preventDefault();const btn=$('loginBtn');btn.disabled=true;
+      try{
+        const res=await callApi({action:'sellerLogin',email:$('email').value.trim(),password:$('pass').value},false);
+        saveSession({accessToken:res.accessToken,refreshToken:res.refreshToken,expiresAt:res.expiresAt});
+        $('pass').value='';showApp();
+      }catch(error){flash($('loginMsg'),error.message||'Login gagal.',false)}finally{btn.disabled=false}
     };
-    $('logoutBtn').onclick = ()=>{ adminHash=''; sessionStorage.removeItem(SESSION_KEY); $('pass').value=''; showLogin(); };
-    $('refreshBtn').onclick = ()=>loadOrders();
+    $('logoutBtn').onclick=()=>{ $('pass').value='';showLogin() };
+    $('refreshBtn').onclick=()=>{loadOrders();loadLicenses()};
 
     async function loadOrders(){
       $('ordersBody').innerHTML='<tr><td colspan="7" class="muted">Memuat...</td></tr>';
-      try{
-        let res = await jsonp({action:'listOrders', adminHash});
-        if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal memuat.');
-        renderOrders(res.orders||[]);
-      }catch(err){
-        if(/password/i.test(err.message)) { showLogin(); return; }
-        $('ordersBody').innerHTML='<tr><td colspan="7" class="msg err" style="display:table-cell">'+err.message+'</td></tr>';
+      try{const res=await callApi({action:'listOrders'});renderOrders(res.orders||[])}
+      catch(error){
+        if(/sesi|masuk kembali/i.test(error.message)){showLogin();return}
+        $('ordersBody').innerHTML='<tr><td colspan="7" class="msg err" style="display:table-cell">'+esc(error.message)+'</td></tr>';
       }
     }
-    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
     function renderOrders(list){
-      $('countInfo').textContent = list.length + ' pesanan';
-      if(!list.length){ $('ordersBody').innerHTML='<tr><td colspan="7" class="muted">Belum ada pesanan.</td></tr>'; return; }
-      $('ordersBody').innerHTML = list.map(o=>{
-        let paid = o.status==='paid';
-        let action = paid
-          ? '<button class="btn btn-ghost btn-sm" data-resend="'+esc(o.orderId)+'">Kirim ulang email</button>'
-          : '<button class="btn btn-sm" data-confirm="'+esc(o.orderId)+'">Konfirmasi &amp; Terbitkan</button>';
-        let proof = o.paymentProof ? '<a href="'+esc(o.paymentProof)+'" target="_blank" rel="noopener">Lihat bukti</a>' : '<span class="muted">Belum ada</span>';
-        if(o.buyerNotes) proof += '<br><span class="muted">'+esc(o.buyerNotes)+'</span>';
-        return '<tr>'+
-          '<td><b>'+esc(o.orderId)+'</b></td>'+
-          '<td>'+esc(o.school)+'</td>'+
-          '<td>'+esc(o.email)+'</td>'+
-          '<td>'+esc(o.plan)+'</td>'+
-          '<td>'+proof+'</td>'+
-          '<td><span class="pill '+(paid?'paid':'pending')+'">'+(paid?'Lunas':'Pending')+'</span>'+(o.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td>'+
-          '<td>'+action+'</td>'+
-        '</tr>';
+      $('countInfo').textContent=list.length+' pesanan';
+      if(!list.length){$('ordersBody').innerHTML='<tr><td colspan="7" class="muted">Belum ada pesanan.</td></tr>';return}
+      $('ordersBody').innerHTML=list.map(order=>{
+        const paid=order.status==='paid';
+        const review=order.status==='payment_review';
+        const action=paid
+          ? '<button class="btn btn-ghost btn-sm" data-resend="'+esc(order.orderId)+'">Kirim ulang email</button>'
+          : '<button class="btn btn-sm" data-confirm="'+esc(order.orderId)+'">Konfirmasi &amp; Terbitkan</button>';
+        let proof=order.paymentProof?'<a href="'+esc(order.paymentProof)+'" target="_blank" rel="noopener">Lihat bukti</a>':'<span class="muted">Belum ada</span>';
+        if(order.buyerNotes) proof+='<br><span class="muted">'+esc(order.buyerNotes)+'</span>';
+        const statusLabel=paid?'Lunas':review?'Perlu dicek':'Pending';
+        return '<tr><td><b>'+esc(order.orderId)+'</b></td><td>'+esc(order.school)+'</td><td>'+esc(order.email)+'</td><td>'+esc(order.plan)+'</td><td>'+proof+'</td><td><span class="pill '+(paid?'paid':'pending')+'">'+statusLabel+'</span>'+(order.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td><td>'+action+'</td></tr>';
+      }).join('');
+    }
+    async function loadLicenses(){
+      $('licensesBody').innerHTML='<tr><td colspan="5" class="muted">Memuat...</td></tr>';
+      try{const res=await callApi({action:'listLicenses'});renderLicenses(res.licenses||[])}
+      catch(error){$('licensesBody').innerHTML='<tr><td colspan="5" class="msg err" style="display:table-cell">'+esc(error.message)+'</td></tr>'}
+    }
+    function renderLicenses(list){
+      if(!list.length){$('licensesBody').innerHTML='<tr><td colspan="5" class="muted">Belum ada lisensi.</td></tr>';return}
+      $('licensesBody').innerHTML=list.map(license=>{
+        const active=license.status==='active';
+        const expiry=license.expiresAt?new Date(license.expiresAt).toLocaleDateString('id-ID'):'—';
+        return '<tr><td><b>'+esc(license.school)+'</b></td><td><span class="muted">'+esc(license.tenantKey)+'</span></td><td>'+esc(expiry)+'</td><td><span class="pill '+(active?'paid':'pending')+'">'+esc(active?'Aktif':'Ditangguhkan')+'</span></td><td><button class="btn btn-sm" data-renew="'+esc(license.tenantKey)+'">+1 bulan (bayar)</button> <button class="btn btn-accent btn-sm" data-free="'+esc(license.tenantKey)+'">Waktu gratis</button> <button class="btn btn-ghost btn-sm" data-status="'+esc(license.tenantKey)+'" data-next="'+(active?'suspended':'active')+'">'+(active?'Tangguhkan':'Aktifkan')+'</button></td></tr>';
       }).join('');
     }
 
-    $('ordersBody').addEventListener('click', async e=>{
-      let c=e.target.closest('[data-confirm]'), r=e.target.closest('[data-resend]');
-      if(c){
-        if(!confirm('Konfirmasi pembayaran & terbitkan lisensi untuk order '+c.dataset.confirm+'?')) return;
-        c.disabled=true; c.textContent='Memproses...';
+    $('ordersBody').addEventListener('click',async e=>{
+      const confirmBtn=e.target.closest('[data-confirm]'),resendBtn=e.target.closest('[data-resend]');
+      if(confirmBtn){
+        if(!confirm('Konfirmasi pembayaran & terbitkan lisensi untuk order '+confirmBtn.dataset.confirm+'?'))return;
+        confirmBtn.disabled=true;confirmBtn.textContent='Memproses...';
         try{
-          let res=await jsonp({action:'confirmOrder', adminHash, orderId:c.dataset.confirm});
-          if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
-          flash($('actMsg'), 'Lisensi terbit. '+(res.emailed?'Email terkirim ke pembeli.':'⚠ Email GAGAL: '+(res.emailError||'cek kuota MailApp')), res.emailed);
-          loadOrders();
-        }catch(err){ flash($('actMsg'), err.message, false); c.disabled=false; c.textContent='Konfirmasi & Terbitkan'; }
+          const res=await callApi({action:'confirmOrder',orderId:confirmBtn.dataset.confirm});
+          const note=res.emailed?'Email terkirim ke pembeli.':'Email belum terkirim: '+(res.emailError||'konfigurasi email belum tersedia.');
+          $('actMsg').innerHTML='<b>Lisensi terbit.</b> '+esc(note)+'<div class="token-box">'+esc(res.token)+'</div>';
+          $('actMsg').className='msg '+(res.emailed?'ok':'err');await loadOrders();
+        }catch(error){flash($('actMsg'),error.message,false);confirmBtn.disabled=false;confirmBtn.textContent='Konfirmasi & Terbitkan'}
       }
-      if(r){
-        r.disabled=true; r.textContent='Mengirim...';
+      if(resendBtn){
+        resendBtn.disabled=true;resendBtn.textContent='Mengirim...';
+        try{const res=await callApi({action:'resendLicense',orderId:resendBtn.dataset.resend});flash($('actMsg'),res.emailed?'Email lisensi dikirim ulang.':'Email gagal: '+(res.emailError||''),res.emailed)}
+        catch(error){flash($('actMsg'),error.message,false)}finally{resendBtn.disabled=false;resendBtn.textContent='Kirim ulang email'}
+      }
+    });
+    $('licensesBody').addEventListener('click',async e=>{
+      const renew=e.target.closest('[data-renew]'),free=e.target.closest('[data-free]'),status=e.target.closest('[data-status]');
+      if(renew){
+        if(!confirm('Perpanjang lisensi ini satu bulan? Kode lama akan diganti.'))return;
+        renew.disabled=true;
         try{
-          let res=await jsonp({action:'resendLicense', adminHash, orderId:r.dataset.resend});
-          if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
-          flash($('actMsg'), res.emailed?'Email lisensi dikirim ulang.':'⚠ Email gagal: '+(res.emailError||''), res.emailed);
-        }catch(err){ flash($('actMsg'), err.message, false); }
-        finally{ r.disabled=false; r.textContent='Kirim ulang email'; }
+          const res=await callApi({action:'renewLicense',tenantKey:renew.dataset.renew});
+          $('licenseMsg').innerHTML='<b>Lisensi diperpanjang.</b> '+esc(res.emailed?'Kode baru sudah dikirim lewat email.':'Kirim kode baru ini ke sekolah; email belum terkirim: '+(res.emailError||''))+'<div class="token-box">'+esc(res.token)+'</div><div class="muted">Berlaku sampai '+esc(new Date(res.expiresAt).toLocaleDateString('id-ID'))+'.</div>';
+          $('licenseMsg').className='msg ok';await loadLicenses();
+        }catch(error){flash($('licenseMsg'),error.message,false)}finally{renew.disabled=false}
+      }
+      if(free){
+        const daysRaw=prompt('Tambahkan berapa hari gratis? Masukkan 1–365 hari.','30');
+        if(daysRaw===null)return;
+        const days=Number(daysRaw);
+        if(!Number.isInteger(days)||days<1||days>365){flash($('licenseMsg'),'Jumlah hari harus angka bulat 1–365.',false);return}
+        const reason=prompt('Alasan pemberian waktu gratis (wajib dicatat):','Bantuan/kebijakan khusus sekolah');
+        if(reason===null)return;
+        if(reason.trim().length<5){flash($('licenseMsg'),'Alasan minimal 5 karakter.',false);return}
+        if(!confirm('Tambahkan '+days+' hari GRATIS? Tidak ada pembayaran yang dibuat.'))return;
+        free.disabled=true;
+        try{
+          const res=await callApi({action:'grantComplimentaryExtension',tenantKey:free.dataset.free,days,reason:reason.trim()});
+          $('licenseMsg').innerHTML='<b>'+esc(days)+' hari gratis berhasil ditambahkan.</b> '+esc(res.emailed?'Kode baru sudah dikirim lewat email.':'Kirim kode baru ini ke sekolah; email belum terkirim: '+(res.emailError||''))+'<div class="token-box">'+esc(res.token)+'</div><div class="muted">Alasan: '+esc(res.reason)+' · Berlaku sampai '+esc(new Date(res.expiresAt).toLocaleDateString('id-ID'))+'.</div>';
+          $('licenseMsg').className='msg ok';await loadLicenses();
+        }catch(error){flash($('licenseMsg'),error.message,false)}finally{free.disabled=false}
+      }
+      if(status){
+        const next=status.dataset.next;
+        if(!confirm((next==='suspended'?'Tangguhkan':'Aktifkan')+' lisensi ini?'))return;
+        status.disabled=true;
+        try{await callApi({action:'setLicenseStatus',tenantKey:status.dataset.status,status:next});flash($('licenseMsg'),'Status lisensi diperbarui.',true);await loadLicenses()}
+        catch(error){flash($('licenseMsg'),error.message,false)}finally{status.disabled=false}
       }
     });
 
-    $('issueBtn').onclick = async ()=>{
-      let school=$('mSchool').value.trim(), email=$('mEmail').value.trim(), plan=$('mPlan').value;
-      if(!school){ flash($('issueMsg'),'Nama sekolah wajib diisi.',false); return; }
-      let btn=$('issueBtn'); btn.disabled=true; btn.textContent='...';
+    $('issueBtn').onclick=async()=>{
+      const school=$('mSchool').value.trim(),email=$('mEmail').value.trim();
+      if(!school){flash($('issueMsg'),'Nama sekolah wajib diisi.',false);return}
+      const btn=$('issueBtn');btn.disabled=true;btn.textContent='...';
       try{
-        let res=await jsonp({action:'issueManual', adminHash, school, email, plan, billingPeriod:'monthly', durationMonths:1});
-        if(!res||!res.ok) throw new Error((res&&res.error)||'Gagal.');
-        let note = res.emailed ? 'Email terkirim.' : (email?('⚠ Email gagal: '+(res.emailError||'')):'(email tidak diisi)');
-        $('issueMsg').innerHTML='<b>Token terbit</b> ('+note+'):<div class="token-box">'+esc(res.token)+'</div>';
-        $('issueMsg').className='msg ok';
-        $('mSchool').value=''; $('mEmail').value='';
-        loadOrders();
-      }catch(err){ flash($('issueMsg'), err.message, false); }
-      finally{ btn.disabled=false; btn.textContent='Terbitkan'; }
+        const res=await callApi({action:'issueManual',school,email,plan:'monthly',billingPeriod:'monthly',durationMonths:1});
+        const note=res.emailed?'Email terkirim.':(email?'Email belum terkirim: '+(res.emailError||''):'Email tidak diisi.');
+        $('issueMsg').innerHTML='<b>Token terbit</b> ('+esc(note)+'):<div class="token-box">'+esc(res.token)+'</div><div class="muted">Berlaku sampai '+esc(new Date(res.expiresAt).toLocaleDateString('id-ID'))+'. Tenant: '+esc(res.tenantKey)+'</div>';
+        $('issueMsg').className='msg ok';$('mSchool').value='';$('mEmail').value='';
+      }catch(error){flash($('issueMsg'),error.message,false)}finally{btn.disabled=false;btn.textContent='Terbitkan'}
     };
 
-    // Auto-login bila hash tersimpan di sesi.
-    if(adminHash) showApp();
+    if(sellerSession?.accessToken) showApp();
   </script>
 </body>
 </html>

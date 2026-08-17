@@ -4,7 +4,7 @@ Dokumen ini dipakai satu kali sebelum sekolah mulai memakai data nyata. Kerjakan
 
 ## 1. Cadangkan dahulu
 
-1. Supabase Free Tier tidak menyediakan backup harian yang dapat dipulihkan dari Dashboard. Buat backup manual sebelum migration:
+1. Untuk pelanggan berbayar gunakan Supabase Pro atau lebih tinggi. Tetap buat backup mandiri sebelum migration:
    - Cara resmi dan lengkap: gunakan `supabase db dump` mengikuti dokumentasi Supabase.
    - Skrip bantu workspace: set `KLAAR_DATABASE_URL` hanya pada sesi terminal, lalu jalankan `powershell -ExecutionPolicy Bypass -File .\scripts\backup-supabase.ps1`.
    - Cara darurat yang lebih mudah: buka Table Editor dan ekspor CSV untuk tabel `licenses`, `databases`, `attendance_records`, `attendance_requests`, `attendance_selfies`, dan `logs`. File dalam bucket Storage harus dicadangkan terpisah karena backup database hanya menyimpan metadata Storage.
@@ -21,23 +21,26 @@ Jangan pernah commit file `.env`, keystore, password, `CRON_SECRET`, service-rol
 
 1. Buka Supabase -> SQL Editor -> New query.
 2. Salin seluruh isi `supabase/migrations/202607220001_production_schema.sql`.
-3. Jalankan sekali dan pastikan tidak ada error.
+3. Setelah itu jalankan `supabase/migrations/202608170001_commercial_hardening.sql` dan pastikan tidak ada error.
 4. Jalankan `supabase/verify-production.sql`.
 5. Pastikan seluruh tabel menampilkan `rls_enabled = true`.
 6. Pastikan bucket `selfies` menampilkan `public = false`.
 7. Pastikan cron `klaar-auto-alpha` menampilkan `active = true`.
 8. Setelah Edge Function terbaru dideploy, jalankan `supabase/selfie-retention-cron.sql` sekali.
-9. Jalankan kembali `supabase/verify-production.sql` dan pastikan cron `klaar-selfie-retention` menampilkan `active = true`.
+9. Jalankan `supabase/commercial-maintenance-cron.sql` sekali.
+10. Jalankan kembali `supabase/verify-production.sql` dan pastikan ketiga cron KLAAR menampilkan `active = true`.
 
 Catatan: selfie uji coba lama yang menggunakan path lama mungkin tidak lagi tampil setelah bucket dibuat private. Hapus hanya data uji setelah backup. Jangan mengedit tabel internal `storage.objects` secara manual.
 
 ## 4. Deploy Edge Function
 
-1. Buka Supabase -> Edge Functions -> `dynamic-handler`.
-2. Ganti source dengan `supabase/functions/dynamic-handler/index.ts` terbaru.
+1. Deploy `dynamic-handler` dari `supabase/functions/dynamic-handler/index.ts`.
+2. Deploy `seller-handler` dari `supabase/functions/seller-handler/index.ts`.
 3. Tambahkan secret `ALLOWED_ORIGINS` dengan nilai `https://app.klaar.my.id` jika belum ada.
-4. Pastikan `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LICENSE_SECRET`, dan `CRON_SECRET` tetap berada di Edge Function Secrets, bukan di source.
-5. Deploy function.
+4. Pastikan `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `LICENSE_SECRET`, dan `CRON_SECRET` tetap berada di Edge Function Secrets, bukan di source.
+5. Untuk pengiriman email seller, isi `RESEND_API_KEY` dan `SELLER_FROM_EMAIL` setelah domain email terverifikasi.
+6. Biarkan `STORE_PRICING_OPEN=false` sampai harga final. Saat siap, isi `KLAAR_MONTHLY_PRICE_IDR` dan ubah `STORE_PRICING_OPEN=true`.
+7. Buat akun penjual dan allowlist mengikuti `docs/COMMERCIAL-OPERATIONS-RUNBOOK.md`.
 
 ## 5. Rotasi rahasia lisensi yang pernah bocor
 
@@ -45,14 +48,14 @@ Catatan: selfie uji coba lama yang menggunakan path lama mungkin tidak lagi tamp
 
 1. Buat secret acak baru minimal 64 karakter dan simpan di password manager.
 2. Ganti `LICENSE_SECRET` pada Supabase Edge Function Secrets.
-3. Ganti secret yang sama pada project Apps Script penjual. Jangan menaruhnya di GitHub.
-4. Deploy versi Apps Script baru dan deploy ulang Edge Function.
+3. Secret yang sama tersedia untuk `dynamic-handler` dan `seller-handler` melalui Edge Function Secrets. Jangan menaruhnya di GitHub.
+4. Deploy ulang kedua Edge Function.
 5. Terbitkan lisensi baru untuk Sekolah Mutiara Insani. Lisensi lama menjadi tidak valid.
 6. Uji lisensi baru sebelum memberikan akses kepada sekolah.
 
-## 6. Push frontend
+## 6. Publikasikan frontend
 
-Push file source terbaru ke branch `main`. Vercel akan menjalankan deploy. Sesudah status deploy berhasil, buka `https://app.klaar.my.id` pada jendela incognito untuk menghindari cache service worker lama.
+Gunakan Cloudflare Pages atau Vercel Pro untuk penggunaan komersial. Sesudah deploy berhasil, buka `https://app.klaar.my.id` pada jendela incognito untuk menghindari cache service worker lama. Jangan menjalankan pelanggan berbayar di Vercel Hobby.
 
 ## 7. Uji wajib sebelum data nyata
 
@@ -67,6 +70,11 @@ Push file source terbaru ke branch `main`. Vercel akan menjalankan deploy. Sesud
 9. Uji cron auto-alpha dan lihat hasil terbaru di `cron.job_run_details`.
 10. Uji action `cleanupExpiredSelfies` pada data uji yang melewati masa retensi 30 hari. Pastikan file Storage dan metadata selfie terhapus, tetapi catatan absensi tetap ada.
 11. Buat satu payroll uji dan cocokkan total komponen dengan perhitungan manual.
+12. Uji brute-force login hingga rate limit aktif, lalu pastikan login normal kembali setelah masa blokir.
+13. Uji dua admin/perangkat menyimpan bersamaan; perubahan kedua harus menerima konflik dan tidak menimpa data pertama.
+14. Login panel penjual, terbitkan lisensi uji, perpanjang satu bulan, dan pastikan tenant/data tetap sama dengan kode baru.
+15. Tangguhkan lisensi uji dan pastikan sesi aktif dicabut serta data tidak terhapus.
+16. Buat backup, verifikasi checksum, dan restore ke database staging.
 
 ## 8. Rilis APK
 
@@ -74,4 +82,4 @@ Jalankan workflow release dengan `versionCode` yang selalu naik. Unduh APK hasil
 
 ## 9. Syarat boleh dipakai sekolah
 
-Aplikasi baru dianggap siap data nyata setelah semua uji pada bagian 7 lulus, backup tersedia, secret lama sudah tidak berlaku, bucket selfie private, dan satu siklus payroll paralel sudah cocok dengan Excel/perhitungan sekolah.
+Aplikasi baru dianggap siap data nyata setelah semua uji pada bagian 7 lulus, backup dan restore staging terbukti, secret lama sudah tidak berlaku, bucket selfie private, dokumen legal final, monitoring aktif, infrastruktur komersial aktif, dan satu siklus payroll paralel sudah cocok dengan Excel/perhitungan sekolah.
