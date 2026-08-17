@@ -1,0 +1,21 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public app
+        run: curl --fail --silent --show-error --location --max-time 20 https://app.klaar.my.id/ > /dev/null
+      - name: Check application API
+        run: curl --fail --silent --show-error --max-time 20 "https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler?action=health" | grep -q '"ok":true'
+      - name: Check seller API
+        run: curl --fail --silent --show-error --max-time 20 "https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/seller-handler?action=health" | grep -q '"ok":true'

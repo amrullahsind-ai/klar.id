@@ -1146,7 +1146,8 @@
         SERVER_DRAFT_KEY = "edupay_emp_server_draft",
         LICENSE_DRAFT_KEY = "edupay_emp_license_draft",
         NIP_KEY = "edupay_emp_nip",
-        PINHASH_KEY = "edupay_emp_pinhash";
+        PINHASH_KEY = "edupay_emp_pinhash",
+        EMPLOYEE_SESSION_KEY = "klaar_employee_session_v1";
       // === Backend Supabase (multi-tenant). HARUS SAMA dgn KLAAR_API di admin.html. ===
       const KLAAR_API =
         "https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/dynamic-handler";
@@ -1180,6 +1181,7 @@
         license = localStorage.getItem(LICENSE_KEY) || "",
         nip = localStorage.getItem(NIP_KEY) || "",
         pinHash = localStorage.getItem(PINHASH_KEY) || "",
+        sessionToken = localStorage.getItem(EMPLOYEE_SESSION_KEY) || "",
         state = null,
         prefNip = "";
       const DEVICE_KEY = "klaar_employee_device_id";
@@ -1240,8 +1242,10 @@
             if (nl !== license) {
               nip = "";
               pinHash = "";
+              sessionToken = "";
               localStorage.removeItem(NIP_KEY);
               localStorage.removeItem(PINHASH_KEY);
+              localStorage.removeItem(EMPLOYEE_SESSION_KEY);
             }
             serverUrl = KLAAR_API; // backend terpusat; abaikan URL lama di link.
             license = nl;
@@ -1263,15 +1267,17 @@
       function boot() {
         applyLinkToken();
         if (!serverUrl || !license) show("activationScreen");
-        else if (!nip || !pinHash) show("loginScreen");
+        else if (!nip || (!sessionToken && !pinHash)) show("loginScreen");
         else
           loadEmployee()
             .then(() => {
-              window.klaarMustChangePassword = pinHash === DEFAULT_EMP_HASH;
+              window.klaarMustChangePassword = state?.mustChangePassword === true;
               show("app");
               if (window.klaarMustChangePassword) switchTab("tab-profil");
             })
             .catch((e) => {
+              sessionToken = "";
+              localStorage.removeItem(EMPLOYEE_SESSION_KEY);
               alert(e.message);
               show("loginScreen");
             });
@@ -1288,6 +1294,7 @@
               licenseCode: license,
               nip,
               pinHash,
+              sessionToken,
               deviceId: getDeviceId(),
               deviceName: getDeviceName(),
             },
@@ -1319,6 +1326,12 @@
       async function loadEmployee() {
         let res = await jsonp("loadEmployee");
         if (!res.ok) throw new Error(res.error || "Login/load gagal");
+        if (res.sessionToken) {
+          sessionToken = res.sessionToken;
+          localStorage.setItem(EMPLOYEE_SESSION_KEY, sessionToken);
+          pinHash = "";
+          localStorage.removeItem(PINHASH_KEY);
+        }
         state = res;
         render();
       }
@@ -1592,7 +1605,15 @@
           btn.textContent = "Memvalidasi...";
         }
         serverUrl = KLAAR_API;
-        license = rawLicense;
+          if (rawLicense !== license) {
+            sessionToken = "";
+            pinHash = "";
+            nip = "";
+            localStorage.removeItem(EMPLOYEE_SESSION_KEY);
+            localStorage.removeItem(PINHASH_KEY);
+            localStorage.removeItem(NIP_KEY);
+          }
+          license = rawLicense;
         try {
           const validation = await api("validateLicense");
           if (!validation || !validation.ok) throw new Error((validation && validation.error) || "Lisensi tidak valid.");
@@ -1615,10 +1636,12 @@
         localStorage.removeItem(LICENSE_KEY);
         localStorage.removeItem(NIP_KEY);
         localStorage.removeItem(PINHASH_KEY);
+        localStorage.removeItem(EMPLOYEE_SESSION_KEY);
         serverUrl = "";
         license = "";
         nip = "";
         pinHash = "";
+        sessionToken = "";
         $("serverUrl").value = localStorage.getItem(SERVER_DRAFT_KEY) || "";
         $("licenseCode").value =
           localStorage.getItem(LICENSE_DRAFT_KEY) || "";
@@ -1638,8 +1661,8 @@
         try {
           await loadEmployee();
           localStorage.setItem(NIP_KEY, nip);
-          localStorage.setItem(PINHASH_KEY, pinHash);
-          window.klaarMustChangePassword = pinHash === DEFAULT_EMP_HASH;
+          localStorage.removeItem(PINHASH_KEY);
+          window.klaarMustChangePassword = state?.mustChangePassword === true;
           show("app");
           if (window.klaarMustChangePassword) {
             switchTab("tab-profil");
@@ -1647,8 +1670,10 @@
           }
         } catch (err) {
           pinHash = "";
+          sessionToken = "";
           localStorage.removeItem(NIP_KEY);
           localStorage.removeItem(PINHASH_KEY);
+          localStorage.removeItem(EMPLOYEE_SESSION_KEY);
           alert(
             (err.message || "Login gagal") +
               "\n\nCek NIP/Login, password, kode lisensi, dan koneksi internet.",
@@ -2318,8 +2343,12 @@
           let newHash = await sha(a);
           let res = await jsonp("employeeChangePassword", { newHash });
           if (!res.ok) throw new Error(res.error || "Gagal");
-          pinHash = newHash;
-          localStorage.setItem(PINHASH_KEY, newHash);
+          pinHash = "";
+          if (res.sessionToken) {
+            sessionToken = res.sessionToken;
+            localStorage.setItem(EMPLOYEE_SESSION_KEY, sessionToken);
+          }
+          localStorage.removeItem(PINHASH_KEY);
           window.klaarMustChangePassword = false;
           $("newPass").value = "";
           $("newPass2").value = "";
@@ -2332,10 +2361,13 @@
         }
       };
       $("logout").onclick = () => {
+        api("logoutSession").catch(() => {});
         localStorage.removeItem(NIP_KEY);
         localStorage.removeItem(PINHASH_KEY);
+        localStorage.removeItem(EMPLOYEE_SESSION_KEY);
         nip = "";
         pinHash = "";
+        sessionToken = "";
         show("loginScreen");
       };
 

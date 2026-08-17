@@ -72,7 +72,7 @@
 
         <div class="price-summary">
           <div><b>Langganan Klaar Bulanan</b><span>Semua fitur · 1 sekolah · 1 bulan</span></div>
-          <div class="price-amount">Hubungi kami</div>
+          <div class="price-amount" id="priceAmount">Hubungi kami</div>
         </div>
 
         <button class="btn" type="submit" id="submitBtn">Minta Info Harga →</button>
@@ -118,18 +118,16 @@
   </div>
 
   <script>
-    // ====== ISI URL WEB APP KLAAR STORE DI SINI ======
-    const STORE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbyalrAlUJ8Qum13Y9jyejQB2qz0-mwkQb1Cb7hbRqLAmyJRF6vXLv9pXjLBlwDuiNFxNQ/exec';
+    const STORE_SERVER_URL = 'https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/seller-handler';
     // Nomor WA penjual untuk konfirmasi (format internasional tanpa +). Kosongkan = tombol WA disembunyikan.
     const SELLER_WA = '6282283516237';
-    // Tetap false sampai harga bulanan dan handler Apps Script sudah diperbarui.
-    const PRICING_OPEN = false;
+    let pricingOpen = false;
 
     const $ = id => document.getElementById(id);
     // Satu paket saja.
-    const plan = 'starter';
+    const plan = 'monthly';
 
-    // Apps Script Store boleh mengembalikan snapToken, midtransClientKey, dan
+    // Backend Store boleh mengembalikan snapToken, midtransClientKey, dan
     // midtransEnvironment ('production' atau 'sandbox'). Tanpa konfigurasi lengkap,
     // checkout otomatis memakai alur QRIS/manual agar tidak salah masuk sandbox.
     function ensureMidtrans(payment){
@@ -149,21 +147,21 @@
       });
     }
 
-    // JSONP helper (Apps Script web app, sama pola dengan aplikasi Klaar).
-    function jsonp(params){
-      return new Promise((resolve,reject)=>{
-        if(/GANTI_DENGAN_URL/.test(STORE_SERVER_URL)) return reject(new Error('STORE_SERVER_URL belum diisi di checkout.html.'));
-        let cb='klaar_store_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-        let s=document.createElement('script');
-        let sep=STORE_SERVER_URL.includes('?')?'&':'?';
-        let q=new URLSearchParams(Object.assign({callback:cb,t:Date.now()},params));
-        let timer=setTimeout(()=>{cleanup();reject(new Error('Timeout koneksi ke server.'))},16000);
-        function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
-        window[cb]=res=>{cleanup();resolve(res)};
-        s.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'))};
-        s.src=STORE_SERVER_URL+sep+q.toString();
-        document.body.appendChild(s);
-      });
+    async function jsonp(params){
+      const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),20000);
+      try{
+        const response=await fetch(STORE_SERVER_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(params),signal:ctrl.signal});
+        const result=await response.json().catch(()=>({ok:false,error:'Respons server tidak valid.'}));
+        if(!response.ok||!result.ok){
+          const error=new Error(result.error||('HTTP '+response.status));
+          error.pricingClosed=result.pricingClosed===true;
+          throw error;
+        }
+        return result;
+      }catch(error){
+        if(error.name==='AbortError')throw new Error('Timeout koneksi ke server.');
+        throw error;
+      }finally{clearTimeout(timer)}
     }
     let currentOrder=null;
     function showErr(t){let m=$('msg'); m.textContent=t; m.className='msg err'}
@@ -175,7 +173,7 @@
       let school=$('school').value.trim(), email=$('email').value.trim(), buyerNotes=$('buyerNotes').value.trim();
       if(!school) return showErr('Nama sekolah wajib diisi.');
       if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Email tidak valid.');
-      if(!PRICING_OPEN){
+      if(!pricingOpen){
         const text=encodeURIComponent('Halo, saya ingin informasi langganan bulanan Klaar.\nSekolah: '+school+'\nEmail: '+email+(buyerNotes?'\nCatatan: '+buyerNotes:''));
         if(SELLER_WA) window.open('https://wa.me/'+SELLER_WA+'?text='+text,'_blank','noopener');
         let m=$('msg'); m.textContent='Permintaan siap dikirim melalui WhatsApp. Harga belum dikunci dan belum ada pesanan berbayar yang dibuat.'; m.className='msg ok';
@@ -258,6 +256,17 @@
         showProofMsg(err.message||'Gagal mengirim bukti pembayaran.');
       }finally{ btn.disabled=false; btn.textContent='Kirim Bukti Pembayaran'; }
     };
+    async function loadPricing(){
+      try{
+        const health=await jsonp({action:'health'});
+        pricingOpen=health.pricingOpen===true&&Number(health.monthlyPriceIdr||0)>0;
+        if(pricingOpen){
+          $('priceAmount').textContent='Rp'+Number(health.monthlyPriceIdr).toLocaleString('id-ID');
+          $('submitBtn').textContent='Buat Pesanan →';
+        }
+      }catch(_error){ pricingOpen=false; }
+    }
+    loadPricing();
   </script>
 </body>
 </html>
