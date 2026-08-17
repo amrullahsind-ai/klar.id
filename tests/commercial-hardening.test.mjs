@@ -21,6 +21,8 @@ assert.match(migration, /create or replace function public\.consume_rate_limit/)
 assert.match(migration, /create or replace function public\.apply_complimentary_extension/);
 assert.match(migration, /drop policy if exists "Bypass RLS attendance_records"/);
 assert.match(migration, /drop policy if exists "Bypass RLS attendance_requests"/);
+assert.doesNotMatch(migration, /delete from public\.app_sessions\s+where expires_at <= now\(\)/);
+assert.doesNotMatch(migration, /delete from public\.api_rate_limits\s+where updated_at <= now\(\) - interval '7 days'/);
 
 assert.doesNotMatch(sellerAdmin, /script\.google\.com|SELLER_SALT|adminHash/);
 assert.doesNotMatch(checkout, /script\.google\.com|klaar_store_cb_|callback:cb/);

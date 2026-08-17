@@ -263,8 +263,5 @@ grant execute on function public.consume_rate_limit(text, text, integer, integer
 grant execute on function public.reset_rate_limit(text) to service_role;
 grant execute on function public.apply_complimentary_extension(text, timestamptz, text, timestamptz, integer, text, uuid) to service_role;
 
--- Bersihkan data operasional yang sudah tidak berguna tanpa menyentuh data sekolah.
-delete from public.app_sessions
-where expires_at <= now() or revoked_at is not null and revoked_at <= now() - interval '30 days';
-delete from public.api_rate_limits
-where updated_at <= now() - interval '7 days';
+-- Pembersihan sesi dan rate-limit dijalankan oleh commercial-maintenance-cron.sql,
+-- bukan saat migration, agar perubahan skema tidak sekaligus menghapus data.
