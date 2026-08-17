@@ -19,6 +19,8 @@ for (const table of ['seller_users', 'store_orders', 'seller_audit_logs', 'licen
 assert.match(migration, /add column if not exists revision bigint not null default 1/);
 assert.match(migration, /create or replace function public\.consume_rate_limit/);
 assert.match(migration, /create or replace function public\.apply_complimentary_extension/);
+assert.match(migration, /drop policy if exists "Bypass RLS attendance_records"/);
+assert.match(migration, /drop policy if exists "Bypass RLS attendance_requests"/);
 
 assert.doesNotMatch(sellerAdmin, /script\.google\.com|SELLER_SALT|adminHash/);
 assert.doesNotMatch(checkout, /script\.google\.com|klaar_store_cb_|callback:cb/);

@@ -23,6 +23,31 @@ where n.nspname = 'public'
   )
 order by c.relname;
 
+-- Untuk tabel aplikasi yang service-role-only, hasil query ini harus kosong.
+select
+  schemaname,
+  tablename,
+  policyname,
+  cmd,
+  roles
+from pg_policies
+where schemaname = 'public'
+  and tablename in (
+    'licenses',
+    'databases',
+    'attendance_records',
+    'attendance_requests',
+    'attendance_selfies',
+    'logs',
+    'seller_users',
+    'store_orders',
+    'seller_audit_logs',
+    'license_time_grants',
+    'app_sessions',
+    'api_rate_limits'
+  )
+order by tablename, policyname;
+
 select
   id,
   name,

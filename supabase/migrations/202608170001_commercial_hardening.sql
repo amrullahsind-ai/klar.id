@@ -245,6 +245,11 @@ alter table public.license_time_grants enable row level security;
 alter table public.app_sessions enable row level security;
 alter table public.api_rate_limits enable row level security;
 
+-- Bersihkan policy lama yang mengizinkan semua role publik. Seluruh akses
+-- aplikasi ke tabel ini wajib tetap melalui Edge Function dengan service-role.
+drop policy if exists "Bypass RLS attendance_records" on public.attendance_records;
+drop policy if exists "Bypass RLS attendance_requests" on public.attendance_requests;
+
 revoke all on table public.seller_users from anon, authenticated;
 revoke all on table public.store_orders from anon, authenticated;
 revoke all on table public.seller_audit_logs from anon, authenticated;
