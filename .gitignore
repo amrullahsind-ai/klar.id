@@ -1,3 +1,9 @@
+# Local-machine dev artifacts (not portable across machines)
+.mcp.json
+.context/
+.tools/
+supabase/.temp/
+
 # Secrets and signing material
 .env
 .env.*

@@ -6,8 +6,19 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LICENSE_SECRET = Deno.env.get("LICENSE_SECRET") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const SELLER_FROM_EMAIL = Deno.env.get("SELLER_FROM_EMAIL") ?? "KLAAR <lisensi@klaar.my.id>";
-const MONTHLY_PRICE_IDR = Math.max(0, Number(Deno.env.get("KLAAR_MONTHLY_PRICE_IDR") || 0) || 0);
+const MONTHLY_PRICE_IDR = Math.max(0, Number(Deno.env.get("KLAAR_MONTHLY_PRICE_IDR") || 199000) || 0);
 const PRICING_OPEN = (Deno.env.get("STORE_PRICING_OPEN") ?? "false").toLowerCase() === "true";
+const MIDTRANS_SERVER_KEY = Deno.env.get("MIDTRANS_SERVER_KEY") ?? "";
+const MIDTRANS_CLIENT_KEY = Deno.env.get("MIDTRANS_CLIENT_KEY") ?? "";
+const MIDTRANS_ENVIRONMENT = (Deno.env.get("MIDTRANS_ENVIRONMENT") ?? "sandbox").toLowerCase() === "production"
+  ? "production" : "sandbox";
+const STORE_BASE_URL = (Deno.env.get("STORE_BASE_URL") ?? "https://app.klaar.my.id").replace(/\/$/, "");
+const MIDTRANS_READY = MIDTRANS_SERVER_KEY.length >= 20 && MIDTRANS_CLIENT_KEY.length >= 10;
+const ONLINE_CHECKOUT_OPEN = PRICING_OPEN && MONTHLY_PRICE_IDR > 0 && MIDTRANS_READY;
+const MIDTRANS_SNAP_BASE = MIDTRANS_ENVIRONMENT === "production"
+  ? "https://app.midtrans.com" : "https://app.sandbox.midtrans.com";
+const MIDTRANS_API_BASE = MIDTRANS_ENVIRONMENT === "production"
+  ? "https://api.midtrans.com" : "https://api.sandbox.midtrans.com";
 const ALLOWED_ORIGINS = new Set((Deno.env.get("ALLOWED_ORIGINS") || "https://app.klaar.my.id")
   .split(",").map((value) => value.trim()).filter(Boolean));
 
@@ -70,6 +81,84 @@ async function sha256(value) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function sha512(value) {
+  const digest = await crypto.subtle.digest("SHA-512", encoder.encode(String(value || "")));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeEqual(left, right) {
+  const a = encoder.encode(String(left || ""));
+  const b = encoder.encode(String(right || ""));
+  let different = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let index = 0; index < length; index += 1) {
+    different |= (a[index % Math.max(1, a.length)] || 0) ^ (b[index % Math.max(1, b.length)] || 0);
+  }
+  return different === 0;
+}
+
+function midtransHeaders() {
+  if (!MIDTRANS_READY) throw new ApiError("Konfigurasi Midtrans belum lengkap.", 503);
+  return {
+    "Authorization": `Basic ${btoa(`${MIDTRANS_SERVER_KEY}:`)}`,
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  };
+}
+
+async function createMidtransTransaction(order) {
+  const response = await fetch(`${MIDTRANS_SNAP_BASE}/snap/v1/transactions`, {
+    method: "POST",
+    headers: midtransHeaders(),
+    body: JSON.stringify({
+      transaction_details: { order_id: order.orderId, gross_amount: order.amount },
+      item_details: [{
+        id: "KLAAR-MONTHLY",
+        price: order.amount,
+        quantity: 1,
+        name: order.isRenewal ? "Perpanjangan KLAAR Bulanan" : "KLAAR Bulanan",
+        brand: "KLAAR",
+        category: "SaaS Sekolah"
+      }],
+      customer_details: { first_name: order.school.slice(0, 50), email: order.email },
+      callbacks: { finish: `${STORE_BASE_URL}/checkout.html#order=${encodeURIComponent(order.orderId)}` },
+      expiry: { duration: 24, unit: "hours" }
+    })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result?.token || !result?.redirect_url) {
+    console.error("midtrans_snap_failed", response.status, cleanText(result?.error_messages?.[0] || result?.status_message, 200));
+    throw new ApiError("Pembayaran belum dapat dibuat. Coba lagi beberapa saat.", 502);
+  }
+  return { token: String(result.token), redirectUrl: String(result.redirect_url) };
+}
+
+async function getMidtransStatus(orderId) {
+  const response = await fetch(`${MIDTRANS_API_BASE}/v2/${encodeURIComponent(orderId)}/status`, {
+    method: "GET",
+    headers: midtransHeaders()
+  });
+  const result = await response.json().catch(() => ({}));
+  if (response.status === 404 || String(result?.status_code || "") === "404") return null;
+  if (!response.ok) {
+    console.error("midtrans_status_failed", response.status, cleanText(result?.status_message, 200));
+    throw new ApiError("Status pembayaran belum dapat diperiksa.", 502);
+  }
+  return result;
+}
+
+function paymentSnapshot(status) {
+  return {
+    statusCode: cleanText(status?.status_code, 20),
+    transactionStatus: cleanText(status?.transaction_status, 40),
+    fraudStatus: cleanText(status?.fraud_status, 40),
+    paymentType: cleanText(status?.payment_type, 60),
+    grossAmount: cleanText(status?.gross_amount, 40),
+    transactionTime: cleanText(status?.transaction_time, 80),
+    settlementTime: cleanText(status?.settlement_time, 80)
+  };
+}
+
 async function limit(scope, identity, maxAttempts, windowSeconds, blockSeconds) {
   const rateKey = await sha256(`${scope}|${identity}`);
   const { data, error } = await service.rpc("consume_rate_limit", {
@@ -114,6 +203,10 @@ function b64url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function randomCheckoutToken() {
+  return b64url(crypto.getRandomValues(new Uint8Array(32)));
 }
 
 async function signLicenseUntil(school, tenantKey, expiresAt) {
@@ -202,6 +295,44 @@ async function createLicense(school, email, durationMonths, notes) {
   return { tenantKey, ...signed, ...delivery };
 }
 
+async function createOrderLicense(order) {
+  const digest = await sha256(`KLAAR-ORDER|${order.order_id}`);
+  const tenantKey = `KLR-${digest.slice(0, 32).toUpperCase()}`;
+  const { data: existing } = await service.from("licenses")
+    .select("license_code,access_token,expires_at").eq("license_code", tenantKey).maybeSingle();
+  if (existing) {
+    return {
+      tenantKey: existing.license_code,
+      token: existing.access_token,
+      expiresAt: existing.expires_at,
+      emailed: false,
+      emailError: ""
+    };
+  }
+
+  const signed = await signLicense(order.school_name, tenantKey, order.duration_months || 1);
+  const { error } = await service.from("licenses").insert({
+    license_code: tenantKey,
+    tenant_key: tenantKey,
+    access_token: signed.token,
+    contact_email: order.buyer_email || "",
+    school_name: order.school_name,
+    status: "active",
+    plan: "monthly",
+    expires_at: signed.expiresAt,
+    notes: `Order ${cleanText(order.order_id, 80)}`
+  });
+  if (error && error.code !== "23505") throw new ApiError("Gagal menyimpan lisensi pesanan.", 500);
+  if (error?.code === "23505") {
+    const { data } = await service.from("licenses")
+      .select("license_code,access_token,expires_at").eq("license_code", tenantKey).maybeSingle();
+    if (!data) throw new ApiError("Lisensi pesanan belum dapat dipulihkan.", 500);
+    return { tenantKey: data.license_code, token: data.access_token, expiresAt: data.expires_at, emailed: false, emailError: "" };
+  }
+  const delivery = await sendLicenseEmail(order.buyer_email, order.school_name, signed.token, signed.expiresAt);
+  return { tenantKey, ...signed, ...delivery };
+}
+
 async function sellerLogin(params, context) {
   const email = validEmail(params.email);
   const password = String(params.password || "");
@@ -238,14 +369,29 @@ async function sellerRefresh(params, context) {
 }
 
 async function createOrder(params, context) {
-  const school = cleanText(params.school, 160);
+  let school = cleanText(params.school, 160);
   const email = validEmail(params.email);
   if (school.length < 3) throw new ApiError("Nama sekolah minimal 3 karakter.");
   await limit("store-order", `${context.ip}|${email}`, 4, 3600, 3600);
-  if (!PRICING_OPEN || MONTHLY_PRICE_IDR < 1) {
-    throw new ApiError("Pemesanan online belum dibuka. Hubungi penjual untuk informasi harga.", 409, { pricingClosed: true });
+  if (!ONLINE_CHECKOUT_OPEN) {
+    throw new ApiError("Pembayaran otomatis sedang disiapkan. Coba lagi beberapa saat.", 503, { pricingClosed: true });
   }
   const orderId = randomOrderId();
+  const checkoutToken = randomCheckoutToken();
+  const checkoutTokenHash = await sha256(checkoutToken);
+  const renewalToken = String(params.renewalToken || "").trim();
+  let renewalLicenseCode = null;
+  if (renewalToken) {
+    if (renewalToken.length < 40 || renewalToken.length > 5000) throw new ApiError("Kode lisensi perpanjangan tidak valid.");
+    const { data: renewal } = await service.from("licenses")
+      .select("license_code,school_name,contact_email,status").eq("access_token", renewalToken).maybeSingle();
+    const emailMatches = !renewal?.contact_email || String(renewal.contact_email).toLowerCase() === email.toLowerCase();
+    if (!renewal || renewal.status === "suspended" || !emailMatches) {
+      throw new ApiError("Kode lisensi atau email perpanjangan tidak cocok.", 403);
+    }
+    renewalLicenseCode = renewal.license_code;
+    school = renewal.school_name;
+  }
   const { data, error } = await service.from("store_orders").insert({
     order_id: orderId,
     school_name: school,
@@ -254,9 +400,41 @@ async function createOrder(params, context) {
     billing_period: "monthly",
     duration_months: 1,
     amount: MONTHLY_PRICE_IDR,
-    buyer_notes: cleanText(params.buyerNotes, 1000)
-  }).select("order_id,school_name,buyer_email,plan,amount,status").single();
+    buyer_notes: cleanText(params.buyerNotes, 1000),
+    payment_provider: "midtrans",
+    payment_status: "unpaid",
+    checkout_token_hash: checkoutTokenHash,
+    renewal_license_code: renewalLicenseCode
+  }).select("id,order_id,school_name,buyer_email,plan,amount,status").single();
   if (error) throw new ApiError("Pesanan gagal dibuat. Coba lagi.", 500);
+
+  let payment;
+  try {
+    payment = await createMidtransTransaction({
+      orderId: data.order_id,
+      school: data.school_name,
+      email: data.buyer_email,
+      amount: data.amount,
+      isRenewal: Boolean(renewalLicenseCode)
+    });
+  } catch (paymentError) {
+    await service.from("store_orders").update({
+      payment_status: "gateway_error",
+      payment_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq("id", data.id);
+    throw paymentError;
+  }
+
+  const { error: paymentUpdateError } = await service.from("store_orders").update({
+    payment_token: payment.token,
+    payment_redirect_url: payment.redirectUrl,
+    payment_status: "pending",
+    payment_updated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }).eq("id", data.id);
+  if (paymentUpdateError) throw new ApiError("Pembayaran dibuat, tetapi pesanan belum dapat diperbarui.", 500);
+
   return {
     ok: true,
     orderId: data.order_id,
@@ -265,7 +443,13 @@ async function createOrder(params, context) {
     plan: data.plan,
     amount: data.amount,
     status: data.status,
-    payInfo: "Bayar sesuai nominal, lalu kirim bukti pembayaran untuk diverifikasi."
+    orderType: renewalLicenseCode ? "renewal" : "new",
+    checkoutToken,
+    snapToken: payment.token,
+    paymentRedirectUrl: payment.redirectUrl,
+    midtransClientKey: MIDTRANS_CLIENT_KEY,
+    midtransEnvironment: MIDTRANS_ENVIRONMENT,
+    payInfo: "Selesaikan pembayaran melalui Midtrans. Lisensi terbit otomatis setelah pembayaran terverifikasi."
   };
 }
 
@@ -289,7 +473,7 @@ async function updatePaymentProof(params, context) {
 
 async function listOrders() {
   const { data, error } = await service.from("store_orders")
-    .select("order_id,school_name,buyer_email,plan,amount,payment_proof,buyer_notes,status,license_code,created_at,paid_at")
+    .select("order_id,school_name,buyer_email,plan,amount,payment_provider,payment_status,payment_type,payment_proof,buyer_notes,status,license_code,renewal_license_code,created_at,paid_at")
     .order("created_at", { ascending: false }).limit(300);
   if (error) throw new ApiError("Gagal memuat pesanan.", 500);
   return {
@@ -300,9 +484,13 @@ async function listOrders() {
       email: order.buyer_email,
       plan: order.plan,
       amount: order.amount,
+      paymentProvider: order.payment_provider,
+      paymentStatus: order.payment_status,
+      paymentType: order.payment_type,
       paymentProof: order.payment_proof,
       buyerNotes: order.buyer_notes,
       status: order.status,
+      orderType: order.renewal_license_code ? "renewal" : "new",
       hasLicense: Boolean(order.license_code),
       createdAt: order.created_at,
       paidAt: order.paid_at
@@ -310,25 +498,189 @@ async function listOrders() {
   };
 }
 
+function midtransPaymentSucceeded(status) {
+  const transactionStatus = cleanText(status?.transaction_status, 40).toLowerCase();
+  const fraudStatus = cleanText(status?.fraud_status, 40).toLowerCase();
+  return transactionStatus === "settlement" || (transactionStatus === "capture" && fraudStatus === "accept");
+}
+
+function midtransPaymentCancelled(status) {
+  return ["deny", "cancel", "expire"].includes(cleanText(status?.transaction_status, 40).toLowerCase());
+}
+
+async function renewPaidOrderLicense(order) {
+  const { data: current, error } = await service.from("licenses")
+    .select("license_code,school_name,contact_email,expires_at,updated_at")
+    .eq("license_code", order.renewal_license_code).maybeSingle();
+  if (error || !current) throw new ApiError("Lisensi perpanjangan tidak ditemukan.", 404);
+  const now = new Date();
+  const currentExpiry = current.expires_at ? new Date(current.expires_at) : now;
+  const base = !Number.isNaN(currentExpiry.getTime()) && currentExpiry > now ? currentExpiry : now;
+  const newExpiry = addCalendarMonths(base, order.duration_months || 1);
+  const signed = await signLicenseUntil(current.school_name, current.license_code, newExpiry);
+  const { data: result, error: renewalError } = await service.rpc("apply_paid_license_renewal", {
+    p_order_id: order.id,
+    p_license_code: current.license_code,
+    p_expected_updated_at: current.updated_at,
+    p_access_token: signed.token,
+    p_new_expires_at: newExpiry.toISOString(),
+    p_buyer_email: order.buyer_email || ""
+  });
+  if (renewalError) throw new ApiError("Gagal memperpanjang lisensi berbayar.", 500);
+  if (!result?.applied) {
+    if (!result?.alreadyPaid) throw new ApiError("Lisensi berubah bersamaan. Status pembayaran aman; periksa ulang pesanan.", 409);
+    const { data: latest } = await service.from("licenses")
+      .select("license_code,access_token,expires_at").eq("license_code", current.license_code).maybeSingle();
+    if (!latest) throw new ApiError("Lisensi perpanjangan belum dapat dipulihkan.", 500);
+    return {
+      tenantKey: latest.license_code,
+      token: latest.access_token,
+      expiresAt: latest.expires_at,
+      emailed: false,
+      emailError: ""
+    };
+  }
+  const delivery = await sendLicenseEmail(order.buyer_email, current.school_name, signed.token, newExpiry.toISOString());
+  return { tenantKey: current.license_code, ...signed, ...delivery };
+}
+
+async function fulfillOrder(order, seller, context, auditAction, resendExisting = false) {
+  let license;
+  if (order.license_code) {
+    const { data } = await service.from("licenses")
+      .select("license_code,access_token,expires_at,school_name").eq("license_code", order.license_code).maybeSingle();
+    if (!data) throw new ApiError("Referensi lisensi pesanan rusak.", 409);
+    license = { tenantKey: data.license_code, token: data.access_token, expiresAt: data.expires_at, emailed: false, emailError: "" };
+    if (resendExisting) {
+      Object.assign(license, await sendLicenseEmail(order.buyer_email, data.school_name, data.access_token, data.expires_at));
+    }
+  } else if (order.renewal_license_code) {
+    license = await renewPaidOrderLicense(order);
+  } else {
+    license = await createOrderLicense(order);
+    const now = new Date().toISOString();
+    const { error: updateError } = await service.from("store_orders").update({
+      status: "paid",
+      payment_status: "paid",
+      license_code: license.tenantKey,
+      paid_at: now,
+      payment_updated_at: now,
+      updated_at: now
+    }).eq("id", order.id).is("license_code", null);
+    if (updateError) throw new ApiError("Lisensi terbit, tetapi pesanan gagal ditautkan. Periksa audit log.", 500);
+  }
+  await audit(seller, auditAction, "order", order.order_id, context.fingerprint, {
+    tenantKey: license.tenantKey,
+    paymentProvider: order.payment_provider || "manual",
+    orderType: order.renewal_license_code ? "renewal" : "new"
+  });
+  return license;
+}
+
+async function applyMidtransStatus(order, status, context) {
+  const grossAmount = Math.round(Number(status?.gross_amount || 0));
+  if (!Number.isFinite(grossAmount) || grossAmount !== Number(order.amount)) {
+    await audit(null, "midtrans_amount_mismatch", "order", order.order_id, context.fingerprint, {
+      expected: Number(order.amount), received: grossAmount
+    });
+    throw new ApiError("Nominal pembayaran tidak cocok dengan pesanan.", 409);
+  }
+
+  const transactionStatus = cleanText(status?.transaction_status, 40).toLowerCase() || "unknown";
+  const now = new Date().toISOString();
+  const update = {
+    payment_status: transactionStatus,
+    payment_transaction_id: cleanText(status?.transaction_id, 120),
+    payment_type: cleanText(status?.payment_type, 80),
+    payment_updated_at: now,
+    payment_payload: paymentSnapshot(status),
+    updated_at: now
+  };
+
+  if (midtransPaymentSucceeded(status)) {
+    await service.from("store_orders").update(update).eq("id", order.id);
+    return { paid: true, license: await fulfillOrder(order, null, context, "midtrans_payment", false) };
+  }
+  if (midtransPaymentCancelled(status) && order.status !== "paid") update.status = "cancelled";
+  const { error } = await service.from("store_orders").update(update).eq("id", order.id);
+  if (error) throw new ApiError("Status pembayaran belum dapat disimpan.", 500);
+  return { paid: order.status === "paid", license: null };
+}
+
+async function syncMidtransOrder(order, context) {
+  const status = await getMidtransStatus(order.order_id);
+  if (!status) return { paid: order.status === "paid", license: null };
+  return await applyMidtransStatus(order, status, context);
+}
+
+async function orderStatus(params, context) {
+  const orderId = cleanText(params.orderId, 80);
+  const checkoutToken = String(params.checkoutToken || "");
+  if (!orderId || checkoutToken.length < 32 || checkoutToken.length > 200) throw new ApiError("Akses pesanan tidak valid.", 401);
+  await limit("order-status", `${context.ip}|${orderId}`, 40, 600, 120);
+  let { data: order, error } = await service.from("store_orders").select("*").eq("order_id", orderId).maybeSingle();
+  if (error || !order || !constantTimeEqual(await sha256(checkoutToken), order.checkout_token_hash)) {
+    throw new ApiError("Pesanan tidak ditemukan.", 404);
+  }
+
+  if (order.payment_provider === "midtrans" && order.status !== "paid" && !midtransPaymentCancelled({ transaction_status: order.payment_status })) {
+    await syncMidtransOrder(order, context);
+    const refreshed = await service.from("store_orders").select("*").eq("id", order.id).maybeSingle();
+    if (refreshed.data) order = refreshed.data;
+  }
+
+  const result = {
+    ok: true,
+    orderId: order.order_id,
+    school: order.school_name,
+    email: order.buyer_email,
+    plan: order.plan,
+    amount: order.amount,
+    status: order.status,
+    paymentStatus: order.payment_status,
+    orderType: order.renewal_license_code ? "renewal" : "new",
+    snapToken: order.payment_token,
+    paymentRedirectUrl: order.payment_redirect_url,
+    midtransClientKey: MIDTRANS_CLIENT_KEY,
+    midtransEnvironment: MIDTRANS_ENVIRONMENT
+  };
+  if (order.status === "paid" && order.license_code) {
+    const { data: license } = await service.from("licenses")
+      .select("access_token,expires_at").eq("license_code", order.license_code).maybeSingle();
+    if (license) Object.assign(result, { licenseToken: license.access_token, expiresAt: license.expires_at });
+  }
+  return result;
+}
+
+async function midtransNotification(params, context) {
+  if (!MIDTRANS_READY) throw new ApiError("Midtrans belum dikonfigurasi.", 503);
+  const orderId = cleanText(params.order_id, 80);
+  const statusCode = cleanText(params.status_code, 20);
+  const grossAmount = cleanText(params.gross_amount, 40);
+  const signature = cleanText(params.signature_key, 256).toLowerCase();
+  const expectedSignature = await sha512(`${orderId}${statusCode}${grossAmount}${MIDTRANS_SERVER_KEY}`);
+  if (!orderId || !signature || !constantTimeEqual(signature, expectedSignature)) {
+    throw new ApiError("Notifikasi pembayaran tidak valid.", 401);
+  }
+  const { data: order, error } = await service.from("store_orders").select("*").eq("order_id", orderId).maybeSingle();
+  if (error || !order || order.payment_provider !== "midtrans") throw new ApiError("Pesanan tidak ditemukan.", 404);
+  const status = await getMidtransStatus(orderId);
+  if (!status) throw new ApiError("Transaksi Midtrans belum ditemukan.", 404);
+  const result = await applyMidtransStatus(order, status, context);
+  return { ok: true, paid: result.paid };
+}
+
 async function confirmOrder(params, seller, context) {
   const orderId = cleanText(params.orderId, 80);
   const { data: order, error } = await service.from("store_orders").select("*").eq("order_id", orderId).maybeSingle();
   if (error || !order) throw new ApiError("Pesanan tidak ditemukan.", 404);
-  let license;
-  if (order.license_code) {
-    const { data } = await service.from("licenses").select("license_code,access_token,expires_at,school_name").eq("license_code", order.license_code).maybeSingle();
-    if (!data) throw new ApiError("Referensi lisensi pesanan rusak.", 409);
-    license = { tenantKey: data.license_code, token: data.access_token, expiresAt: data.expires_at };
-    Object.assign(license, await sendLicenseEmail(order.buyer_email, data.school_name, data.access_token, data.expires_at));
-  } else {
-    license = await createLicense(order.school_name, order.buyer_email, order.duration_months || 1, `Order ${orderId}`);
-    const { error: updateError } = await service.from("store_orders").update({
-      status: "paid", license_code: license.tenantKey, paid_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    }).eq("id", order.id).is("license_code", null);
-    if (updateError) throw new ApiError("Lisensi terbit, tetapi pesanan gagal ditautkan. Periksa audit log.", 500);
+  if (order.payment_provider === "midtrans") {
+    const result = await syncMidtransOrder(order, context);
+    if (!result.paid) throw new ApiError("Pembayaran Midtrans belum berhasil.", 409);
+    const latest = await service.from("store_orders").select("*").eq("id", order.id).single();
+    return { ok: true, ...await fulfillOrder(latest.data, seller, context, "confirm_midtrans_order", true) };
   }
-  await audit(seller, "confirm_order", "order", orderId, context.fingerprint, { tenantKey: license.tenantKey });
-  return { ok: true, ...license };
+  return { ok: true, ...await fulfillOrder(order, seller, context, "confirm_order", true) };
 }
 
 async function issueManual(params, seller, context) {
@@ -458,13 +810,17 @@ async function route(req, params, context) {
   if (action === "health") return {
     ok: true,
     app: "KLAAR Seller API",
-    pricingOpen: PRICING_OPEN && MONTHLY_PRICE_IDR > 0,
-    monthlyPriceIdr: PRICING_OPEN ? MONTHLY_PRICE_IDR : 0,
+    pricingOpen: ONLINE_CHECKOUT_OPEN,
+    monthlyPriceIdr: MONTHLY_PRICE_IDR,
+    midtransReady: MIDTRANS_READY,
+    midtransEnvironment: MIDTRANS_ENVIRONMENT,
     time: new Date().toISOString()
   };
   if (action === "sellerLogin") return await sellerLogin(params, context);
   if (action === "sellerRefresh") return await sellerRefresh(params, context);
   if (action === "createOrder") return await createOrder(params, context);
+  if (action === "orderStatus") return await orderStatus(params, context);
+  if (action === "midtransNotification") return await midtransNotification(params, context);
   if (action === "updatePaymentProof") return await updatePaymentProof(params, context);
 
   const seller = await sellerFromRequest(req);
@@ -496,6 +852,9 @@ Deno.serve(async (req) => {
     const contentLength = Number(req.headers.get("content-length") || 0);
     if (contentLength > 32_000) throw new ApiError("Payload terlalu besar.", 413);
     const params = await req.json().catch(() => { throw new ApiError("JSON tidak valid."); });
+    if (params && typeof params === "object" && !params.action && params.order_id && params.signature_key) {
+      params.action = "midtransNotification";
+    }
     const forwarded = String(req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
     const ip = await sha256(forwarded);
     const fingerprint = await sha256(`${forwarded}|${req.headers.get("user-agent") || ""}`);

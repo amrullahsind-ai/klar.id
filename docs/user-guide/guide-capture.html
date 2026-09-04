@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Klaar Guide Capture</title>
+    <style>
+      html,
+      body,
+      iframe {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border: 0;
+        overflow: hidden;
+        background: #f5fbf8;
+      }
+    </style>
+  </head>
+  <body data-ready="false">
+    <iframe id="app" src="../../admin.html?demo=1"></iframe>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const target = params.get("section") || "dashboard";
+      const mode = params.get("mode") || "section";
+      const frame = document.getElementById("app");
+
+      frame.addEventListener("load", async () => {
+        try {
+          const win = frame.contentWindow;
+          const doc = frame.contentDocument;
+          await new Promise((resolve) => setTimeout(resolve, 700));
+          if (mode === "login") {
+            doc.getElementById("demoFlag")?.remove();
+            document.body.dataset.ready = "true";
+            return;
+          }
+          // Capture dokumentasi memakai data demo dan langsung membuka app.
+          // Form login asli tidak diubah atau dilewati pada admin.html.
+          win.enterDemo();
+          win.showApp();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          doc.getElementById("demoFlag")?.remove();
+          doc.getElementById("defaultPinWarn")?.remove();
+          win.section(target);
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          doc.getElementById("demoFlag")?.remove();
+          doc.getElementById("defaultPinWarn")?.remove();
+          document.body.dataset.ready = "true";
+        } catch (error) {
+          document.body.dataset.ready = "error";
+          document.body.dataset.error = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>

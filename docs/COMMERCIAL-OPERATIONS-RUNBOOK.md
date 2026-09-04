@@ -9,6 +9,8 @@ Semua butir berikut wajib hijau:
 - Migration terbaru berhasil, `supabase/verify-production.sql` tidak menunjukkan invariant gagal.
 - `dynamic-handler` dan `seller-handler` sudah di-deploy dengan CORS hanya domain resmi.
 - `LICENSE_SECRET` minimal 40 karakter, `CRON_SECRET` minimal 24 karakter, service-role tidak ada di frontend.
+- `MIDTRANS_SERVER_KEY` hanya ada di Edge Function secrets; `MIDTRANS_CLIENT_KEY`, `MIDTRANS_ENVIRONMENT`, `STORE_BASE_URL`, `KLAAR_MONTHLY_PRICE_IDR=199000`, dan `STORE_PRICING_OPEN` sesuai lingkungan.
+- Payment Notification URL Midtrans mengarah ke `https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/seller-handler` dan transaksi sandbox sudah menerbitkan tepat satu lisensi.
 - Seller dibuat melalui Supabase Auth lalu `user_id`-nya dimasukkan ke `seller_users`; MFA diwajibkan dari kebijakan organisasi bila tersedia.
 - Retensi selfie dan auto-alpha berjalan, health workflow hijau.
 - Backup data terbaru lolos checksum dan pernah direstore ke staging.
@@ -61,8 +63,9 @@ Simpan minimal dua salinan terenkripsi di lokasi berbeda. Lakukan restore stagin
 3. Deploy `dynamic-handler` dan `seller-handler` di staging beserta secrets.
 4. Jalankan smoke test admin, employee, seller, expiry, renew, suspend, dan tenant isolation.
 5. Ulangi ke produksi dalam jendela pemeliharaan.
-6. Baru publikasikan frontend dan aktifkan `STORE_PRICING_OPEN=true` serta `KLAAR_MONTHLY_PRICE_IDR` setelah harga final.
-7. Pantau error, health, login denial, dan autosync minimal 60 menit.
+6. Konfigurasikan Midtrans dan Payment Notification URL, lalu uji status `pending`, `settlement`, `expire`, signature salah, nominal salah, notifikasi berulang, dan satu perpanjangan tenant lama.
+7. Baru publikasikan frontend dan aktifkan `STORE_PRICING_OPEN=true` serta `KLAAR_MONTHLY_PRICE_IDR=199000` setelah pengujian Midtrans lulus.
+8. Pantau error, health, login denial, webhook, dan autosync minimal 60 menit.
 
 ## Review rutin
 

@@ -5,7 +5,7 @@ Dokumen ini mencatat keputusan operasional sebelum KLAAR menerima sekolah berbay
 ## Model lisensi
 
 - Lisensi berlaku bulanan untuk satu sekolah/yayasan.
-- Harga belum dikunci di source. Store menampilkan ajakan menghubungi penjual sampai biaya operasional dan margin disepakati.
+- Harga awal ditetapkan Rp199.000 per sekolah/yayasan per bulan, tanpa biaya per karyawan.
 - Token baru wajib membawa tanggal kedaluwarsa (`exp`, `expiresAt`, atau `expires_at`).
 - Kolom `licenses.expires_at` di Supabase menjadi sumber kendali yang dapat diperpanjang atau dinonaktifkan penjual.
 - Ketika lisensi berakhir, akses operasional dihentikan tetapi database sekolah tidak dihapus.
@@ -46,7 +46,7 @@ Gunakan rumus awal:
 harga minimum per sekolah = (biaya tetap / target sekolah aktif) + biaya variabel per sekolah + dukungan + margin
 ```
 
-Harga baru dipublikasikan setelah pengukuran pemakaian pilot minimal satu bulan.
+Tinjau harga kembali setelah pengukuran pemakaian pilot minimal satu bulan. Perubahan harga tidak boleh mengubah pesanan yang sudah dibuat.
 
 ## Backup ketika masih menggunakan Supabase Free
 
@@ -61,9 +61,13 @@ Harga baru dipublikasikan setelah pengukuran pemakaian pilot minimal satu bulan.
 
 Store tidak lagi bergantung pada Apps Script atau Spreadsheet. `seller-handler` memakai Supabase Auth untuk akun penjual, allowlist `seller_users`, audit log, rate limit, tabel order, dan tabel lisensi yang sama dengan aplikasi.
 
-- Harga tetap tertutup sampai `STORE_PRICING_OPEN=true` dan `KLAAR_MONTHLY_PRICE_IDR` diisi di secret/environment backend.
+- Harga Rp199.000 dibuka hanya jika `STORE_PRICING_OPEN=true`, `KLAAR_MONTHLY_PRICE_IDR=199000`, dan konfigurasi Midtrans lengkap.
+- Checkout memakai Snap Token yang dibuat di backend. Frontend tidak pernah menerima Server Key.
+- Webhook Midtrans diverifikasi dengan `signature_key`, lalu backend mengambil status langsung dari Get Status API sebelum menerbitkan lisensi.
+- Pembeli dapat memulihkan status order melalui token checkout acak; lisensi hanya ditampilkan setelah pembayaran dinyatakan berhasil oleh Midtrans.
+- WhatsApp, QRIS statis, unggahan bukti, dan konfirmasi manual tidak digunakan untuk pesanan Midtrans baru.
 - Lisensi baru berlaku satu bulan kalender.
-- Perpanjangan menghasilkan token baru tetapi mempertahankan `tenant_key`; data sekolah tidak berubah atau terhapus.
+- Sekolah lama memasukkan kode lisensi pada checkout. Pembayaran yang berhasil memperpanjang tenant yang sama satu bulan dan menghasilkan token baru; data sekolah tidak berubah atau terhapus.
 - Sekolah yang dibebaskan dari pembayaran dapat diberi 1–365 hari melalui aksi `Waktu gratis`; alasan, pemberi, masa berlaku lama/baru, dan nilai nol dicatat untuk audit.
 - Penangguhan mencabut sesi aplikasi dan menghentikan akses tanpa menghapus data.
 - Email memakai penyedia backend (`RESEND_API_KEY`), bukan MailApp.
@@ -71,4 +75,4 @@ Store tidak lagi bergantung pada Apps Script atau Spreadsheet. `seller-handler` 
 
 ## Keputusan go-live
 
-Source sudah menyediakan kontrol teknis utama, tetapi status “siap dijual” baru boleh diberikan setelah migration/deploy staging dan produksi diverifikasi, restore staging berhasil, legal final, harga final, monitoring hijau, serta pilot 2–3 sekolah menyelesaikan satu siklus payroll.
+Source sudah menyediakan kontrol teknis utama, tetapi status “siap dijual” baru boleh diberikan setelah migration/deploy staging dan produksi diverifikasi, transaksi Midtrans sandbox berhasil end-to-end, restore staging berhasil, legal final, monitoring hijau, serta pilot 2–3 sekolah menyelesaikan satu siklus payroll.

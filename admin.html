@@ -1503,14 +1503,13 @@
                 <input
                   id="searchEmp"
                   placeholder="Cari nama/NIP/jabatan..."
-                /><label class="badge" style="cursor: pointer"
-                  ><input
-                    type="checkbox"
-                    id="showArchivedEmp"
-                    style="width: auto"
-                  />
-                  Tampilkan arsip</label
+                /><button
+                  type="button"
+                  class="btn small"
+                  id="viewArchivedEmp"
                 >
+                  Lihat arsip
+                </button>
               </div>
               <div class="table-wrap">
                 <table>
@@ -1702,6 +1701,18 @@
                 yang berlaku untuk semua karyawan, atau
                 <b>Jabatan tertentu</b> untuk yang spesifik.
               </div>
+            </div>
+            <div class="card wide" id="quantityRuleCard">
+              <h3>Komponen Berbasis Jumlah</h3>
+              <p class="muted" style="margin: 0 0 12px; font-size: 13px">
+                Untuk komponen yang tarifnya tetap tapi jumlahnya berubah
+                tiap bulan, misal penitipan day care per hari atau
+                ekstrakurikuler per pertemuan. Atur nama dan tarifnya di
+                sini; berlaku untuk semua metode gaji apa pun. Setiap bulan
+                tinggal isi jumlah/kali di halaman Payroll, nominal dihitung
+                otomatis dan tampil di slip.
+              </p>
+              <div id="quantityRuleSummary"></div>
             </div>
             <div class="card wide" id="excelMethodCard">
               <h3>Sumber Data Import Excel</h3>
@@ -4779,10 +4790,9 @@
       function renderEmployees() {
         fillSelects();
         let q = ($("searchEmp").value || "").toLowerCase(),
-          showArc = !!($("showArchivedEmp") && $("showArchivedEmp").checked),
           rows = db.employees.filter(
             (e) =>
-              (showArc || !isArchived(e)) &&
+              !isArchived(e) &&
               [e.name, e.nip, e.nik, getPos(e.position).name]
                 .join(" ")
                 .toLowerCase()
@@ -4800,7 +4810,11 @@
         applyFieldVisibility();
       }
       function empRow(e) {
-        return `<tr><td><div class="person"><div class="avatar">${initials(e.name)}</div><div class="pmeta"><div class="pname">${esc(e.name)}</div><div class="psub">${esc(e.nip || "NIP kosong")}</div></div></div></td><td class="safe-text col-position">${esc(getPos(e.position).name || "-")}</td><td class="col-grade">${getGrade(e.grade).name ? `<span class="badge">${esc(getGrade(e.grade).name)}</span>` : "-"}</td><td>${years(e.join)} tahun</td><td><span class="badge ${e.status == "Nonaktif" ? "warn" : "ok"}">${e.status}</span></td><td class="action-cell"><div class="row-actions"><button class="btn small" data-edit-emp="${e.id}">Edit</button><button class="btn small" data-emp-link="${e.id}">Link</button><button class="btn small warn" data-reset-pin="${e.id}">Reset PIN</button><button class="btn small danger" data-del-emp="${e.id}">Arsip</button></div></td></tr>`;
+        let archived = isArchived(e);
+        let actions = archived
+          ? `<button class="btn small ok" data-restore-emp="${e.id}">Pulihkan</button>`
+          : `<button class="btn small" data-edit-emp="${e.id}">Edit</button><button class="btn small" data-emp-link="${e.id}">Link</button><button class="btn small warn" data-reset-pin="${e.id}">Reset PIN</button><button class="btn small danger" data-del-emp="${e.id}">Arsip</button>`;
+        return `<tr><td><div class="person"><div class="avatar">${initials(e.name)}</div><div class="pmeta"><div class="pname">${esc(e.name)}</div><div class="psub">${esc(e.nip || "NIP kosong")}</div></div></div></td><td class="safe-text col-position">${esc(getPos(e.position).name || "-")}</td><td class="col-grade">${getGrade(e.grade).name ? `<span class="badge">${esc(getGrade(e.grade).name)}</span>` : "-"}</td><td>${years(e.join)} tahun</td><td><span class="badge ${e.status == "Nonaktif" ? "warn" : "ok"}">${e.status}</span></td><td class="action-cell"><div class="row-actions">${actions}</div></td></tr>`;
       }
       function rowMore(kind, total, colspan) {
         return total > 5
@@ -5028,8 +5042,11 @@
           $("excelCompSummary").innerHTML = excelComps.length
             ? `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th></tr></thead><tbody>${excelComps.map((c) => `<tr><td>${esc(c.name)}</td><td><span class="badge ${c.kind == "deduction" ? "bad" : "ok"}">${c.kind == "deduction" ? "Potong" : "Tambah"}</span></td></tr>`).join("")}</tbody></table></div>`
             : '<div class="empty">Belum ada komponen dari Excel. Import file Excel payroll dulu.</div>';
+        }
+        // Komponen berbasis jumlah: berlaku untuk semua metode gaji, bukan hanya Excel.
+        {
           let inputRules = db.payrollInputDefinitions || [];
-          $("excelCompSummary").innerHTML =
+          $("quantityRuleSummary").innerHTML =
             `<div class="note" style="margin-bottom:12px"><b>Komponen payroll berbasis jumlah</b><br>Tarif diatur di sini. Payroll hanya meminta jumlah/kali, lalu nominal dihitung otomatis dan muncul di slip. Komponen berlaku mulai periode yang dipilih dan berlanjut sampai dinonaktifkan.</div>` +
             `<div class="form" style="grid-template-columns:2fr 1fr 1fr 1fr auto;margin-bottom:12px;align-items:end">` +
             `<div class="field"><label>Nama komponen baru</label><input id="newPayRuleName" placeholder="mis. Piket tambahan"></div>` +
@@ -5054,7 +5071,11 @@
         let cfg = {
           employees: [
             "Daftar Karyawan",
-            `<table><thead><tr><th>Nama</th><th>Jabatan</th><th>Golongan</th><th>Masa Kerja</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${db.employees.map(empRow).join("")}</tbody></table>`,
+            `<table><thead><tr><th>Nama</th><th>Jabatan</th><th>Golongan</th><th>Masa Kerja</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${db.employees.filter((e) => !isArchived(e)).map(empRow).join("") || '<tr><td colspan="6" class="empty">Belum ada data.</td></tr>'}</tbody></table>`,
+          ],
+          "employees-archived": [
+            "Arsip Karyawan",
+            `<table><thead><tr><th>Nama</th><th>Jabatan</th><th>Golongan</th><th>Masa Kerja</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${db.employees.filter(isArchived).map(empRow).join("") || '<tr><td colspan="6" class="empty">Belum ada karyawan yang diarsipkan.</td></tr>'}</tbody></table>`,
           ],
           positions: [
             "Semua Jabatan",
@@ -5931,6 +5952,26 @@
             "warn",
           );
         }
+        let re = e.target.closest("[data-restore-emp]");
+        if (re) {
+          let empId = re.dataset.restoreEmp;
+          let emp = db.employees.find((x) => x.id == empId);
+          if (emp) {
+            emp.status = "Aktif";
+            emp.archivedAt = null;
+            audit(
+              "restore_employee",
+              "Karyawan dipulihkan dari arsip: " + (emp.name || emp.nip),
+              { employeeId: empId },
+            );
+          }
+          saveLocal();
+          render();
+          if (document.querySelector(".modal-bg.show")) {
+            openMasterList("employees-archived");
+          }
+          toast("Karyawan dipulihkan dan aktif kembali.", "ok");
+        }
         let ap = e.target.closest("[data-approve]");
         if (ap) {
           let r = db.attendanceRequests.find((x) => x.id == ap.dataset.approve);
@@ -6626,9 +6667,7 @@
         }
       });
       $("searchEmp").oninput = renderEmployees;
-      document.addEventListener("change", (e) => {
-        if (e.target && e.target.id === "showArchivedEmp") renderEmployees();
-      });
+      $("viewArchivedEmp").onclick = () => openMasterList("employees-archived");
       $("posForm").onsubmit = (e) => {
         e.preventDefault();
         let id = $("posId").value || uid("p"),

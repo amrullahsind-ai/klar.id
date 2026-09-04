@@ -103,6 +103,27 @@ select
   count(*) filter (where active) as seller_aktif
 from public.seller_users;
 
+-- Pesanan Midtrans wajib memiliki token pemulihan dan tidak boleh ditandai
+-- lunas tanpa lisensi yang tertaut.
+select
+  count(*) filter (
+    where payment_provider = 'midtrans'
+      and (checkout_token_hash is null or checkout_token_hash = '')
+  ) as midtrans_tanpa_token_checkout,
+  count(*) filter (
+    where payment_provider = 'midtrans'
+      and status = 'paid'
+      and license_code is null
+  ) as midtrans_lunas_tanpa_lisensi
+from public.store_orders;
+
+-- Harus nol: perpanjangan yang sudah lunas wajib tetap menunjuk tenant lama.
+select count(*) as perpanjangan_lunas_tenant_tidak_cocok
+from public.store_orders
+where status = 'paid'
+  and renewal_license_code is not null
+  and license_code is distinct from renewal_license_code;
+
 select
   subject_type,
   count(*) filter (where revoked_at is null and expires_at > now()) as sesi_aktif,
@@ -117,5 +138,5 @@ select
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
-  and p.proname in ('consume_rate_limit', 'reset_rate_limit', 'apply_complimentary_extension')
+  and p.proname in ('consume_rate_limit', 'reset_rate_limit', 'apply_complimentary_extension', 'apply_paid_license_renewal')
 order by p.proname;

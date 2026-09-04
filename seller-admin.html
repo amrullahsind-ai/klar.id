@@ -182,13 +182,15 @@
       $('ordersBody').innerHTML=list.map(order=>{
         const paid=order.status==='paid';
         const review=order.status==='payment_review';
+        const midtrans=order.paymentProvider==='midtrans';
         const action=paid
           ? '<button class="btn btn-ghost btn-sm" data-resend="'+esc(order.orderId)+'">Kirim ulang email</button>'
-          : '<button class="btn btn-sm" data-confirm="'+esc(order.orderId)+'">Konfirmasi &amp; Terbitkan</button>';
+          : '<button class="btn btn-sm" data-confirm="'+esc(order.orderId)+'">'+(midtrans?'Periksa Midtrans':'Konfirmasi &amp; Terbitkan')+'</button>';
         let proof=order.paymentProof?'<a href="'+esc(order.paymentProof)+'" target="_blank" rel="noopener">Lihat bukti</a>':'<span class="muted">Belum ada</span>';
+        if(midtrans) proof='<span class="muted">Midtrans · '+esc(order.paymentType||order.paymentStatus||'menunggu')+'</span>';
         if(order.buyerNotes) proof+='<br><span class="muted">'+esc(order.buyerNotes)+'</span>';
         const statusLabel=paid?'Lunas':review?'Perlu dicek':'Pending';
-        return '<tr><td><b>'+esc(order.orderId)+'</b></td><td>'+esc(order.school)+'</td><td>'+esc(order.email)+'</td><td>'+esc(order.plan)+'</td><td>'+proof+'</td><td><span class="pill '+(paid?'paid':'pending')+'">'+statusLabel+'</span>'+(order.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td><td>'+action+'</td></tr>';
+        return '<tr><td><b>'+esc(order.orderId)+'</b></td><td>'+esc(order.school)+'</td><td>'+esc(order.email)+'</td><td>'+esc(order.orderType==='renewal'?'Perpanjangan':'Lisensi baru')+'</td><td>'+proof+'</td><td><span class="pill '+(paid?'paid':'pending')+'">'+statusLabel+'</span>'+(order.hasLicense?'<br><span class="muted">lisensi terbit</span>':'')+'</td><td>'+action+'</td></tr>';
       }).join('');
     }
     async function loadLicenses(){
@@ -208,7 +210,11 @@
     $('ordersBody').addEventListener('click',async e=>{
       const confirmBtn=e.target.closest('[data-confirm]'),resendBtn=e.target.closest('[data-resend]');
       if(confirmBtn){
-        if(!confirm('Konfirmasi pembayaran & terbitkan lisensi untuk order '+confirmBtn.dataset.confirm+'?'))return;
+        const checkingMidtrans=confirmBtn.textContent.includes('Midtrans');
+        const question=checkingMidtrans
+          ? 'Periksa status pembayaran Midtrans untuk order '+confirmBtn.dataset.confirm+'? Lisensi hanya terbit jika Midtrans menyatakan pembayaran berhasil.'
+          : 'Konfirmasi pembayaran & terbitkan lisensi untuk order '+confirmBtn.dataset.confirm+'?';
+        if(!confirm(question))return;
         confirmBtn.disabled=true;confirmBtn.textContent='Memproses...';
         try{
           const res=await callApi({action:'confirmOrder',orderId:confirmBtn.dataset.confirm});

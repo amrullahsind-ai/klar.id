@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Panduan Penggunaan Klaar</title>
+    <style>
+      :root {
+        --green: #085842;
+        --green-2: #0c9b72;
+        --mint: #e9f8f2;
+        --ink: #15251f;
+        --muted: #60736c;
+        --line: #d7e5df;
+        --warn: #fff5d6;
+        --danger: #fff0f0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #eef5f2;
+        font: 15px/1.55 Arial, Helvetica, sans-serif;
+      }
+      main {
+        width: 210mm;
+        margin: 20px auto;
+        background: white;
+        box-shadow: 0 10px 40px #173f3020;
+      }
+      .page { padding: 17mm 16mm; }
+      .cover {
+        min-height: 277mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: white;
+        background:
+          radial-gradient(circle at 90% 15%, #59d5a7 0 10%, transparent 31%),
+          linear-gradient(145deg, #063e31, #087356 65%, #0aa779);
+      }
+      .logo { width: 92px; height: 92px; object-fit: contain; background: white; border-radius: 24px; padding: 12px; }
+      h1 { margin: 22px 0 8px; font-size: 42px; line-height: 1.08; }
+      h2 { color: var(--green); margin: 0 0 14px; font-size: 27px; line-height: 1.2; }
+      h3 { color: var(--green); margin: 22px 0 8px; font-size: 19px; }
+      h4 { margin: 15px 0 5px; font-size: 16px; }
+      p { margin: 7px 0 12px; }
+      ul, ol { margin: 7px 0 13px; padding-left: 23px; }
+      li { margin: 5px 0; }
+      .subtitle { font-size: 20px; max-width: 540px; opacity: .93; }
+      .cover-meta { opacity: .85; }
+      .eyebrow { color: var(--green-2); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 12px; }
+      .toc { columns: 2; column-gap: 32px; }
+      .toc div { break-inside: avoid; padding: 7px 0; border-bottom: 1px solid var(--line); }
+      .shot {
+        width: 100%;
+        display: block;
+        margin: 13px 0 6px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 8px 22px #1e483a16;
+      }
+      .mobile-shot { width: 44%; margin-left: auto; margin-right: auto; }
+      .caption { color: var(--muted); text-align: center; font-size: 12px; margin-bottom: 14px; }
+      .note, .warning, .critical {
+        border-radius: 10px;
+        padding: 11px 13px;
+        margin: 12px 0;
+        break-inside: avoid;
+      }
+      .note { background: var(--mint); border-left: 4px solid var(--green-2); }
+      .warning { background: var(--warn); border-left: 4px solid #d99b00; }
+      .critical { background: var(--danger); border-left: 4px solid #dc3f3f; }
+      .steps { counter-reset: step; list-style: none; padding: 0; }
+      .steps > li { position: relative; padding: 0 0 12px 38px; min-height: 32px; }
+      .steps > li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: var(--green);
+        font-weight: bold;
+      }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+      th, td { border: 1px solid var(--line); padding: 8px 9px; vertical-align: top; }
+      th { background: var(--mint); color: var(--green); text-align: left; }
+      .check { list-style: none; padding-left: 0; }
+      .check li::before { content: "☐"; margin-right: 8px; color: var(--green); font-weight: bold; }
+      code { background: #edf3f0; border-radius: 4px; padding: 1px 5px; }
+      .page-break { break-before: page; }
+      .keep { break-inside: avoid; }
+      footer { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 24px; }
+      @page { size: A4; margin: 0; }
+      @media print {
+        body { background: white; }
+        main { margin: 0; box-shadow: none; }
+        .page { min-height: 297mm; break-after: page; }
+        .page:last-child { break-after: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="page cover">
+        <div>
+          <img class="logo" src="../../klaar-logo.png" alt="Logo Klaar" />
+          <h1>Panduan Penggunaan Klaar</h1>
+          <p class="subtitle">Absensi, pengelolaan karyawan, import Excel, payroll, dan slip gaji sekolah.</p>
+        </div>
+        <div class="cover-meta">
+          <strong>Untuk Admin Sekolah & Karyawan</strong><br />
+          Edisi Juli 2026 · Klaar
+        </div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Mulai di sini</span>
+        <h2>Tentang panduan ini</h2>
+        <p>Panduan ini menjelaskan pemakaian Klaar sehari-hari. Tidak ada langkah deploy, GitHub, atau pengaturan server. Semua gambar memakai Mode Demo dan tidak berisi data sekolah asli.</p>
+        <div class="note"><strong>Urutan yang disarankan:</strong> aktifkan akun → lengkapi profil → atur lokasi absensi → masukkan karyawan → atur gaji → uji absensi → periksa payroll → finalisasi.</div>
+        <h3>Daftar isi</h3>
+        <div class="toc">
+          <div>1. Masuk sebagai admin</div>
+          <div>2. Memahami dashboard</div>
+          <div>3. Mengelola karyawan</div>
+          <div>4. Mengatur komponen gaji</div>
+          <div>5. Mengatur absensi & lokasi</div>
+          <div>6. Memantau dan mengoreksi absensi</div>
+          <div>7. Import Excel</div>
+          <div>8. Memeriksa dan finalisasi payroll</div>
+          <div>9. Laporan, backup, dan keamanan</div>
+          <div>10. Panduan karyawan</div>
+          <div>11. Pemecahan masalah</div>
+          <div>12. Checklist operasional</div>
+        </div>
+        <h3>Istilah penting</h3>
+        <table>
+          <tr><th>Istilah</th><th>Arti</th></tr>
+          <tr><td>Draft payroll</td><td>Perhitungan sementara yang masih dapat dikoreksi.</td></tr>
+          <tr><td>Finalisasi</td><td>Mengunci payroll setelah semua nominal diperiksa.</td></tr>
+          <tr><td>Snapshot Excel</td><td>Salinan nilai bulan yang diimpor sebagai sumber audit.</td></tr>
+          <tr><td>Jumlah × tarif</td><td>Contoh: daycare 2 kali × Rp175.000; admin mengisi jumlah, tarif diatur di menu Gaji.</td></tr>
+        </table>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Admin</span>
+        <h2>1. Masuk sebagai admin</h2>
+        <ol class="steps">
+          <li>Buka alamat Klaar yang diberikan pengelola.</li>
+          <li>Pada penggunaan pertama, masukkan kode lisensi sekolah lalu pilih <strong>Aktivasi & Load</strong>.</li>
+          <li>Masukkan nama pengguna dan password admin.</li>
+          <li>Setelah berhasil, halaman terakhir akan tetap terbuka ketika browser direfresh selama sesi admin masih berlaku.</li>
+        </ol>
+        <img class="shot" src="assets/01-admin-login.png" alt="Login admin Klaar" />
+        <p class="caption">Halaman login admin. Gambar memakai Mode Demo.</p>
+        <div class="critical"><strong>Wajib:</strong> segera ganti password bawaan. Jangan memberikan password admin kepada guru atau karyawan. Gunakan menu penggantian password/Credential Center.</div>
+        <h3>Jika keluar atau sesi habis</h3>
+        <p>Login kembali dengan akun admin. Kode lisensi seharusnya tetap tersimpan pada perangkat yang sama. Jika lisensi diminta ulang, pastikan tidak memakai mode incognito dan data situs tidak dihapus.</p>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Ringkasan</span>
+        <h2>2. Memahami dashboard</h2>
+        <img class="shot" src="assets/02-dashboard-v3.png" alt="Dashboard admin Klaar" />
+        <p class="caption">Dashboard memperlihatkan ringkasan karyawan, kehadiran, dan payroll.</p>
+        <p>Gunakan menu kiri untuk berpindah halaman. Kartu pada dashboard adalah ringkasan; data rinci berada di menu masing-masing.</p>
+        <ul>
+          <li><strong>Karyawan:</strong> identitas, jabatan, golongan, PIN, dan status aktif.</li>
+          <li><strong>Gaji:</strong> metode penggajian, tarif, tunjangan, dan potongan.</li>
+          <li><strong>Absensi:</strong> lokasi, radius, jam kerja, dan aturan keterlambatan.</li>
+          <li><strong>Monitor:</strong> riwayat hadir, izin, sakit, alpha, dan koreksi manual.</li>
+          <li><strong>Payroll:</strong> jumlah kehadiran, komponen dinamis, slip, dan finalisasi.</li>
+          <li><strong>Laporan:</strong> ringkasan payroll yang siap diperiksa.</li>
+        </ul>
+        <div class="warning">Jika data baru belum terlihat, tunggu sinkronisasi selesai lalu gunakan tombol refresh data. Hindari menekan simpan atau import berkali-kali secara cepat.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Data SDM</span>
+        <h2>3. Mengelola karyawan</h2>
+        <img class="shot" src="assets/03-karyawan.png" alt="Daftar karyawan Klaar" />
+        <p class="caption">Daftar karyawan dan tindakan pengelolaannya.</p>
+        <h3>Menambah karyawan</h3>
+        <ol class="steps">
+          <li>Pilih menu <strong>Karyawan</strong>, lalu pilih tambah karyawan.</li>
+          <li>Isi nama, identitas/NIP, unit, jabatan, golongan, tanggal masuk, serta rekening bila diperlukan.</li>
+          <li>Tentukan PIN karyawan. Berikan PIN hanya kepada orang yang bersangkutan.</li>
+          <li>Simpan dan pastikan karyawan muncul sebagai <strong>Aktif</strong>.</li>
+        </ol>
+        <h3>Mengubah atau menonaktifkan</h3>
+        <p>Edit data jika ada perubahan jabatan, golongan, atau rekening. Untuk karyawan keluar, gunakan status nonaktif/arsip agar riwayat payroll lama tetap tersedia—jangan menghapus riwayat tanpa backup.</p>
+        <div class="note"><strong>Hindari data ganda:</strong> sebelum menambah karyawan, cari berdasarkan nama dan NIP. Saat import Excel, gunakan identitas yang sama agar sistem dapat mencocokkan data.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Penggajian</span>
+        <h2>4. Mengatur komponen gaji</h2>
+        <img class="shot" src="assets/04-aturan-gaji.png" alt="Aturan gaji Klaar" />
+        <p class="caption">Metode, golongan, jabatan, tarif, tunjangan, dan potongan.</p>
+        <h3>Pilih dasar gaji yang benar</h3>
+        <p>Jika memakai <strong>Hybrid / Campuran</strong>, pilih tepat satu <strong>Sumber gaji pokok Hybrid</strong>: Golongan, Jabatan, atau nominal khusus per karyawan. Jabatan dan Golongan tetap boleh diisi pada data karyawan, tetapi sistem tidak menjumlahkannya sebagai dua gaji pokok. Sumber lain hanya menyumbang tunjangan atau aturan pendukung sesuai konfigurasi.</p>
+        <table>
+          <tr><th>Metode</th><th>Digunakan bila</th></tr>
+          <tr><td>Golongan</td><td>Gaji pokok dan/atau tunjangan kehadiran mengikuti golongan.</td></tr>
+          <tr><td>Jabatan + masa kerja</td><td>Gaji atau tunjangan utama mengikuti jabatan dan lama bekerja.</td></tr>
+          <tr><td>Individual</td><td>Nilai pokok berbeda untuk setiap karyawan.</td></tr>
+          <tr><td>Hybrid/campuran</td><td>Sekolah memakai gabungan golongan, jabatan, kehadiran, dan komponen lain.</td></tr>
+        </table>
+        <h3>Komponen jumlah × tarif</h3>
+        <p>Tarif disimpan di menu Gaji. Pada payroll admin hanya mengisi jumlah kejadian. Contoh: daycare 2 kali dengan tarif Rp175.000 menghasilkan potongan Rp350.000 pada slip.</p>
+        <div class="critical"><strong>Setiap perubahan tarif menghitung ulang draft payroll.</strong> Setelah mengubah aturan, buka kembali Payroll dan cocokkan minimal tiga karyawan: tanpa potongan, dengan potongan, dan kasus khusus.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Klaar Hadir</span>
+        <h2>5. Mengatur absensi & lokasi</h2>
+        <img class="shot" src="assets/05-aturan-absensi.png" alt="Aturan absensi Klaar" />
+        <p class="caption">Pengaturan titik lokasi, radius, jam masuk, dan keterlambatan.</p>
+        <ol class="steps">
+          <li>Cari alamat sekolah pada peta, lalu letakkan titik tepat pada lokasi absensi.</li>
+          <li>Tentukan radius yang masuk akal. Uji dari halaman depan, ruang guru, dan area terjauh yang masih dianggap sah.</li>
+          <li>Atur jam masuk, jam pulang, batas terlambat, dan hari kerja.</li>
+          <li>Atur batas otomatis alpha jika karyawan tidak melakukan absensi sampai jam yang ditentukan.</li>
+          <li>Simpan, lalu lakukan uji dengan satu akun karyawan sebelum diberlakukan ke semua orang.</li>
+        </ol>
+        <div class="warning"><strong>Akurasi GPS berbeda antarperangkat.</strong> Jangan memakai radius terlalu sempit. Lokasi di dalam gedung, hemat baterai, dan izin lokasi yang tidak presisi dapat menggeser titik.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Kehadiran</span>
+        <h2>6. Memantau dan mengoreksi absensi</h2>
+        <img class="shot" src="assets/06-monitor-absensi.png" alt="Monitor absensi Klaar" />
+        <p class="caption">Pantau status hadir, telat, izin, sakit, alpha, dan bukti absensi.</p>
+        <h3>Koreksi manual</h3>
+        <ol class="steps">
+          <li>Pilih tanggal dan karyawan.</li>
+          <li>Pilih status yang benar: hadir, telat, izin, sakit, atau alpha.</li>
+          <li>Isi jam dan catatan alasan koreksi.</li>
+          <li>Simpan, lalu buka Payroll untuk memastikan jumlah kehadiran dan tunjangannya ikut berubah.</li>
+        </ol>
+        <p>Absensi dari Klaar Hadir tetap menjadi sumber otomatis. Edit manual berfungsi sebagai koreksi admin untuk kasus lupa absen, perangkat bermasalah, surat izin, atau verifikasi lain.</p>
+        <div class="critical">Jangan hanya memeriksa jumlah hadir. Pastikan perubahan hadir/telat/sakit/alpha juga mengubah tunjangan atau potongan terkait pada slip.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Migrasi data</span>
+        <h2>7. Import Excel</h2>
+        <img class="shot" src="assets/08-import-excel-v3.png" alt="Import Excel Klaar" />
+        <p class="caption">Klaar menganalisis sheet, header, metode gaji, dan komponen sebelum import diterapkan.</p>
+        <ol class="steps">
+          <li>Buat backup data Klaar dan simpan salinan Excel asli.</li>
+          <li>Pilih <strong>Import Excel</strong> dan unggah file <code>.xlsx</code>, <code>.xls</code>, atau <code>.csv</code>.</li>
+          <li>Pilih periode bulan dan tahun payroll dengan benar.</li>
+          <li>Klik <strong>Baca & Analisis</strong>. Periksa sheet terpilih, mapping kolom, metode terdeteksi, dan preview.</li>
+          <li>Selesaikan semua error merah. Selisih Rp1 pun tidak boleh diabaikan.</li>
+          <li>Klik <strong>Terapkan Import</strong> hanya setelah jumlah karyawan, gross, potongan, koreksi, dan gaji bersih cocok.</li>
+          <li>Periksa menu Gaji yang terbentuk, lalu buka Payroll dan slip beberapa karyawan.</li>
+        </ol>
+        <h3>Komponen setelah import</h3>
+        <ul>
+          <li><strong>Tetap/aturan:</strong> gaji pokok, tunjangan rumah, dan aturan golongan berlaku ke periode berikutnya.</li>
+          <li><strong>Bulanan:</strong> THR, bonus, rapel, lembur, dan koreksi hanya berlaku pada periode terkait.</li>
+          <li><strong>Jumlah × tarif:</strong> daycare, pramuka, renang, futsal, jam mengajar, dan kegiatan lain muncul sebagai jumlah; rupiah dihitung dari tarif aktif.</li>
+        </ul>
+        <div class="critical"><strong>Jangan memaksa import yang belum rekonsiliasi.</strong> Jika struktur Excel sangat berbeda, simpan mapping sebagai profil dan uji pada salinan data terlebih dahulu.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Proses bulanan</span>
+        <h2>8. Memeriksa dan finalisasi payroll</h2>
+        <img class="shot" src="assets/07-payroll.png" alt="Payroll Klaar" />
+        <p class="caption">Draft payroll menampilkan kehadiran dan komponen jumlah yang dapat dikoreksi sebelum final.</p>
+        <ol class="steps">
+          <li>Pilih bulan payroll yang benar.</li>
+          <li>Klik hitung/refresh payroll untuk menarik data absensi terbaru.</li>
+          <li>Periksa hadir, telat, sakit, izin, alpha, dan seluruh jumlah komponen.</li>
+          <li>Jika diperlukan, edit jumlah pada draft. Sistem menghitung rupiah berdasarkan tarif menu Gaji.</li>
+          <li>Buka <strong>Slip</strong> dan cocokkan: gaji pokok + tunjangan − potongan + koreksi = gaji bersih.</li>
+          <li>Perbaiki semua error merah atau rekonsiliasi yang belum nol.</li>
+          <li>Finalisasi/kunci hanya setelah disetujui petugas berwenang.</li>
+        </ol>
+        <div class="warning">Setelah finalisasi, perubahan aturan gaji atau absensi tidak boleh diam-diam mengubah payroll lama. Jika memang harus dikoreksi, buka kunci dengan alasan dan ulangi pemeriksaan.</div>
+        <h3>Pemeriksaan minimum sebelum final</h3>
+        <ul class="check">
+          <li>Jumlah karyawan aktif sesuai.</li>
+          <li>Tidak ada gaji Rp1/Rp2 akibat salah membaca jumlah.</li>
+          <li>Semua gaji bersih sama dengan rincian slip.</li>
+          <li>Karyawan kasus khusus diperiksa satu per satu.</li>
+          <li>Total payroll dibandingkan dengan sumber/bulan sebelumnya.</li>
+        </ul>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Administrasi</span>
+        <h2>9. Laporan, backup, dan keamanan</h2>
+        <img class="shot" src="assets/09-laporan-v2.png" alt="Laporan payroll Klaar" />
+        <p class="caption">Gunakan laporan untuk pengecekan akhir dan arsip internal.</p>
+        <h3>Backup yang disarankan</h3>
+        <ul>
+          <li>Sebelum import Excel.</li>
+          <li>Sebelum perubahan besar aturan gaji.</li>
+          <li>Sebelum finalisasi payroll bulanan.</li>
+          <li>Setelah payroll final dan laporan selesai.</li>
+        </ul>
+        <h3>Praktik keamanan</h3>
+        <ul>
+          <li>Gunakan password admin unik dan jangan dibagikan.</li>
+          <li>Jangan mengirim kode lisensi, PIN, atau data payroll melalui grup publik.</li>
+          <li>Logout dari komputer bersama.</li>
+          <li>Batasi hak koreksi dan finalisasi hanya untuk petugas yang ditunjuk.</li>
+        </ul>
+        <img class="shot" src="assets/10-profil.png" alt="Profil sekolah Klaar" />
+        <p class="caption">Profil sekolah digunakan untuk identitas, logo, dan informasi aplikasi.</p>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Karyawan</span>
+        <h2>10. Menggunakan Klaar Hadir</h2>
+        <img class="shot mobile-shot" src="assets/11-employee-aktivasi.png" alt="Aktivasi Klaar Hadir" />
+        <p class="caption">Tampilan awal Klaar Hadir di ponsel.</p>
+        <ol class="steps">
+          <li>Buka link yang diberikan admin sekolah. Jika tersedia, pilih unduh APK atau buka versi web.</li>
+          <li>Masukkan/konfirmasi kode lisensi bila belum terisi otomatis.</li>
+          <li>Login memakai identitas dan PIN yang diberikan admin.</li>
+          <li>Izinkan lokasi presisi dan kamera saat diminta.</li>
+          <li>Pastikan berada di radius sekolah, lalu lakukan check-in dan selfie sesuai aturan.</li>
+          <li>Lakukan check-out ketika selesai bekerja.</li>
+        </ol>
+        <div class="note">APK tetap terhubung ke sistem pusat. Jika pembaruan tersedia, ikuti pemberitahuan update dari aplikasi atau link resmi sekolah.</div>
+        <h3>Jika lokasi tidak terbaca</h3>
+        <p>Nyalakan GPS, pilih izin lokasi presisi, matikan mode hemat baterai sementara, tunggu akurasi membaik, lalu coba kembali di area terbuka.</p>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Bantuan</span>
+        <h2>11. Pemecahan masalah</h2>
+        <table>
+          <tr><th>Masalah</th><th>Yang dilakukan</th></tr>
+          <tr><td>Refresh kembali ke lisensi</td><td>Pastikan tidak memakai incognito, data situs tidak dihapus, dan link/domain yang dibuka benar. Login ulang bila sesi habis.</td></tr>
+          <tr><td>Data belum berubah</td><td>Tunggu sinkronisasi, refresh data, lalu periksa koneksi. Jangan mengulang import tanpa memastikan status proses sebelumnya.</td></tr>
+          <tr><td>Tunjangan hadir tidak berubah</td><td>Periksa jumlah hadir/telat, tarif golongan, hari kerja, dan status payroll belum final. Buka slip untuk melihat hasil.</td></tr>
+          <tr><td>Muncul Rp1 atau Rp2</td><td>Jangan finalisasi. Nilai tersebut kemungkinan jumlah yang salah dianggap rupiah. Periksa mapping jumlah × tarif.</td></tr>
+          <tr><td>Import diblokir</td><td>Baca error merah, perbaiki mapping, periode, identitas karyawan, atau selisih rekonsiliasi sampai nol.</td></tr>
+          <tr><td>APK tidak menawarkan buka aplikasi</td><td>Pastikan APK terpasang dan link dibuka melalui browser utama. Jika belum, unduh dari halaman yang sama.</td></tr>
+          <tr><td>GPS di luar radius</td><td>Aktifkan lokasi presisi, tunggu akurasi, dan pastikan titik sekolah/radius sudah diuji admin.</td></tr>
+        </table>
+        <div class="critical">Untuk masalah payroll, simpan screenshot, nama periode, nama karyawan, dan hasil hitung yang diharapkan. Jangan menghapus data sebelum backup tersedia.</div>
+      </section>
+
+      <section class="page">
+        <span class="eyebrow">Kontrol kualitas</span>
+        <h2>12. Checklist operasional</h2>
+        <h3>Sebelum sekolah mulai memakai Klaar</h3>
+        <ul class="check">
+          <li>Password admin sudah diganti.</li>
+          <li>Profil sekolah dan logo sudah benar.</li>
+          <li>Titik GPS dan radius diuji pada beberapa ponsel.</li>
+          <li>Semua karyawan memiliki identitas dan PIN unik.</li>
+          <li>Golongan, jabatan, dan tarif gaji sudah disetujui.</li>
+          <li>Satu bulan contoh dihitung paralel dengan Excel lama.</li>
+          <li>Total dan slip beberapa karyawan sudah sama persis.</li>
+          <li>Backup awal sudah disimpan.</li>
+        </ul>
+        <h3>Setiap akhir bulan</h3>
+        <ul class="check">
+          <li>Absensi dan koreksi manual sudah lengkap.</li>
+          <li>Kasus sakit, izin, alpha, dan terlambat sudah diverifikasi.</li>
+          <li>Komponen bulanan dan jumlah kegiatan sudah dimasukkan.</li>
+          <li>Rekonsiliasi tidak memiliki selisih.</li>
+          <li>Payroll diperiksa oleh minimal dua pihak.</li>
+          <li>Payroll sudah final dan laporan disimpan.</li>
+          <li>Backup setelah finalisasi sudah dibuat.</li>
+        </ul>
+        <div class="note"><strong>Prinsip utama Klaar:</strong> otomatisasi membantu pekerjaan, tetapi finalisasi gaji tetap harus melalui pemeriksaan manusia yang berwenang.</div>
+        <footer>Panduan Penggunaan Klaar · Edisi Juli 2026 · Dokumen operasional untuk admin sekolah dan karyawan.</footer>
+      </section>
+    </main>
+  </body>
+</html>

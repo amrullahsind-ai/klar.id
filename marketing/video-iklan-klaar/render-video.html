@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="id">
+<meta charset="utf-8">
+<title>KLAAR — Video Iklan</title>
+<style>
+  html,body{margin:0;background:#071d1b;overflow:hidden}
+  canvas{display:block;width:720px;height:1280px}
+</style>
+<canvas id="c" width="720" height="1280"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W=720,H=1280,DURATION=24,FPS=30;
+const logo=new Image(), dashboard=new Image();
+logo.src='../../klaar-logo.png';
+dashboard.src='../../screenshots/admin-dashboard.png';
+
+const ease=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const clamp=x=>Math.max(0,Math.min(1,x));
+const phase=(t,a,b)=>ease(clamp((t-a)/(b-a)));
+const fade=(t,a,b,c,d)=>phase(t,a,b)*(1-phase(t,c,d));
+
+function rr(x,y,w,h,r,fill,stroke){
+  ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+  if(fill){ctx.fillStyle=fill;ctx.fill()}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}
+}
+function text(s,x,y,size,weight='700',color='#fff',align='left',alpha=1){
+  ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=color;
+  ctx.font=`${weight} ${size}px Arial, sans-serif`;ctx.textAlign=align;
+  ctx.textBaseline='middle';ctx.fillText(s,x,y);ctx.restore();
+}
+function multiline(lines,x,y,size,gap,align='center',color='#fff',alpha=1){
+  lines.forEach((s,i)=>text(s,x,y+i*gap,size,'800',color,align,alpha));
+}
+function bg(t){
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#effaf5');g.addColorStop(.55,'#dff4ea');g.addColorStop(1,'#bce9d6');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=.22;
+  for(let i=0;i<7;i++){
+    const x=(i*173+t*18)%900-90, y=(i*241-t*11)%1450-80;
+    ctx.fillStyle=i%2?'#2fa567':'#f4b942';
+    ctx.beginPath();ctx.arc(x,y,55+i*9,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+function brand(alpha=1){
+  ctx.save();ctx.globalAlpha=alpha;
+  rr(42,42,190,74,24,'rgba(255,255,255,.88)');
+  ctx.drawImage(logo,55,51,56,56);
+  text('KLAAR',122,79,31,'900','#063a34');
+  ctx.restore();
+}
+function pill(label,x,y,w,icon,delay,t){
+  const p=phase(t,delay,delay+.55);
+  ctx.save();ctx.globalAlpha=p;ctx.translate((1-p)*80,0);
+  rr(x,y,w,94,28,'rgba(255,255,255,.94)', '#b9ddd0');
+  rr(x+16,y+16,62,62,20,'#e1f5ec');
+  text(icon,x+47,y+49,31,'700','#0b6754','center');
+  text(label,x+98,y+47,27,'800','#093b35');
+  ctx.restore();
+}
+function drawPhone(t,alpha){
+  const p=phase(t,7.2,8.2);
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(W/2,735+(1-p)*180);ctx.rotate((1-p)*.08);
+  ctx.shadowColor='rgba(0,35,30,.25)';ctx.shadowBlur=42;ctx.shadowOffsetY=18;
+  rr(-270,-360,540,720,48,'#071f1c');ctx.shadowColor='transparent';
+  rr(-252,-342,504,684,36,'#f5fbf8');
+  ctx.save();ctx.beginPath();ctx.roundRect(-252,-342,504,684,36);ctx.clip();
+  const scale=Math.max(504/dashboard.width,684/dashboard.height);
+  const dw=dashboard.width*scale,dh=dashboard.height*scale;
+  ctx.drawImage(dashboard,-dw/2,-342, dw,dh);
+  ctx.fillStyle='rgba(4,57,49,.08)';ctx.fillRect(-252,-342,504,684);
+  ctx.restore();
+  rr(-62,-330,124,14,8,'#092d28');
+  ctx.restore();
+}
+function scene(t){
+  bg(t); brand();
+  // Hook
+  let a=fade(t,0,.5,4.1,4.7);
+  if(a){
+    const p=phase(t,.1,.9);
+    ctx.save();ctx.globalAlpha=a;ctx.translate(0,(1-p)*55);
+    text('Administrasi sekolah',W/2,410,52,'900','#073b35','center');
+    text('masih bikin repot?',W/2,476,52,'900','#073b35','center');
+    rr(110,555,500,6,3,'#2fa567');
+    text('Saatnya kerja lebih ringkas.',W/2,620,29,'600','#53746d','center');
+    ctx.restore();
+  }
+  // Feature stack
+  a=fade(t,4.2,4.8,8.1,8.8);
+  if(a){
+    text('Semua kebutuhan utama',W/2,265,42,'900','#073b35','center',a);
+    text('dalam satu aplikasi',W/2,316,42,'900','#073b35','center',a);
+    pill('Absensi GPS + selfie',82,430,556,'✓',4.5,t);
+    pill('Data karyawan rapi',82,552,556,'◎',4.75,t);
+    pill('Payroll lebih cepat',82,674,556,'Rp',5,t);
+    pill('Slip gaji siap dibagikan',82,796,556,'↗',5.25,t);
+  }
+  // Dashboard
+  a=fade(t,8.2,8.8,13.2,14);
+  if(a){
+    text('Pantau sekolah',W/2,200,48,'900','#073b35','center',a);
+    text('dari satu dashboard',W/2,258,48,'900','#073b35','center',a);
+    drawPhone(t,a);
+  }
+  // benefits
+  a=fade(t,13.4,14.1,18.1,18.8);
+  if(a){
+    text('Lebih tertib.',W/2,350,62,'900','#073b35','center',a);
+    text('Lebih hemat waktu.',W/2,428,62,'900','#073b35','center',a);
+    const p=phase(t,14.3,15);
+    rr(105,545,510,118,36,`rgba(255,255,255,${.92*a})`);
+    text('Admin lebih tenang',W/2,604,33,'800','#12735e','center',a*p);
+    rr(105,690,510,118,36,`rgba(255,255,255,${.92*a})`);
+    text('Karyawan lebih mudah',W/2,749,33,'800','#12735e','center',a*phase(t,14.6,15.3));
+    rr(105,835,510,118,36,`rgba(255,255,255,${.92*a})`);
+    text('Data tetap terorganisir',W/2,894,33,'800','#12735e','center',a*phase(t,14.9,15.6));
+  }
+  // CTA
+  a=phase(t,18.3,19.2);
+  if(t>=18.2){
+    ctx.save();ctx.globalAlpha=a;
+    const pulse=1+Math.sin(t*3)*.018;
+    ctx.translate(W/2,370);ctx.scale(pulse,pulse);
+    ctx.shadowColor='rgba(17,102,82,.18)';ctx.shadowBlur=45;
+    ctx.drawImage(logo,-128,-128,256,256);ctx.shadowColor='transparent';ctx.restore();
+    multiline(['Administrasi sekolah','jadi lebih KLAAR.'],W/2,610,51,65,'center','#073b35',a);
+    text('Absensi • Karyawan • Payroll',W/2,780,27,'700','#55766f','center',a);
+    rr(116,870,488,96,30,'#09614f');
+    text('Kenali KLAAR sekarang',W/2,918,31,'900','#fff','center',a);
+    text('Sederhana untuk sekolah Indonesia',W/2,1030,25,'600','#55766f','center',a);
+  }
+  // progress line
+  rr(42,1205,636,7,4,'rgba(7,59,53,.12)');
+  rr(42,1205,636*clamp(t/DURATION),7,4,'#2fa567');
+}
+let start=performance.now();
+function loop(now){
+  const t=Math.min(DURATION,(now-start)/1000);
+  scene(t);
+  if(t<DURATION) requestAnimationFrame(loop);
+}
+Promise.all([new Promise(r=>logo.onload=r),new Promise(r=>dashboard.onload=r)]).then(()=>requestAnimationFrame(loop));
+
+window.makeVideo=async function(){
+  await Promise.all([logo.decode(),dashboard.decode()]);
+  start=performance.now();
+  const stream=canvas.captureStream(FPS);
+  const types=['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8'];
+  const mime=types.find(x=>MediaRecorder.isTypeSupported(x));
+  const chunks=[],rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:4000000});
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  const done=new Promise(r=>rec.onstop=r);
+  rec.start(1000);requestAnimationFrame(loop);
+  await new Promise(r=>setTimeout(r,(DURATION+.35)*1000));
+  rec.stop();await done;
+  const blob=new Blob(chunks,{type:mime});
+  const dataUrl=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  });
+  return {mime,dataUrl};
+};
+</script>
+</html>

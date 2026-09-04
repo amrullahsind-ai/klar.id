@@ -42,6 +42,10 @@
     .order-box{background:var(--bg);border:1px dashed var(--accent);border-radius:14px;padding:16px;margin:14px 0;font-size:14px;line-height:1.7}
     .order-id{font-weight:900;font-size:18px;color:var(--primary);letter-spacing:.02em}
     .pay-info{background:#fffbeb;border:1px solid #fcd34d;border-radius:14px;padding:14px 16px;font-size:13px;color:#92400e;line-height:1.7;margin-top:12px}
+    .license-box{display:none;margin-top:16px;padding:16px;border:1px solid #86efac;border-radius:14px;background:#ecfdf5;color:#166534}
+    .license-box.show{display:block}
+    .token-value{display:block;margin:10px 0;padding:12px;border-radius:10px;background:#fff;border:1px dashed #39AE89;color:#16352e;font:700 12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;user-select:all}
+    .btn.secondary{background:#fff;color:var(--primary);border:1px solid var(--border);margin-top:12px}
     .qris-box{margin-top:16px;text-align:center}
     .qris-title{font-weight:800;font-size:15px;margin-bottom:10px}
     .qris-frame{position:relative;width:240px;max-width:100%;margin:0 auto;aspect-ratio:1/1;border:1px solid var(--border);border-radius:16px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center}
@@ -59,7 +63,7 @@
     <div class="card" id="formCard">
       <a class="back" href="/store.html">← Kembali</a>
       <h1>Pesan Lisensi Klaar</h1>
-      <p class="sub">Isi data sekolah & email dulu. Setelah order dibuat, Anda bisa bayar QRIS lalu kirim bukti pembayaran.</p>
+      <p class="sub">Isi data sekolah dan email, lalu selesaikan pembayaran aman melalui Midtrans. Lisensi terbit otomatis setelah pembayaran berhasil.</p>
       <form id="orderForm">
         <label for="school">Nama Sekolah / Yayasan</label>
         <input id="school" required placeholder="cth. SDIT Al Falah" autocomplete="organization" />
@@ -67,15 +71,19 @@
         <label for="email">Email penerima lisensi</label>
         <input id="email" type="email" required placeholder="cth. admin@sekolah.sch.id" autocomplete="email" />
 
+        <label for="renewalToken">Kode lisensi lama <span class="muted">(opsional)</span></label>
+        <textarea id="renewalToken" rows="3" placeholder="Isi hanya untuk memperpanjang sekolah yang sudah memakai KLAAR"></textarea>
+        <p class="muted">Kosongkan untuk sekolah baru. Jika diisi, tenant dan seluruh data sekolah lama tetap tersambung.</p>
+
         <label for="buyerNotes">Catatan pembeli</label>
-        <textarea id="buyerNotes" placeholder="Opsional: nomor WhatsApp atau catatan lain"></textarea>
+        <textarea id="buyerNotes" placeholder="Opsional: catatan untuk pesanan"></textarea>
 
         <div class="price-summary">
           <div><b>Langganan Klaar Bulanan</b><span>Semua fitur · 1 sekolah · 1 bulan</span></div>
-          <div class="price-amount" id="priceAmount">Hubungi kami</div>
+          <div class="price-amount" id="priceAmount">Rp199.000</div>
         </div>
 
-        <button class="btn" type="submit" id="submitBtn">Minta Info Harga →</button>
+        <button class="btn" type="submit" id="submitBtn" disabled>Menyiapkan pembayaran…</button>
         <div class="msg" id="msg"></div>
       </form>
       <p class="muted">Dengan memesan, Anda setuju kode lisensi hanya untuk 1 sekolah/yayasan.</p>
@@ -83,53 +91,36 @@
 
     <!-- SUCCESS -->
     <div class="card success" id="successCard">
-      <h1>✅ Pesanan dibuat!</h1>
-      <p class="sub" id="successSub">Order ID Anda di bawah ini. Selesaikan pembayaran lalu konfirmasi ke kami.</p>
+      <h1>Pesanan dibuat</h1>
+      <p class="sub" id="successSub">Selesaikan pembayaran melalui Midtrans. Status akan diperiksa otomatis.</p>
       <div class="order-box">
         Order ID: <span class="order-id" id="outOrderId"></span><br>
         Sekolah: <b id="outSchool"></b><br>
         Paket: <b id="outPlan"></b> — <b id="outAmount"></b><br>
         Email: <b id="outEmail"></b>
       </div>
-      <div class="qris-box" id="qrisBox">
-        <p class="qris-title">Scan QRIS untuk membayar</p>
-        <div class="qris-frame">
-          <span class="qris-ph">Letakkan gambar QRIS Anda di <code>qris.png</code></span>
-          <img src="/qris.png" alt="QRIS pembayaran" onerror="this.style.display='none'">
-        </div>
-        <p class="muted">Bayar sesuai nominal, lalu simpan bukti transfer.</p>
-      </div>
       <div class="pay-info" id="outPayInfo"></div>
-      <form id="proofForm">
-        <label for="proofLink">Link bukti pembayaran</label>
-        <input id="proofLink" placeholder="Opsional: link Google Drive/foto bukti pembayaran" />
-        <label for="proofNotes">Catatan konfirmasi</label>
-        <textarea id="proofNotes" placeholder="Nama pengirim transfer, bank/e-wallet, nomor WhatsApp, atau tulis: bukti dikirim via WhatsApp"></textarea>
-        <button class="btn" type="submit" id="proofBtn">Kirim Bukti Pembayaran</button>
-        <div class="msg" id="proofMsg"></div>
-      </form>
-      <div id="manualInstructions">
-        <p class="muted">Kalau bukti berupa foto langsung, klik tombol WhatsApp di bawah lalu lampirkan fotonya di chat.</p>
-        <p class="muted">Kode lisensi akan dikirim ke email Anda setelah pembayaran kami konfirmasi.
-          Simpan Order ID ini saat menghubungi kami.</p>
+      <button class="btn secondary" type="button" id="payMidtransBtn" style="display:none">Buka pembayaran Midtrans</button>
+      <div class="license-box" id="licenseBox">
+        <b>Lisensi KLAAR sudah aktif</b>
+        <span class="token-value" id="licenseToken"></span>
+        <div id="licenseExpiry"></div>
+        <button class="btn secondary" type="button" id="copyLicenseBtn">Salin kode lisensi</button>
       </div>
-      <a class="btn" id="waBtn" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:none">Konfirmasi via WhatsApp</a>
+      <p class="muted">Jangan bagikan tautan halaman ini atau kode lisensi kepada sekolah lain.</p>
     </div>
   </div>
 
   <script>
     const STORE_SERVER_URL = 'https://swvqagxwwoefnrezqfnq.supabase.co/functions/v1/seller-handler';
-    // Nomor WA penjual untuk konfirmasi (format internasional tanpa +). Kosongkan = tombol WA disembunyikan.
-    const SELLER_WA = '6282283516237';
+    const FALLBACK_PRICE = 199000;
     let pricingOpen = false;
+    let currentOrder = null;
+    let statusTimer = 0;
 
     const $ = id => document.getElementById(id);
-    // Satu paket saja.
     const plan = 'monthly';
 
-    // Backend Store boleh mengembalikan snapToken, midtransClientKey, dan
-    // midtransEnvironment ('production' atau 'sandbox'). Tanpa konfigurasi lengkap,
-    // checkout otomatis memakai alur QRIS/manual agar tidak salah masuk sandbox.
     function ensureMidtrans(payment){
       if(window.snap) return Promise.resolve(true);
       const clientKey=String(payment.midtransClientKey||'').trim();
@@ -163,110 +154,126 @@
         throw error;
       }finally{clearTimeout(timer)}
     }
-    let currentOrder=null;
     function showErr(t){let m=$('msg'); m.textContent=t; m.className='msg err'}
-    function showProofMsg(t,ok=false){let m=$('proofMsg'); m.textContent=t; m.className='msg '+(ok?'ok':'err')}
+    function formatPrice(value){return 'Rp'+Number(value||0).toLocaleString('id-ID')}
+    function setPayMessage(text,kind='pending'){
+      const box=$('outPayInfo');
+      box.textContent=text;
+      box.style.backgroundColor=kind==='paid'?'#ecfdf5':kind==='error'?'#fef2f2':'#fffbeb';
+      box.style.borderColor=kind==='paid'?'#86efac':kind==='error'?'#fecaca':'#fcd34d';
+      box.style.color=kind==='paid'?'#166534':kind==='error'?'#991b1b':'#92400e';
+    }
+    function saveRecovery(order){
+      const params=new URLSearchParams({order:order.orderId,token:order.checkoutToken});
+      history.replaceState(null,'','#'+params.toString());
+    }
+    function readRecovery(){
+      const params=new URLSearchParams(location.hash.replace(/^#/,''));
+      const orderId=params.get('order')||'',checkoutToken=params.get('token')||'';
+      return orderId&&checkoutToken?{orderId,checkoutToken}:null;
+    }
+    function renderOrder(order){
+      currentOrder=order;
+      $('outOrderId').textContent=order.orderId||'';
+      $('outSchool').textContent=order.school||'';
+      $('outPlan').textContent=order.orderType==='renewal'?'Perpanjangan bulanan':'Langganan bulanan';
+      $('outAmount').textContent=formatPrice(order.amount||FALLBACK_PRICE);
+      $('outEmail').textContent=order.email||'';
+      $('formCard').style.display='none';
+      $('successCard').classList.add('show');
+      $('payMidtransBtn').style.display=order.status==='paid'?'none':'';
+    }
+    function showLicense(order){
+      if(!order.licenseToken)return;
+      clearTimeout(statusTimer);
+      $('successCard').querySelector('h1').textContent='Pembayaran berhasil';
+      $('successSub').textContent='Lisensi aktif otomatis. Salin kode berikut dan masukkan pada aplikasi KLAAR.';
+      setPayMessage('Pembayaran telah diverifikasi oleh Midtrans.','paid');
+      $('licenseToken').textContent=order.licenseToken;
+      $('licenseExpiry').textContent='Berlaku sampai '+new Date(order.expiresAt).toLocaleDateString('id-ID',{dateStyle:'long'});
+      $('licenseBox').classList.add('show');
+      $('payMidtransBtn').style.display='none';
+    }
+    async function checkOrderStatus(remaining=20){
+      if(!currentOrder?.orderId||!currentOrder?.checkoutToken)return;
+      try{
+        const status=await jsonp({action:'orderStatus',orderId:currentOrder.orderId,checkoutToken:currentOrder.checkoutToken});
+        currentOrder={...currentOrder,...status};
+        renderOrder(currentOrder);
+        if(status.status==='paid'&&status.licenseToken){showLicense(currentOrder);return}
+        setPayMessage('Menunggu pembayaran. Status diperiksa otomatis; Anda tidak perlu mengirim bukti pembayaran.');
+      }catch(error){
+        setPayMessage(error.message||'Status pembayaran belum dapat diperiksa.','error');
+      }
+      if(remaining>0)statusTimer=setTimeout(()=>checkOrderStatus(remaining-1),3000);
+    }
+    async function openMidtrans(){
+      if(!currentOrder?.snapToken)return setPayMessage('Token pembayaran tidak tersedia. Muat ulang halaman dan coba lagi.','error');
+      const ready=await ensureMidtrans(currentOrder);
+      if(!ready)return setPayMessage('Layanan pembayaran gagal dimuat. Periksa koneksi lalu coba lagi.','error');
+      window.snap.pay(currentOrder.snapToken,{
+        onSuccess:()=>{setPayMessage('Pembayaran diterima. Sedang mengaktifkan lisensi…');checkOrderStatus(20)},
+        onPending:()=>{setPayMessage('Pembayaran masih menunggu penyelesaian.');checkOrderStatus(20)},
+        onError:()=>setPayMessage('Pembayaran gagal. Klik tombol pembayaran untuk mencoba lagi.','error'),
+        onClose:()=>setPayMessage('Pembayaran belum selesai. Klik tombol pembayaran saat Anda siap melanjutkan.')
+      });
+    }
 
     $('orderForm').onsubmit=async e=>{
       e.preventDefault();
       $('msg').className='msg';
-      let school=$('school').value.trim(), email=$('email').value.trim(), buyerNotes=$('buyerNotes').value.trim();
+      let school=$('school').value.trim(), email=$('email').value.trim(), renewalToken=$('renewalToken').value.trim(), buyerNotes=$('buyerNotes').value.trim();
       if(!school) return showErr('Nama sekolah wajib diisi.');
       if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showErr('Email tidak valid.');
-      if(!pricingOpen){
-        const text=encodeURIComponent('Halo, saya ingin informasi langganan bulanan Klaar.\nSekolah: '+school+'\nEmail: '+email+(buyerNotes?'\nCatatan: '+buyerNotes:''));
-        if(SELLER_WA) window.open('https://wa.me/'+SELLER_WA+'?text='+text,'_blank','noopener');
-        let m=$('msg'); m.textContent='Permintaan siap dikirim melalui WhatsApp. Harga belum dikunci dan belum ada pesanan berbayar yang dibuat.'; m.className='msg ok';
-        return;
-      }
+      if(!pricingOpen)return showErr('Pembayaran otomatis sedang disiapkan. Coba lagi beberapa saat.');
       let btn=$('submitBtn'); btn.disabled=true; btn.textContent='Memproses...';
       try{
-        let res=await jsonp({action:'createOrder', school, email, plan, billingPeriod:'monthly', durationMonths:1, buyerNotes});
+        let res=await jsonp({action:'createOrder', school, email, renewalToken, plan, billingPeriod:'monthly', durationMonths:1, buyerNotes});
         if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal membuat pesanan.');
-        currentOrder=res;
-        $('outOrderId').textContent=res.orderId;
-        $('outSchool').textContent=res.school;
-        $('outPlan').textContent=res.plan;
-        $('outAmount').textContent='Rp'+Number(res.amount||0).toLocaleString('id-ID');
-        $('outEmail').textContent=res.email;
-        $('outPayInfo').textContent=res.payInfo||'';
-        $('proofNotes').value=buyerNotes;
-        if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya mau konfirmasi pembayaran Klaar.\\nOrder ID: '+res.orderId+'\\nSekolah: '+res.school+'\\nPaket: '+res.plan+'\\nNominal: Rp'+Number(res.amount||0).toLocaleString('id-ID'));
-          $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
-          $('waBtn').style.display='';
-        }
-        if(res.snapToken && await ensureMidtrans(res)) {
-          // Midtrans flow
-          $('qrisBox').style.display = 'none'; // Sembunyikan QRIS manual
-          $('outPayInfo').innerHTML = 'Silakan selesaikan pembayaran melalui popup Midtrans. Jika tertutup, <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">klik di sini untuk bayar</a>.';
-          $('proofForm').style.display = 'none'; // Sembunyikan form bukti bayar
-          $('waBtn').style.display = 'none'; // WA tidak diperlukan lagi
-          $('manualInstructions').style.display = 'none'; // Sembunyikan teks konfirmasi manual
-          $('successSub').textContent = 'Order ID Anda di bawah ini. Silakan selesaikan pembayaran.';
-          
-          let payMidtrans = function() {
-            window.snap.pay(res.snapToken, {
-              onSuccess: function(result){ 
-                $('outPayInfo').innerHTML = '<b>✅ Pembayaran Berhasil!</b><br>Sistem sedang mengirimkan kode lisensi. Silakan cek inbox/spam email Anda sekarang.';
-                $('outPayInfo').style.backgroundColor = '#ecfdf5';
-                $('outPayInfo').style.borderColor = '#bbf7d0';
-                $('outPayInfo').style.color = '#166534';
-                $('successCard').querySelector('h1').textContent = '🎉 Pembayaran Lunas!';
-                $('successSub').textContent = 'Terima kasih! Pesanan Anda telah selesai dibayar.';
-              },
-              onPending: function(result){ $('outPayInfo').innerHTML = 'Menunggu pembayaran... <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Bayar sekarang</a>'; },
-              onError: function(result){ $('outPayInfo').innerHTML = 'Pembayaran gagal. <a href="#" id="payMidtransBtn" style="color:var(--primary);font-weight:bold;">Coba lagi</a>'; },
-              onClose: function(){ /* user tutup popup */ }
-            });
-          };
-          payMidtrans();
-          
-          // Re-attach event handler untuk tombol yang baru dirender di dalam innerHTML
-          document.addEventListener('click', function(e) {
-            if(e.target && e.target.id === 'payMidtransBtn') {
-              e.preventDefault();
-              payMidtrans();
-            }
-          });
-        }
-
-        $('formCard').style.display='none';
-        $('successCard').classList.add('show');
+        if(!res.snapToken||!res.checkoutToken)throw new Error('Server belum mengembalikan akses pembayaran yang lengkap.');
+        $('renewalToken').value='';
+        saveRecovery(res);
+        renderOrder(res);
+        setPayMessage(res.payInfo||'Selesaikan pembayaran melalui Midtrans.');
         window.scrollTo({top:0,behavior:'smooth'});
+        await openMidtrans();
       }catch(err){
         showErr(err.message||'Terjadi kesalahan.');
-      }finally{ btn.disabled=false; btn.textContent='Buat Pesanan →'; }
+      }finally{ btn.disabled=!pricingOpen; btn.textContent='Bayar Rp199.000 →'; }
     };
-    $('proofForm').onsubmit=async e=>{
-      e.preventDefault();
-      if(!currentOrder) return showProofMsg('Order belum dibuat.');
-      let paymentProof=$('proofLink').value.trim(), buyerNotes=$('proofNotes').value.trim();
-      if(!paymentProof && !buyerNotes) return showProofMsg('Isi link bukti pembayaran atau catatan konfirmasi.');
-      let btn=$('proofBtn'); btn.disabled=true; btn.textContent='Mengirim...';
-      try{
-        let res=await jsonp({action:'updatePaymentProof', orderId:currentOrder.orderId, email:currentOrder.email, paymentProof, buyerNotes});
-        if(!res || !res.ok) throw new Error((res&&res.error)||'Gagal mengirim bukti pembayaran.');
-        showProofMsg('Bukti pembayaran tersimpan. Kami akan cek dan kirim kode lisensi ke email.', true);
-        if(SELLER_WA){
-          let waText=encodeURIComponent('Halo, saya sudah bayar Klaar.\nOrder ID: '+currentOrder.orderId+'\nSekolah: '+currentOrder.school+'\nBukti bayar: '+(paymentProof||'-')+(buyerNotes?'\nCatatan: '+buyerNotes:''));
-          $('waBtn').href='https://wa.me/'+SELLER_WA+'?text='+waText;
-        }
-      }catch(err){
-        showProofMsg(err.message||'Gagal mengirim bukti pembayaran.');
-      }finally{ btn.disabled=false; btn.textContent='Kirim Bukti Pembayaran'; }
+    $('payMidtransBtn').onclick=openMidtrans;
+    $('copyLicenseBtn').onclick=async()=>{
+      const token=$('licenseToken').textContent;
+      try{await navigator.clipboard.writeText(token);$('copyLicenseBtn').textContent='Tersalin'}
+      catch(_error){$('copyLicenseBtn').textContent='Pilih kode lalu salin manual'}
     };
     async function loadPricing(){
       try{
         const health=await jsonp({action:'health'});
-        pricingOpen=health.pricingOpen===true&&Number(health.monthlyPriceIdr||0)>0;
+        const amount=Number(health.monthlyPriceIdr||FALLBACK_PRICE);
+        $('priceAmount').textContent=formatPrice(amount);
+        pricingOpen=health.pricingOpen===true&&health.midtransReady===true&&amount>0;
         if(pricingOpen){
-          $('priceAmount').textContent='Rp'+Number(health.monthlyPriceIdr).toLocaleString('id-ID');
-          $('submitBtn').textContent='Buat Pesanan →';
+          $('submitBtn').disabled=false;
+          $('submitBtn').textContent='Bayar '+formatPrice(amount)+' →';
+        }else{
+          $('submitBtn').disabled=true;
+          $('submitBtn').textContent='Pembayaran sedang disiapkan';
         }
-      }catch(_error){ pricingOpen=false; }
+      }catch(_error){pricingOpen=false;$('submitBtn').textContent='Pembayaran belum tersedia'}
     }
-    loadPricing();
+    async function restoreOrder(){
+      const recovery=readRecovery();
+      if(!recovery)return;
+      try{
+        const order=await jsonp({action:'orderStatus',...recovery});
+        currentOrder={...order,...recovery};
+        renderOrder(currentOrder);
+        if(order.status==='paid'&&order.licenseToken)showLicense(currentOrder);
+        else{setPayMessage('Pesanan ditemukan. Lanjutkan pembayaran melalui Midtrans.');checkOrderStatus(20)}
+      }catch(_error){history.replaceState(null,'',location.pathname+location.search)}
+    }
+    loadPricing();restoreOrder();
   </script>
 </body>
 </html>
