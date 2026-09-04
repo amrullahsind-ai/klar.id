@@ -5055,11 +5055,11 @@
             `<div class="field"><label>Berlaku mulai</label><input id="newPayRuleFrom" type="month" value="${esc($("payMonth")?.value || preferredPayrollMonth())}"></div>` +
             `<button type="button" class="btn primary" data-add-pay-rule>Tambah</button></div>` +
             (inputRules.length
-              ? `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th><th>Jumlah dari</th><th>Tarif</th><th>Berlaku mulai</th><th>Aktif</th></tr></thead><tbody>` +
+              ? `<div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Jenis</th><th>Jumlah dari</th><th>Tarif</th><th>Berlaku mulai</th><th>Aktif</th><th>Aksi</th></tr></thead><tbody>` +
                 inputRules.map((rule) => {
                   let attendanceType = payrollDefinitionAttendanceType(rule),
                     sourceLabel = attendanceType ? `Kolom ${attendanceType}` : "Input per karyawan";
-                  return `<tr><td><input class="pay-rule-name" data-rule-id="${rule.id}" value="${esc(rule.name)}"></td><td><select class="pay-rule-kind" data-rule-id="${rule.id}"><option value="allowance" ${rule.kind !== "deduction" ? "selected" : ""}>Tunjangan</option><option value="deduction" ${rule.kind === "deduction" ? "selected" : ""}>Potongan</option></select></td><td>${esc(sourceLabel)}</td><td><input class="rp pay-rule-rate" data-rule-id="${rule.id}" value="${rp(rule.rate || 0)}"></td><td><input type="month" class="pay-rule-from" data-rule-id="${rule.id}" value="${esc(rule.effectiveFrom || "")}"></td><td><input type="checkbox" class="pay-rule-active" data-rule-id="${rule.id}" ${rule.active !== false ? "checked" : ""}></td></tr>`;
+                  return `<tr><td><input class="pay-rule-name" data-rule-id="${rule.id}" value="${esc(rule.name)}"></td><td><select class="pay-rule-kind" data-rule-id="${rule.id}"><option value="allowance" ${rule.kind !== "deduction" ? "selected" : ""}>Tunjangan</option><option value="deduction" ${rule.kind === "deduction" ? "selected" : ""}>Potongan</option></select></td><td>${esc(sourceLabel)}</td><td><input class="rp pay-rule-rate" data-rule-id="${rule.id}" value="${rp(rule.rate || 0)}"></td><td><input type="month" class="pay-rule-from" data-rule-id="${rule.id}" value="${esc(rule.effectiveFrom || "")}"></td><td><input type="checkbox" class="pay-rule-active" data-rule-id="${rule.id}" ${rule.active !== false ? "checked" : ""}></td><td><button type="button" class="btn small danger" data-del-pay-rule="${rule.id}">Hapus</button></td></tr>`;
                 }).join("") +
                 `</tbody></table></div>`
               : '<div class="empty">Belum ada komponen berbasis jumlah. Tambahkan komponen pertama di atas.</div>');
@@ -5881,6 +5881,27 @@
           db.uiState.payrollMonth = effectiveFrom;
           saveLocal(); renderSalaryRules(); renderPayroll();
           toast("Komponen ditambahkan dan kolom inputnya tersedia di Payroll.", "ok");
+          return;
+        }
+
+        let delPayRule = e.target.closest("[data-del-pay-rule]");
+        if (delPayRule) {
+          let ruleId = delPayRule.dataset.delPayRule,
+            rule = (db.payrollInputDefinitions || []).find((r) => r.id === ruleId);
+          if (
+            rule &&
+            confirm(
+              `Hapus komponen "${rule.name}"? Jumlah/kali yang sudah pernah diisi pada payroll bulan lalu tidak akan dihitung lagi.`,
+            )
+          ) {
+            db.payrollInputDefinitions = db.payrollInputDefinitions.filter(
+              (r) => r.id !== ruleId,
+            );
+            saveLocal();
+            renderSalaryRules();
+            renderPayroll();
+            toast("Komponen dihapus.", "warn");
+          }
           return;
         }
 
