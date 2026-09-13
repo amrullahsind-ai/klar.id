@@ -4444,9 +4444,7 @@
         toast("Backup dibuat: " + reason);
       }
       function isArchived(e) {
-        return (
-          String(e?.status || "").toLowerCase() === "arsip" || e?.archivedAt
-        );
+        return String(e?.status || "").toLowerCase() === "arsip";
       }
       function activeEmployees() {
         return (db.employees || []).filter(
@@ -6655,6 +6653,7 @@
         };
         if (pin) x.employeePinHash = await sha(pin);
         if (!x.employeePinHash) x.employeePinHash = DEFAULT_EMP_HASH;
+        if (x.status !== "Arsip") x.archivedAt = null;
         let i = db.employees.findIndex((a) => a.id == id);
         i >= 0 ? (db.employees[i] = x) : db.employees.push(x);
         saveLocal();
