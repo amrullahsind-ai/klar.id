@@ -5449,7 +5449,7 @@
             let selfieUrl = r?.checkInSelfieUrl || r?.checkOutSelfieUrl || "";
             let selfieCell = selfieUrl
               ? `<td><img src="${esc(selfieUrl)}" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:2px solid #d1fae5;cursor:pointer;" onclick="openAdminSelfie('${esc(selfieUrl)}','${esc(e.name)}','${esc(r?.date || d)}',${esc(JSON.stringify({ lat: r?.lat, lng: r?.lng, acc: r?.accuracy, loc: r?.locationName, in: r?.checkInTime, out: r?.checkOutTime }))})" title="Lihat bukti selfie"></td>`
-              : `<td><span style="color:#94a3b8;font-size:18px;cursor:pointer;" title="Belum ada selfie">📷</span></td>`;
+              : `<td><span style="color:#94a3b8;font-size:18px;cursor:pointer;" title="Cek apakah ada percobaan absen yang gagal" onclick="viewAttemptedSelfies('${esc(e.id)}','${esc(d)}','${esc(e.name)}')">📷</span></td>`;
             return `<tr><td><div class="person"><div class="avatar">${initials(e.name)}</div><div class="pmeta"><div class="pname">${esc(e.name)}</div><div class="psub">${esc(e.nip)}</div></div></div></td><td><span class="badge ${!r ? "warn" : r.status == "alpha" ? "bad" : r.status == "pending" || r.status == "telat" || r.isLate ? "warn" : "ok"}">${r ? (r.status == "telat" || r.isLate ? "telat" : r.status) : "belum"}</span></td><td>${r?.checkInTime || "-"}${r?.isLate ? `<br><span class="badge warn">+${r.lateMinutes || 0}</span>` : ""}</td><td>${r?.checkOutTime || "-"}</td>${selfieCell}<td>${r?.distanceMeters != null ? Math.round(r.distanceMeters) + "m" : "-"}</td><td>${esc(r?.reason || r?.message || "")}${r?.lateApproved ? `<br><span class="muted">Telat di-ACC admin sebagai hadir.</span>` : ""}${r?.lateAfter && !r?.lateApproved ? `<br><span class="muted">Batas telat: ${esc(r.lateAfter)}</span>` : ""}</td><td>${monitorActionHtml(e, r)}</td></tr>`;
           })
           .join("");
@@ -5500,6 +5500,45 @@
       $("adminSelfieModal").addEventListener("click", (e) => {
         if (e.target === $("adminSelfieModal")) closeAdminSelfie();
       });
+
+      async function viewAttemptedSelfies(employeeId, date, empName) {
+        try {
+          const res = await jsonp("getSelfieMeta", { date });
+          if (!res.ok) {
+            toast("Gagal memeriksa percobaan absen: " + (res.error || "unknown"), "bad");
+            return;
+          }
+          const attempts = (res.selfies || []).filter(
+            (s) => String(s.employee_id) === String(employeeId),
+          );
+          if (!attempts.length) {
+            toast("Belum ada percobaan absen tersimpan untuk " + esc(empName) + " tanggal ini.", "warn");
+            return;
+          }
+          attempts.sort((a, b) => String(b.captured_at || "").localeCompare(String(a.captured_at || "")));
+          const latest = attempts[0];
+          toast(
+            attempts.length +
+              " percobaan check-in/out ditemukan (belum berhasil tercatat resmi). Menampilkan yang terakhir.",
+            "warn",
+          );
+          openAdminSelfie(
+            latest.selfie_url,
+            empName,
+            date,
+            {
+              lat: latest.lat,
+              lng: latest.lng,
+              acc: latest.accuracy,
+              loc: latest.location_name,
+              in: latest.type === "checkin" ? latest.captured_at : "",
+              out: latest.type === "checkout" ? latest.captured_at : "",
+            },
+          );
+        } catch (err) {
+          toast("Error: " + (err.message || err), "bad");
+        }
+      }
 
       if ($("loadSelfiesBtn")) {
         $("loadSelfiesBtn").onclick = async function () {
